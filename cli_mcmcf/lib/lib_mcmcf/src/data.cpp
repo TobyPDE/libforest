@@ -223,6 +223,7 @@ void DataStorage::bootstrap(int N, DataStorage* dataStorage) const
     // Set up a probability distribution
     std::random_device rd;
     std::mt19937 g(rd());
+    
     std::uniform_int_distribution<int> distribution(0, getSize() - 1);
     
     // Add the points

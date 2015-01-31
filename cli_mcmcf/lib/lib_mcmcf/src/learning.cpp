@@ -510,16 +510,16 @@ RandomForest* RandomForestLearner::learn(const DataStorage* storage) const
 {
     // Set up the empty random forest
     RandomForest* forest = new RandomForest();
-    
+    int k = 0; 
     #pragma omp parallel for num_threads(numThreads)
     for (int i = 0; i < numTrees; i++)
     {
-        std::cout << i << "\n";
         // Learn the tree
         DecisionTree* tree = treeLearner->learn(storage);
         // Add it to the forest
         #pragma omp critical
         {
+            std::cout << ++k << "/" << numTrees << std::endl;
             forest->addTree(tree);
         }
     }
