@@ -169,3 +169,29 @@ int RandomForest::classify(DataPoint* x) const
     
     return finalLabel;
 }
+
+void RandomForest::write(std::ostream& stream) const
+{
+    // Write the number of trees in this ensemble
+    stream << getSize() << ' ';
+    // Write the individual trees
+    for (int i = 0; i < getSize(); i++)
+    {
+        getTree(i)->write(stream);
+        stream << ' ';
+    }
+}
+
+void RandomForest::read(std::istream& stream)
+{
+    // Read the number of trees in this ensemble
+    int size;
+    stream >> size;
+    // Read the trees
+    for (int i = 0; i < size; i++)
+    {
+        DecisionTree* tree = new DecisionTree();
+        tree->read(stream);
+        addTree(tree);
+    }
+}

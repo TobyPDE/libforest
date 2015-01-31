@@ -269,7 +269,7 @@ namespace mcmcf {
      */
     class RandomForestLearner : public Learner<RandomForest> {
     public:
-        RandomForestLearner() : numTrees(8), treeLearner(0) {}
+        RandomForestLearner() : numTrees(8), treeLearner(0), numThreads(1) {}
         
         /**
          * Sets the number of trees. 
@@ -305,6 +305,22 @@ namespace mcmcf {
         }
         
         /**
+         * Sets the number of threads
+         */
+        void setNumThreads(int _numThreads)
+        {
+            numThreads = _numThreads;
+        }
+        
+        /**
+         * Returns the number of threads
+         */
+        int getNumThreads() const
+        {
+            return numThreads;
+        }
+        
+        /**
          * Learns a forests. 
          */
         RandomForest* learn(const DataStorage* storage) const;
@@ -318,6 +334,22 @@ namespace mcmcf {
          * The tree learner
          */
         DecisionTreeLearner* treeLearner;
+        /**
+         * The number of threads that shall be used to learn the forest
+         */
+        int numThreads;
+    };
+    
+    /**
+     * Global random forest pruning. We remove trees from the forest in order to
+     * get an optimal error rate. 
+     */
+    class RandomForestPrune : public Learner<RandomForest> {
+    public:
+        /**
+         * Prunes a random forest using the given data set.
+         */
+        void prune(RandomForest* forest, DataStorage* storage) const;
     };
 }
 

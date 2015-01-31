@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<configurationDescriptor version="95">
+<configurationDescriptor version="94">
   <logicalFolder name="root" displayName="root" projectFiles="true" kind="ROOT">
     <df root="." name="0">
       <df name="build">
@@ -21,6 +21,7 @@
               <in>classifier.cpp</in>
               <in>data.cpp</in>
               <in>learning.cpp</in>
+              <in>mcmc.cpp</in>
             </df>
           </df>
         </df>
@@ -49,6 +50,9 @@
         <dependencyChecking>false</dependencyChecking>
         <rebuildPropChanged>false</rebuildPropChanged>
       </toolsSet>
+      <flagsDictionary>
+        <element flagsID="0" commonFlags="-std=c++0x"/>
+      </flagsDictionary>
       <codeAssistance>
       </codeAssistance>
       <makefileType>
@@ -57,6 +61,9 @@
           <buildCommand>${MAKE} -f Makefile</buildCommand>
           <cleanCommand>${MAKE} -f Makefile clean</cleanCommand>
           <executablePath></executablePath>
+          <ccTool>
+            <standard>8</standard>
+          </ccTool>
         </makeTool>
       </makefileType>
       <item path="build/CMakeFiles/2.8.12.2/CompilerIdC/CMakeCCompilerId.c"
@@ -72,20 +79,55 @@
       <item path="cli_mcmcf/lib/lib_mcmcf/src/classifier.cpp"
             ex="false"
             tool="1"
-            flavor2="4">
+            flavor2="8">
+        <ccTool flags="0">
+        </ccTool>
       </item>
       <item path="cli_mcmcf/lib/lib_mcmcf/src/data.cpp"
             ex="false"
             tool="1"
-            flavor2="4">
+            flavor2="8">
+        <ccTool flags="0">
+        </ccTool>
       </item>
       <item path="cli_mcmcf/lib/lib_mcmcf/src/learning.cpp"
             ex="false"
             tool="1"
-            flavor2="4">
+            flavor2="8">
+        <ccTool flags="0">
+        </ccTool>
       </item>
-      <item path="cli_mcmcf/src/main.cpp" ex="false" tool="1" flavor2="4">
+      <item path="cli_mcmcf/lib/lib_mcmcf/src/mcmc.cpp"
+            ex="false"
+            tool="1"
+            flavor2="0">
       </item>
+      <item path="cli_mcmcf/src/main.cpp" ex="false" tool="1" flavor2="8">
+        <ccTool flags="0">
+        </ccTool>
+      </item>
+      <folder path="0/cli_mcmcf">
+        <ccTool>
+          <incDir>
+            <pElem>cli_mcmcf/lib/lib_mcmcf/include</pElem>
+          </incDir>
+        </ccTool>
+      </folder>
+      <folder path="0/cli_mcmcf/lib">
+        <ccTool>
+          <incDir>
+            <pElem>/usr/local/include</pElem>
+            <pElem>build/cli_mcmcf/lib/lib_mcmcf</pElem>
+          </incDir>
+        </ccTool>
+      </folder>
+      <folder path="0/cli_mcmcf/src">
+        <ccTool>
+          <incDir>
+            <pElem>build/cli_mcmcf</pElem>
+          </incDir>
+        </ccTool>
+      </folder>
     </conf>
   </confs>
 </configurationDescriptor>
