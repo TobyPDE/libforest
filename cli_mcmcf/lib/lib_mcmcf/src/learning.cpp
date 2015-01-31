@@ -13,6 +13,8 @@ using namespace mcmcf;
 
 #define ENTROPY(p) (-(p)*fastlog2(p))
 
+static std::random_device rd;
+
 ////////////////////////////////////////////////////////////////////////////////
 /// DecisionTreeLearner
 ////////////////////////////////////////////////////////////////////////////////
@@ -543,9 +545,10 @@ public:
     /**
      * The function that is called
      */
-    virtual int callback(const StateType & state, float energy, int iteration, float temperature)
+    virtual int callback(const StateType & state, float energy, const StateType & bestState, float bestEnergy, int iteration, float temperature)
     {
-        std::cout << "iteration: " << iteration << " energy: " << energy << " temp: " << temperature << std::endl;
+        std::cout << "iteration: " << iteration << " energy: " << energy << " best: " << bestEnergy << " temp: " << temperature << " state: " << state.size() << std::endl;
+        std::cout.flush();
         return 0;
     }
 };
@@ -709,7 +712,7 @@ public:
             // Cast the votes
             for (size_t j = 0; j < state.size(); j++)
             {
-                const int vote = predictions[j][n];
+                const int vote = predictions[state[j]][n];
                 votes[vote]++;
                 
                 if (votes[vote] > maxVotes)
@@ -742,23 +745,117 @@ private:
     DataStorage* storage;
 };
 
-void RandomForestPrune::prune(RandomForest* forest, DataStorage* storage) const
+
+/**
+ * This is the energy function for the pruning optimization
+ */
+class PruneEnergy2 : public SAEnergy<StateType> {
+public:
+    int dist(const std::vector<int> & a, const std::vector<int> & b) const
+    {
+        int d = 0;
+        for (size_t i = 0; i < a.size(); i++)
+        {
+            if (a[i] != 0 && b[i] != 0)
+            {
+                d++;
+            }
+        }
+        return d;
+    }
+    
+    PruneEnergy2(RandomForest* forest, DataStorage* storage) {
+        // Determine the predictions
+        for (int i = 0; i < forest->getSize(); i++)
+        {
+            DecisionTree* tree = forest->getTree(i);
+            predictions.push_back(std::vector<int>());
+            tree->classify(storage, predictions[i]);
+            for (int n = 0; n < storage->getSize(); n++)
+            {
+                if (predictions[i][n] == storage->getIntClassLabel(n))
+                {
+                    predictions[i][n] = 0;
+                }
+                else
+                {
+                    predictions[i][n] = 1;
+                }
+            }
+        }
+        
+        // Compute the distances
+        for (int i = 0; i < forest->getSize(); i++)
+        {
+            distances.push_back(std::vector<int>(forest->getSize()));
+            for (int j = 0; j < forest->getSize(); j++)
+            {
+                distances[i][j] = dist(predictions[i], predictions[j]);
+            }
+        }
+    }
+    
+    /**
+     * Computes the energy
+     */
+    virtual float energy(const StateType & state)
+    {
+        /*int res = 0;
+        for (size_t j = 0; j < distances[0].size(); j++)
+        {
+            int min = distances[state[0]][j];
+            for (size_t i = 0; i < state.size(); i++)
+            {
+                if (distances[state[i]][j] < min)
+                {
+                    min = distances[state[i]][j];
+                }
+            }
+            res += min;
+        }
+        return res/distances[0].size();*/
+        int res = 0;
+        for (size_t j = 0; j < state.size(); j++)
+        {
+            for (size_t i = j+1; i < state.size(); i++)
+            {
+                res += distances[state[i]][state[j]];
+            }
+        }
+        return res;
+    }
+    
+private:
+    /**
+     * These are the predictions for every data point and every tree
+     */
+    std::vector< std::vector<int> > predictions;
+    /**
+     * The distance matrix
+     */
+    std::vector< std::vector<int> > distances;
+};
+#if 0
+RandomForest* RandomForestPrune::prune(RandomForest* forest, DataStorage* storage) const
 {
     // We prune the forest using simulated annealing
     SimulatedAnnealing<std::vector<int> > sa;
+    sa.setNumInnerLoops(250);
     
     // Set up the cooling schedule
     GeometricCoolingSchedule schedule;
     schedule.setAlpha(0.9f);
+    schedule.setStartTemperature(1000);
+    schedule.setEndTemperature(1);
     sa.setCoolingSchedule(&schedule);
     
     // Set up the moves
     PruneMoveAdd addMove(forest);
     PruneMoveRemove removeMove;
     PruneMoveExchange exchangeMove(forest);
-    sa.addMove(&addMove, 0.02f);
-    sa.addMove(&removeMove, 0.02f);
-    sa.addMove(&exchangeMove, 0.96f);
+    //sa.addMove(&addMove, 0.2f);
+    //sa.addMove(&removeMove, 0.2f);
+    sa.addMove(&exchangeMove, 1.0f);
     
     // Set up the energy function
     PruneEnergy energy(forest, storage);
@@ -770,8 +867,65 @@ void RandomForestPrune::prune(RandomForest* forest, DataStorage* storage) const
     
     // Find some initial state
     StateType state;
-    state.push_back(0);
+    for (int i = 0; i < 15; i++)
+    {
+        state.push_back(i);
+    }
     
     // Optimize the stuff
     sa.optimize(state);
+    RandomForest* newForest = new RandomForest;
+    for (size_t i = 0; i < state.size(); i++)
+    {
+        newForest->addTree(forest->getTree(state[i]));
+    }
+    return newForest;
 }
+#else
+RandomForest* RandomForestPrune::prune(RandomForest* forest, DataStorage* storage) const
+{
+    // We prune the forest using simulated annealing
+    SimulatedAnnealing<std::vector<int> > sa;
+    sa.setNumInnerLoops(2000);
+    
+    // Set up the cooling schedule
+    GeometricCoolingSchedule schedule;
+    schedule.setAlpha(0.99f);
+    schedule.setStartTemperature(1000);
+    schedule.setEndTemperature(1);
+    sa.setCoolingSchedule(&schedule);
+    
+    // Set up the moves
+    PruneMoveAdd addMove(forest);
+    PruneMoveRemove removeMove;
+    PruneMoveExchange exchangeMove(forest);
+    //sa.addMove(&addMove, 0.2f);
+    //sa.addMove(&removeMove, 0.2f);
+    sa.addMove(&exchangeMove, 1.0f);
+    
+    // Set up the energy function
+    PruneEnergy2 energy(forest, storage);
+    sa.setEnergyFunction(&energy);
+    
+    // Set up the callback function
+    PruneCallback callback;
+    sa.addCallback(&callback);
+    
+    // Find some initial state
+    StateType state;
+    for (int i = 0; i < 15; i++)
+    {
+        state.push_back(i);
+    }
+    
+    // Optimize the stuff
+    sa.optimize(state);
+    
+    RandomForest* newForest = new RandomForest;
+    for (size_t i = 0; i < state.size(); i++)
+    {
+        newForest->addTree(forest->getTree(state[i]));
+    }
+    return newForest;
+}
+#endif

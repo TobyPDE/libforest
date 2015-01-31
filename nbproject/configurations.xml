@@ -21,7 +21,6 @@
               <in>classifier.cpp</in>
               <in>data.cpp</in>
               <in>learning.cpp</in>
-              <in>mcmc.cpp</in>
             </df>
           </df>
         </df>
@@ -96,11 +95,6 @@
             flavor2="8">
         <ccTool flags="0">
         </ccTool>
-      </item>
-      <item path="cli_mcmcf/lib/lib_mcmcf/src/mcmc.cpp"
-            ex="false"
-            tool="1"
-            flavor2="0">
       </item>
       <item path="cli_mcmcf/src/main.cpp" ex="false" tool="1" flavor2="8">
         <ccTool flags="0">

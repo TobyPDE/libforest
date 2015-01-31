@@ -39,7 +39,7 @@ namespace mcmcf {
         /**
          * The function that is called
          */
-        virtual int callback(const T & state, float energy, int iteration, float temperature) = 0;
+        virtual int callback(const T & state, float energy, const T & bestState, float bestEnergy, int iteration, float temperature) = 0;
     };
     
     /**
@@ -75,7 +75,7 @@ namespace mcmcf {
     template <class T>
     class SimulatedAnnealing {
     public:
-        SimulatedAnnealing() : coolingSchedule(0), energyFunction(0), numInnerLoops(2000) {};
+        SimulatedAnnealing() : coolingSchedule(0), energyFunction(0), numInnerLoops(500) {};
         
         /**
          * Adds a move
@@ -160,12 +160,19 @@ namespace mcmcf {
             float temperature = coolingSchedule->getStartTemperature();
             
             // Get the current error
-            float currentError = energyFunction->energy(state);
+            float currentEnergy = energyFunction->energy(state);
+            
+            // Keep track on the optimum
+            float bestEnergy = currentEnergy;
+            T bestState = state;
             
             // Start the optimization
             int iteration = 0;
             while (temperature > coolingSchedule->getEndTemperature())
             {
+                iteration++;
+                temperature = coolingSchedule->calcTemperature(iteration, temperature);
+                
                 for (int inner = 0; inner < numInnerLoops; inner++)
                 {
                     // Choose a move at random
@@ -197,13 +204,13 @@ namespace mcmcf {
 
                     // Calculate the new error and the improvement
                     const float newError = energyFunction->energy(newState);
-                    const float improvement = newError - currentError;
+                    const float improvement = newError - currentEnergy;
 
                     // What to do?
                     if (improvement <= 0)
                     {
                         // We improved the energy, accept this step
-                        currentError = newError;
+                        currentEnergy = newError;
                         state = newState;
                     }
                     else
@@ -213,17 +220,24 @@ namespace mcmcf {
                         const float u = uniformDist(g);
                         if (std::log(u) <= -improvement/temperature)
                         {
-                            currentError = newError;
+                            currentEnergy = newError;
                             state = newState;
                         }
+                    }
+                    
+                    if (currentEnergy < bestEnergy)
+                    {
+                        bestEnergy = currentEnergy;
+                        bestState = state;
                     }
                 }
                 // Call the callback functions
                 for (size_t i = 0; i < callbacks.size(); i++)
                 {
-                    callbacks[i]->callback(state, currentError, iteration, temperature);
+                    callbacks[i]->callback(state, currentEnergy, bestState, bestEnergy, iteration, temperature);
                 }
             }
+            state = bestState;
         }
         
     private:

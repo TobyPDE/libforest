@@ -349,7 +349,7 @@ namespace mcmcf {
         /**
          * Prunes a random forest using the given data set.
          */
-        void prune(RandomForest* forest, DataStorage* storage) const;
+        RandomForest* prune(RandomForest* forest, DataStorage* storage) const;
     };
 }
 
