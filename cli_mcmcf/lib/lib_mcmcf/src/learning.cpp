@@ -2,6 +2,7 @@
 #include "lib_mcmcf/data.h"
 #include "lib_mcmcf/classifiers.h"
 #include "fastlog.h"
+#include "mcmc.h"
 
 #include <algorithm>
 #include <random>
@@ -499,7 +500,6 @@ DecisionTree* DecisionTreeLearner::learn(const DataStorage* dataStorage) const
     return tree;
 }
 
-
 ////////////////////////////////////////////////////////////////////////////////
 /// RandomForestLearner
 ////////////////////////////////////////////////////////////////////////////////
@@ -509,13 +509,269 @@ RandomForest* RandomForestLearner::learn(const DataStorage* storage) const
     // Set up the empty random forest
     RandomForest* forest = new RandomForest();
     
+    #pragma omp parallel for num_threads(numThreads)
     for (int i = 0; i < numTrees; i++)
     {
         std::cout << i << "\n";
         // Learn the tree
         DecisionTree* tree = treeLearner->learn(storage);
         // Add it to the forest
-        forest->addTree(tree);
+        #pragma omp critical
+        {
+            forest->addTree(tree);
+        }
     }
     return forest;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+/// RandomForestPrune
+////////////////////////////////////////////////////////////////////////////////
+
+/**
+ * This is the type of the state vector for the pruning
+ */
+typedef std::vector<int> StateType;
+
+/**
+ * This is the simulated annealing callback. It just logs everything to the 
+ * console
+ */
+class PruneCallback : public SACallback<StateType> {
+public:
+    /**
+     * The function that is called
+     */
+    virtual int callback(const StateType & state, float energy, int iteration, float temperature)
+    {
+        std::cout << "iteration: " << iteration << " energy: " << energy << " temp: " << temperature << std::endl;
+        return 0;
+    }
+};
+
+/**
+ * This is the move that reduces the dimensionality of the state by removing
+ * a random tree from the ensemble.
+ */
+class PruneMoveRemove : public SAMove<StateType> {
+public:
+    PruneMoveRemove() : g(time(0)) {}
+    
+    /**
+     * Computes the move
+     */
+    void move(const StateType & state, StateType & newState)
+    {
+        // Only remove something if the state has at least two trees
+        if (state.size() < 2)
+        {
+            // Just copy the state
+            newState = state;
+        }
+        else
+        {
+            // Set up a probability distribution
+            std::uniform_int_distribution<int> dist(0, static_cast<int>(state.size() - 1));
+            // Decide which tree to remove
+            const int removeTree = dist(g);
+            // Copy all other trees to the new state
+            for (int i = 0; i < static_cast<int>(state.size()); i++)
+            {
+                if (i == removeTree)
+                {
+                    // Don't add the tree that is supposed to be removed
+                    continue;
+                }
+                else
+                {
+                    // Add the tree
+                    newState.push_back(state[i]);
+                }
+            }
+        }
+    }
+private:
+    /**
+     * This is the random number generator
+     */
+    std::mt19937 g;
+};
+
+/**
+ * Adds a random tree to the ensemble. 
+ */
+
+/**
+ * This is the move that reduces the dimensionality of the state by removing
+ * a random tree from the ensemble.
+ */
+class PruneMoveAdd : public SAMove<StateType> {
+public:
+    PruneMoveAdd(RandomForest* forest) : g(time(0)), dist(0, forest->getSize() - 1) {}
+    
+    /**
+     * Computes the move
+     */
+    void move(const StateType & state, StateType & newState)
+    {
+        // Copy all other trees
+        newState = state;
+        
+        // Add a random tree
+        const int tree = dist(g);
+        newState.push_back(tree);
+    }
+    
+private:
+    /**
+     * This is the random number generator
+     */
+    std::mt19937 g;
+    /**
+     * This is a distribution over the trees
+     */
+    std::uniform_int_distribution<int> dist;
+};
+
+/**
+ * Exchanges a tree with some other tree
+ */
+class PruneMoveExchange : public SAMove<StateType> {
+public:
+    PruneMoveExchange(RandomForest* forest) : g(time(0)), dist(0, forest->getSize() - 1) {}
+    
+    /**
+     * Computes the move
+     */
+    void move(const StateType & state, StateType & newState)
+    {
+        // Copy all other trees
+        newState = state;
+        
+        // Set up a distribution over the current state
+        std::uniform_int_distribution<int> stateDist(0, static_cast<int>(state.size() - 1));
+        
+        // Choose a tree to add
+        const int addTree = dist(g);
+        // Choose a tree to replace
+        const int replaceTree = stateDist(g);
+        
+        newState[replaceTree] = addTree;
+    }
+    
+private:
+    /**
+     * This is the random number generator
+     */
+    std::mt19937 g;
+    /**
+     * This is a distribution over the trees
+     */
+    std::uniform_int_distribution<int> dist;
+};
+
+/**
+ * This is the energy function for the pruning optimization
+ */
+class PruneEnergy : public SAEnergy<StateType> {
+public:
+    PruneEnergy(RandomForest* forest, DataStorage* storage) : storage(storage) {
+        // Determine the predictions
+        for (int i = 0; i < forest->getSize(); i++)
+        {
+            DecisionTree* tree = forest->getTree(i);
+            predictions.push_back(std::vector<int>());
+            tree->classify(storage, predictions[i]);
+        }
+    }
+    
+    /**
+     * Computes the energy
+     */
+    virtual float energy(const StateType & state)
+    {
+        // Calculate the prediction for the current ensemble and every data point
+        float error = 0;
+        for (int n = 0; n < storage->getSize(); n++)
+        {
+            // Get the votes from each tree
+            std::vector<int> votes(storage->getClasscount());
+            // Initialize the votes
+            for (int c = 0; c < storage->getClasscount(); c++)
+            {
+                votes[c] = 0;
+            }
+            
+            // Keep track on the maximum
+            int maxLabel = 0;
+            int maxVotes = 0;
+            // Cast the votes
+            for (size_t j = 0; j < state.size(); j++)
+            {
+                const int vote = predictions[j][n];
+                votes[vote]++;
+                
+                if (votes[vote] > maxVotes)
+                {
+                    maxVotes = votes[vote];
+                    maxLabel = vote;
+                }
+            }
+            
+            // Was the label predicted correctly?
+            if (maxLabel != storage->getIntClassLabel(n))
+            {
+                // Nope, it wasn't
+                error += 1;
+            }
+        }
+        
+        // Return the normalized error
+        return error/storage->getSize();
+    }
+    
+private:
+    /**
+     * These are the predictions for every data point and every tree
+     */
+    std::vector< std::vector<int> > predictions;
+    /**
+     * This is the storage
+     */
+    DataStorage* storage;
+};
+
+void RandomForestPrune::prune(RandomForest* forest, DataStorage* storage) const
+{
+    // We prune the forest using simulated annealing
+    SimulatedAnnealing<std::vector<int> > sa;
+    
+    // Set up the cooling schedule
+    GeometricCoolingSchedule schedule;
+    schedule.setAlpha(0.9f);
+    sa.setCoolingSchedule(&schedule);
+    
+    // Set up the moves
+    PruneMoveAdd addMove(forest);
+    PruneMoveRemove removeMove;
+    PruneMoveExchange exchangeMove(forest);
+    sa.addMove(&addMove, 0.02f);
+    sa.addMove(&removeMove, 0.02f);
+    sa.addMove(&exchangeMove, 0.96f);
+    
+    // Set up the energy function
+    PruneEnergy energy(forest, storage);
+    sa.setEnergyFunction(&energy);
+    
+    // Set up the callback function
+    PruneCallback callback;
+    sa.addCallback(&callback);
+    
+    // Find some initial state
+    StateType state;
+    state.push_back(0);
+    
+    // Optimize the stuff
+    sa.optimize(state);
 }

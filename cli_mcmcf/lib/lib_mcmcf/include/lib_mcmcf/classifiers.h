@@ -28,6 +28,7 @@ namespace mcmcf {
          * Assigns an integer class label to some data point
          */
         virtual int classify(DataPoint* x) const = 0;
+        
         /**
          * Classifies an entire data set. 
          */
@@ -153,12 +154,12 @@ namespace mcmcf {
         /**
          * Reads the tree from a stream
          */
-        virtual void read(std::istream & stream) {}
+        virtual void read(std::istream & stream);
         
         /**
          * Writes the tree to a stream
          */
-        virtual void write(std::ostream & stream) const{}
+        virtual void write(std::ostream & stream) const;
         
         /**
          * Adds a tree to the ensemble
@@ -166,6 +167,41 @@ namespace mcmcf {
         void addTree(DecisionTree* tree)
         {
             trees.push_back(tree);
+        }
+        
+        /**
+         * Returns the number of trees
+         */
+        int getSize() const
+        {
+            return static_cast<int>(trees.size());
+        }
+        
+        /**
+         * Returns the i-th tree
+         */
+        DecisionTree* getTree(int i)
+        {
+            return trees[i];
+        }
+        
+        /**
+         * Returns the i-th tree
+         */
+        const DecisionTree* getTree(int i) const
+        {
+            return trees[i];
+        }
+        
+        /**
+         * Removes the i-th tree
+         */
+        void removeTree(int i)
+        {
+            // Delete the tree
+            delete trees[i];
+            // Remove it from the array
+            trees.erase(trees.begin() + i);
         }
         
     private:

@@ -1,6 +1,6 @@
 syntax:glob
 # Created by https://www.gitignore.io
-
+.DS_Store
 ### C++ ###
 # Compiled Object files
 *.slo

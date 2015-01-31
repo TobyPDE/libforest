@@ -36,7 +36,7 @@ int main(int c, const char** v)
     learner.autoconf(&storage);
     RandomForestLearner forestLearner;
     forestLearner.setTreeLearner(&learner);
-    forestLearner.setNumTrees(15);
+    forestLearner.setNumTrees(500);
     
     std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
     RandomForest* forest = forestLearner.learn(&storage);
@@ -46,6 +46,10 @@ int main(int c, const char** v)
 
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>( t2 - t1 ).count();
 
+    std::ofstream s("model.txt");
+    forest->write(s);
+    s.close();
+    
     std::cout.precision(16);
     
     std::cout << "\n" << duration/1000000. << "s\n";

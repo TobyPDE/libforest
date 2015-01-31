@@ -102,7 +102,7 @@ DataStorage::~DataStorage()
 void DataStorage::computeIntClassLabels()
 {
     // Reset the current map and class label list
-    //classLabelMap.erase(classLabelMap.begin(), classLabelMap.end());
+    classLabelMap.erase(classLabelMap.begin(), classLabelMap.end());
     intClassLabels.erase(intClassLabels.begin(), intClassLabels.end());
 
     // Prepare the integer class labels
@@ -118,14 +118,16 @@ void DataStorage::computeIntClassLabels()
         if (classLabelMap.find(classLabels[i]) != classLabelMap.end())
         {
             // Yes, we already observed it
-            intClassLabels[i] = classLabelMap[classLabels[i]];
+            // FIXME: intClassLabels[i] = classLabelMap[classLabels[i]];
+            intClassLabels[i] = atoi(classLabels[i].c_str());
         }
         else
         {
             // Nope, we did not observe it
             // Add the class label to the label map
             classLabelMap[classLabels[i]] = classLabelCounter;
-            intClassLabels[i] = classLabelCounter;
+            // FIXME: intClassLabels[i] = classLabelCounter;
+            intClassLabels[i] = atoi(classLabels[i].c_str());
 
             classLabelCounter++;
         }
@@ -135,7 +137,27 @@ void DataStorage::computeIntClassLabels()
 void DataStorage::computeIntClassLabels(const DataStorage* dataStorage)
 {
     classLabelMap = dataStorage->classLabelMap;
-    computeIntClassLabels();
+
+    // Prepare the integer class labels
+    intClassLabels.resize(dataPoints.size());
+
+    // Compute the labels
+    for (size_t i = 0; i < classLabels.size(); i++)
+    {
+        // Did we already observe this label?
+        if (classLabelMap.find(classLabels[i]) != classLabelMap.end())
+        {
+            // Yes, we already observed it
+            // FIXME: intClassLabels[i] = classLabelMap[classLabels[i]];
+            intClassLabels[i] = atoi(classLabels[i].c_str());
+        }
+        else
+        {
+            // Nope, we did not observe it
+            // This means the two data sets have different class labels
+            throw Exception("Data storages are not compatible.");
+        }
+    }
 }
     
 int DataStorage::getDimensionality() const
