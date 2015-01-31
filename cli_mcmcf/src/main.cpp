@@ -35,9 +35,10 @@ int main(int c, const char** v)
     storageT.computeIntClassLabels(&storage);
     learner.autoconf(&storage);
     RandomForestLearner forestLearner;
+    learner.setNumBootstrapExamples(10000);
     forestLearner.setTreeLearner(&learner);
     forestLearner.setNumTrees(500);
-    
+    forestLearner.setNumThreads(8);    
     std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
     RandomForest* forest = forestLearner.learn(&storage);
     //DecisionTree* tree = learner.learn(&storage);
