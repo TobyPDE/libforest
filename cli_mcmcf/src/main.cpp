@@ -35,7 +35,7 @@ int main(int c, const char** v)
     storageT.computeIntClassLabels(&storage);
     learner.autoconf(&storage);
     RandomForestLearner forestLearner;
-    learner.setNumBootstrapExamples(10000);
+    //learner.setNumBootstrapExamples(10000);
     forestLearner.setTreeLearner(&learner);
     forestLearner.setNumTrees(500);
     forestLearner.setNumThreads(8);    
