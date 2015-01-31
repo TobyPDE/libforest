@@ -89,8 +89,8 @@ namespace mcmcf {
                 useRandomFeatures(true), 
                 numFeatures(10), 
                 maxDepth(100), 
-                minSplitExamples(6),
-                minChildSplitExamples(3) {}
+                minSplitExamples(3),
+                minChildSplitExamples(1) {}
                 
         /**
          * Sets whether or not bootstrapping shall be used
