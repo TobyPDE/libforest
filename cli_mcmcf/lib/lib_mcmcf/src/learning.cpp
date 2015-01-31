@@ -287,9 +287,22 @@ void DecisionTreeLearner::autoconf(const DataStorage* dataStorage)
 
 DecisionTree* DecisionTreeLearner::learn(const DataStorage* dataStorage) const
 {
+    DataStorage* storage;
+    
+    if (useBootstrap)
+    {
+        storage = new DataStorage;
+        dataStorage->bootstrap(numBootstrapExamples, storage);
+    }
+    else
+    {
+        storage = new DataStorage(*dataStorage);
+    }
+    storage->computeIntClassLabels(dataStorage);
+    
     // Get the number of training examples and the dimensionality of the data set
-    const int D = dataStorage->getDimensionality();
-    const int C = dataStorage->getClasscount();
+    const int D = storage->getDimensionality();
+    const int C = storage->getClasscount();
     
     // Set up a new tree. 
     DecisionTree* tree = new DecisionTree();
@@ -304,8 +317,8 @@ DecisionTree* DecisionTreeLearner::learn(const DataStorage* dataStorage) const
     std::vector< std::vector<int> > trainingExamples;
     
     // Add all training example to the root node
-    trainingExamples.push_back(std::vector<int>(dataStorage->getSize()));
-    for (int n = 0; n < dataStorage->getSize(); n++)
+    trainingExamples.push_back(std::vector<int>(storage->getSize()));
+    for (int n = 0; n < storage->getSize(); n++)
     {
         trainingExamples[0][n] = n;
     }
@@ -344,7 +357,7 @@ DecisionTree* DecisionTreeLearner::learn(const DataStorage* dataStorage) const
         {
             // Get the class label of this training example
             const int n = trainingExampleList[m];
-            hist.add(dataStorage->getIntClassLabel(n), 1);
+            hist.add(storage->getIntClassLabel(n), 1);
         }
 
         // Determine the class label for this node
@@ -378,16 +391,16 @@ DecisionTree* DecisionTreeLearner::learn(const DataStorage* dataStorage) const
             {
                 feature = featureDist(g);
             }
-            std::sort(trainingExampleList.begin(), trainingExampleList.end(), [dataStorage, feature](const int & lhs, const int & rhs) -> bool {
-                return dataStorage->getDataPoint(lhs)->at(feature) < dataStorage->getDataPoint(rhs)->at(feature);
+            std::sort(trainingExampleList.begin(), trainingExampleList.end(), [storage, feature](const int & lhs, const int & rhs) -> bool {
+                return storage->getDataPoint(lhs)->at(feature) < storage->getDataPoint(rhs)->at(feature);
             });
             
             // Initialize the histograms
             leftHistogram.reset();
             rightHistogram = hist;
             
-            float leftValue = dataStorage->getDataPoint(trainingExampleList[0])->at(feature);
-            int leftClass = dataStorage->getIntClassLabel(trainingExampleList[0]);
+            float leftValue = storage->getDataPoint(trainingExampleList[0])->at(feature);
+            int leftClass = storage->getIntClassLabel(trainingExampleList[0]);
             
             // Test different thresholds
             // Go over all examples in this node
@@ -401,7 +414,7 @@ DecisionTree* DecisionTreeLearner::learn(const DataStorage* dataStorage) const
                         
                 // It does
                 // Get the two feature values
-                const float rightValue = dataStorage->getDataPoint(n)->at(feature);
+                const float rightValue = storage->getDataPoint(n)->at(feature);
                 
                 // Skip this split, if the two points lie too close together
                 const float diff = rightValue - leftValue;
@@ -409,7 +422,7 @@ DecisionTree* DecisionTreeLearner::learn(const DataStorage* dataStorage) const
                 if (diff < 1e-6f)
                 {
                     leftValue = rightValue;
-                    leftClass = dataStorage->getIntClassLabel(n);
+                    leftClass = storage->getIntClassLabel(n);
                     continue;
                 }
                 
@@ -427,7 +440,7 @@ DecisionTree* DecisionTreeLearner::learn(const DataStorage* dataStorage) const
                 }
                 
                 leftValue = rightValue;
-                leftClass = dataStorage->getIntClassLabel(n);
+                leftClass = storage->getIntClassLabel(n);
             }
         }
         
@@ -452,7 +465,7 @@ DecisionTree* DecisionTreeLearner::learn(const DataStorage* dataStorage) const
         for (int m = 0; m < N; m++)
         {
             const int n = list[m];
-            const float featureValue = dataStorage->getDataPoint(n)->at(bestFeature);
+            const float featureValue = storage->getDataPoint(n)->at(bestFeature);
             
             if (featureValue < bestThreshold)
             {
@@ -479,6 +492,9 @@ DecisionTree* DecisionTreeLearner::learn(const DataStorage* dataStorage) const
         
         trainingExamples[node].clear();
     }
+    
+    // Free the data set
+    delete storage;
     
     return tree;
 }
