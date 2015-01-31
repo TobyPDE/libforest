@@ -13,3 +13,7 @@ include_directories( ${Boost_INCLUDE_DIR} )
 file(GLOB MCMCF_SOURCES "src/*.cpp")
 add_library(mcmcf STATIC ${MCMCF_SOURCES})
 target_link_libraries( mcmcf ${Boost_LIBRARIES} )
+find_package(OpenMP)
+set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
+set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
+
