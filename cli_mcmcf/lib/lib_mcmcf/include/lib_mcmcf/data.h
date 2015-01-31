@@ -21,6 +21,29 @@
 
 namespace mcmcf {
     /**
+     * This is the data point interface. You can implement this interface if
+     * you wish to use special feature vector such as pixel pairs, 
+     * categorical data and so on. 
+     */
+    class _DataPoint {
+    public:
+        /**
+         * Returns the i-th entry of the feature vector
+         */
+        virtual const float & at(int i) const = 0;
+        
+        /**
+         * Returns the i-th entry of the feature vector
+         */
+        virtual float & at(int i) = 0;
+        
+        /**
+         * Returns the dimensionality
+         */
+        virtual int getDimensionality() const = 0;
+    };
+    
+    /**
      * This class represents in individual data point. 
      */
     class DataPoint {
@@ -114,6 +137,13 @@ namespace mcmcf {
      */
     class DataStorage {
     public:
+        explicit DataStorage() {}
+        
+        /**
+         * Copy constructor
+         */
+        DataStorage(const DataStorage & other);
+        
         /**
          * Destructor
          */
@@ -166,12 +196,19 @@ namespace mcmcf {
         void computeIntClassLabels();
         
         /**
+         * Computes the integer class labels using the class label map from the
+         * provided storage.
+         */
+        void computeIntClassLabels(const DataStorage* dataStorage);
+        
+        /**
          * Adds a data point to the storage. 
          */
-        void addDataPoint(DataPoint* point, const std::string & label)
+        void addDataPoint(DataPoint* point, const std::string & label, bool free = true)
         {
             dataPoints.push_back(point);
             classLabels.push_back(label);
+            freeFlags.push_back(free);
         }
         
         /**
@@ -219,6 +256,12 @@ namespace mcmcf {
          * These are the corresponding class labels to the data points
          */
         std::vector<std::string> classLabels;
+        /**
+         * This keeps track on which data points have to be freed and which 
+         * don't. If we for example bootstrap the data set, then the points
+         * don't have to be freed. 
+         */
+        std::vector<bool> freeFlags;
         /**
          * The integer class labels. 
          */

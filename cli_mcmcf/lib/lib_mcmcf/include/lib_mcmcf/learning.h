@@ -58,7 +58,7 @@ namespace mcmcf {
                 if ((iteration % callbackCycles[i]) == 0 )
                 {
                     // It's time to call this function 
-                    result = result | callbacks[i](T, iteration);
+                    result = result | callbacks[i](learnedObject, iteration);
                 }
             }
             

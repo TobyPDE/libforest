@@ -22,6 +22,28 @@
 
 namespace mcmcf {
     DEFINE_EXCEPTION(Exception)
+
+    class Util {
+    public:
+        /**
+         * Applies a permutation to the vector of elements. This function does
+         * not work in-place.
+         */
+        template <class T>
+        static void permute(const std::vector<int> & permutation, const std::vector<T> & in, std::vector<T> & out)
+        {
+            assert(permutation.size() == in.size());
+
+            // Make the output array of the correct sice. 
+            out.resize(in.size());
+
+            // Copy the elements
+            for (size_t i = 0; i < permutation.size(); i++)
+            {
+                out[permutation[i]] = in[i];
+            }
+        }
+    };
 }
 #endif
  

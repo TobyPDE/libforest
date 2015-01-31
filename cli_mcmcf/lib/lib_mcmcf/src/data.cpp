@@ -5,6 +5,9 @@
 #include <boost/tokenizer.hpp>
 #include <boost/tokenizer.hpp>
 #include <cstdlib>
+#include <ctime>
+#include <random>
+#include <iostream>
 
 
 using namespace mcmcf;
@@ -70,19 +73,36 @@ void DataPoint::freeData()
 /// DataStorage
 ////////////////////////////////////////////////////////////////////////////////
 
+DataStorage::DataStorage(const DataStorage & other)
+{
+    // Copy all arrays
+    dataPoints = other.dataPoints;
+    classLabels = other.classLabels;
+    freeFlags = other.freeFlags;
+    
+    // Set all free flags to false as this is not the owner of the data points
+    for (size_t i = 0; i < freeFlags.size(); i++)
+    {
+        freeFlags[i] = false;
+    }
+}
+
 DataStorage::~DataStorage()
 {
     for (size_t i = 0; i < dataPoints.size(); i++)
     {
-        delete dataPoints[i];
-        dataPoints[i] = 0;
+        if (freeFlags[i])
+        {
+            delete dataPoints[i];
+            dataPoints[i] = 0;
+        }
     }
 }
 
 void DataStorage::computeIntClassLabels()
 {
     // Reset the current map and class label list
-    classLabelMap.erase(classLabelMap.begin(), classLabelMap.end());
+    //classLabelMap.erase(classLabelMap.begin(), classLabelMap.end());
     intClassLabels.erase(intClassLabels.begin(), intClassLabels.end());
 
     // Prepare the integer class labels
@@ -112,6 +132,12 @@ void DataStorage::computeIntClassLabels()
     }
 }
 
+void DataStorage::computeIntClassLabels(const DataStorage* dataStorage)
+{
+    classLabelMap = dataStorage->classLabelMap;
+    computeIntClassLabels();
+}
+    
 int DataStorage::getDimensionality() const
 {
     if (getSize() == 0)
@@ -126,8 +152,67 @@ int DataStorage::getDimensionality() const
     }
 }
 
+void DataStorage::permute(const std::vector<int>& permutation)
+{
+    // Copy the arrays because we cannot permute in-place
+    std::vector< DataPoint* > dataPointsCopy(dataPoints);
+    std::vector<std::string> classLabelsCopy(classLabels);
+    std::vector<bool> freeFlagsCopy(freeFlags);
+    
+    // Permute the original arrays
+    Util::permute(permutation, dataPointsCopy, dataPoints);
+    Util::permute(permutation, classLabelsCopy, classLabels);
+    Util::permute(permutation, freeFlagsCopy, freeFlags);
+    
+    computeIntClassLabels();
+}
+
+void DataStorage::randPermute()
+{
+    // Set up a random permutation
+    std::vector<int> permutation(getSize());
+    for (int i = 0; i < getSize(); i++)
+    {
+        permutation[i] = i;
+    }
+    
+    // TODO: Add random permutation
+    
+    permute(permutation);
+}
+
+void DataStorage::split(float ratio, DataStorage* other)
+{
+    // Calculate the number of points that go to the other set
+    const int numPoints = getSize() * ratio;
+    
+    for (int i = getSize() - 1; i > numPoints; i--)
+    {
+        other->addDataPoint(dataPoints[i], classLabels[i], freeFlags[i]);
+        dataPoints.pop_back();
+        classLabels.pop_back();
+        freeFlags.pop_back();
+        intClassLabels.pop_back();
+    }
+}
+
+void DataStorage::bootstrap(int N, DataStorage* dataStorage) const
+{
+    // Set up a probability distribution
+    std::mt19937 g(time(0));
+    std::uniform_int_distribution<int> distribution(0, getSize() - 1);
+    
+    // Add the points
+    for (int i = 0; i < N; i++)
+    {
+        // Select some point
+        const int point = distribution(g);
+        dataStorage->addDataPoint(getDataPoint(point), getClassLabel(point), false);
+    }
+}
+
 ////////////////////////////////////////////////////////////////////////////////
-/// DataPoint
+/// CSVDataProvider
 ////////////////////////////////////////////////////////////////////////////////
 
 void CSVDataProvider::read(const std::string & source, DataStorage* dataStorage)
