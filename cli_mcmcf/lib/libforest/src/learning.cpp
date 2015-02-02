@@ -1,15 +1,14 @@
-#include "lib_mcmcf/learning.h"
-#include "lib_mcmcf/data.h"
-#include "lib_mcmcf/classifiers.h"
+#include "libforest/learning.h"
+#include "libforest/data.h"
+#include "libforest/classifiers.h"
 #include "fastlog.h"
 #include "mcmc.h"
 
 #include <algorithm>
 #include <random>
 #include <map>
-#include <ctime>
 
-using namespace mcmcf;
+using namespace libf;
 
 #define ENTROPY(p) (-(p)*fastlog2(p))
 
@@ -27,7 +26,7 @@ private:
     /**
      * The number of classes in this histogram
      */
-    int bins;
+    unsigned char bins;
 
     /**
      * The actual histogram
@@ -331,7 +330,7 @@ DecisionTree* DecisionTreeLearner::learn(const DataStorage* dataStorage) const
     EfficientEntropyHistogram rightHistogram(C);
     
     // Set up a probability distribution over the features
-    std::mt19937 g(time(0));
+    std::mt19937 g(rd());
     std::uniform_int_distribution<int> featureDist(0, D - 1);
     
     // We keep track on the depth of each node in this array
@@ -547,7 +546,12 @@ public:
      */
     virtual int callback(const StateType & state, float energy, const StateType & bestState, float bestEnergy, int iteration, float temperature)
     {
-        std::cout << "iteration: " << iteration << " energy: " << energy << " best: " << bestEnergy << " temp: " << temperature << " state: " << state.size() << std::endl;
+        std::cout << 
+                "iteration: " << iteration << 
+                " energy: " << energy << 
+                " best: " << bestEnergy << 
+                " temp: " << temperature << 
+                " state: " << state.size() << std::endl;
         std::cout.flush();
         return 0;
     }
@@ -559,7 +563,7 @@ public:
  */
 class PruneMoveRemove : public SAMove<StateType> {
 public:
-    PruneMoveRemove() : g(time(0)) {}
+    PruneMoveRemove() : g(rd()) {}
     
     /**
      * Computes the move
@@ -611,7 +615,7 @@ private:
  */
 class PruneMoveAdd : public SAMove<StateType> {
 public:
-    PruneMoveAdd(RandomForest* forest) : g(time(0)), dist(0, forest->getSize() - 1) {}
+    PruneMoveAdd(RandomForest* forest) : g(rd()), dist(0, forest->getSize() - 1) {}
     
     /**
      * Computes the move
@@ -642,7 +646,7 @@ private:
  */
 class PruneMoveExchange : public SAMove<StateType> {
 public:
-    PruneMoveExchange(RandomForest* forest) : g(time(0)), dist(0, forest->getSize() - 1) {}
+    PruneMoveExchange(RandomForest* forest) : g(rd()), dist(0, forest->getSize() - 1) {}
     
     /**
      * Computes the move
@@ -756,7 +760,8 @@ public:
         int d = 0;
         for (size_t i = 0; i < a.size(); i++)
         {
-            if (a[i] != 0 && b[i] != 0)
+            //if (a[i] != 0 && b[i] != 0)
+            if (a[i] != b[i])
             {
                 d++;
             }
@@ -771,7 +776,7 @@ public:
             DecisionTree* tree = forest->getTree(i);
             predictions.push_back(std::vector<int>());
             tree->classify(storage, predictions[i]);
-            for (int n = 0; n < storage->getSize(); n++)
+            /*for (int n = 0; n < storage->getSize(); n++)
             {
                 if (predictions[i][n] == storage->getIntClassLabel(n))
                 {
@@ -781,7 +786,7 @@ public:
                 {
                     predictions[i][n] = 1;
                 }
-            }
+            }*/
         }
         
         // Compute the distances
@@ -800,7 +805,7 @@ public:
      */
     virtual float energy(const StateType & state)
     {
-        /*int res = 0;
+        int res = 0;
         for (size_t j = 0; j < distances[0].size(); j++)
         {
             int min = distances[state[0]][j];
@@ -813,8 +818,8 @@ public:
             }
             res += min;
         }
-        return res/distances[0].size();*/
-        int res = 0;
+        return res/static_cast<float>(distances[0].size());
+        /*int res = 0;
         for (size_t j = 0; j < state.size(); j++)
         {
             for (size_t i = j+1; i < state.size(); i++)
@@ -822,7 +827,7 @@ public:
                 res += distances[state[i]][state[j]];
             }
         }
-        return res;
+        return res/static_cast<float>(distances[0].size());*/
     }
     
 private:
@@ -835,18 +840,18 @@ private:
      */
     std::vector< std::vector<int> > distances;
 };
-#if 0
+#if 1
 RandomForest* RandomForestPrune::prune(RandomForest* forest, DataStorage* storage) const
 {
     // We prune the forest using simulated annealing
     SimulatedAnnealing<std::vector<int> > sa;
-    sa.setNumInnerLoops(250);
+    sa.setNumInnerLoops(100);
     
     // Set up the cooling schedule
     GeometricCoolingSchedule schedule;
-    schedule.setAlpha(0.9f);
-    schedule.setStartTemperature(1000);
-    schedule.setEndTemperature(1);
+    schedule.setAlpha(0.95f);
+    schedule.setStartTemperature(100);
+    schedule.setEndTemperature(1e-5);
     sa.setCoolingSchedule(&schedule);
     
     // Set up the moves
@@ -886,13 +891,13 @@ RandomForest* RandomForestPrune::prune(RandomForest* forest, DataStorage* storag
 {
     // We prune the forest using simulated annealing
     SimulatedAnnealing<std::vector<int> > sa;
-    sa.setNumInnerLoops(2000);
+    sa.setNumInnerLoops(1000);
     
     // Set up the cooling schedule
     GeometricCoolingSchedule schedule;
     schedule.setAlpha(0.99f);
     schedule.setStartTemperature(1000);
-    schedule.setEndTemperature(1);
+    schedule.setEndTemperature(1e-4);
     sa.setCoolingSchedule(&schedule);
     
     // Set up the moves

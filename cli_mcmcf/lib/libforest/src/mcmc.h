@@ -3,10 +3,9 @@
 
 #include <vector>
 #include <random>
-#include <ctime>
 #include <cassert>
 
-namespace mcmcf {
+namespace libf {
     /**
      * This is the cooling schedule interface. 
      */
@@ -150,8 +149,8 @@ namespace mcmcf {
             assert(coolingSchedule != 0);
             assert(energyFunction != 0);
             assert(moves.size() > 0);
-            
-            std::mt19937 g(time(0));
+            std::random_device rd;
+            std::mt19937 g(rd());
             // Set up a uniform distribution. We need this in order to accept 
             // hill climbing steps and choose the moves
             std::uniform_real_distribution<float> uniformDist(0,1);

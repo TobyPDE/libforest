@@ -19,7 +19,7 @@
 #include <cassert>
 #include <string>
 
-namespace mcmcf {
+namespace libf {
     /**
      * This is the data point interface. You can implement this interface if
      * you wish to use special feature vector such as pixel pairs, 
@@ -313,6 +313,19 @@ namespace mcmcf {
          */
         virtual void read(const std::string & source, DataStorage* dataStorage);
     };
+    
+    /**
+     * This is the basic class for a data writer.
+     */
+    class DataWriter {
+    public:
+        /**
+         * Writes the data
+         */
+        virtual void write(const std::string & dest, DataStorage* dataStorage) = 0;
+    };
+    
+    
 }
 
 #endif

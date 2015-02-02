@@ -19,7 +19,7 @@
 #include "data.h"
 #include "classifiers.h"
 
-namespace mcmcf {
+namespace libf {
     /**
      * Forward declarations to reduce compile time
      */

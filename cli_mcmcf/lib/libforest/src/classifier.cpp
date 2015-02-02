@@ -1,7 +1,10 @@
-#include "lib_mcmcf/classifiers.h"
-#include "lib_mcmcf/data.h"
+#include "libforest/classifiers.h"
+#include "libforest/data.h"
+#include <ios>
+#include <iostream>
+#include <string>
 
-using namespace mcmcf;
+using namespace libf;
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -9,14 +12,51 @@ using namespace mcmcf;
 ////////////////////////////////////////////////////////////////////////////////
 
 /**
+ * Writes a binary value to a stream
+ */
+template<typename T>
+void writeBinary(std::ostream& stream, const T& value)
+{
+    stream.write(reinterpret_cast<const char*>(&value), sizeof(T));
+}
+
+/**
+ * Reads a binary value from a stream
+ */
+template<typename T>
+void readBinary(std::istream& stream, T& value)
+{
+    stream.read(reinterpret_cast<char*>(&value), sizeof(T));
+}
+
+/**
+ * Writes a binary string to a stream
+ */
+template <>
+void writeBinary(std::ostream & stream, const std::string & value)
+{
+    
+}
+
+/**
+ * Reads a binary string from a stream
+ */
+template <>
+void readBinary(std::istream & stream, std::string & value)
+{
+    
+}
+
+/**
  * Writes a vector to a stream
  */
 template <class T>
 static void writeVector(std::ostream & stream, const std::vector<T> & v)
 {
+    writeBinary(stream, static_cast<int>(v.size()));
     for (size_t i = 0; i < v.size(); i++)
     {
-        stream << v[i] << ' ';
+        writeBinary(stream, v[i]);
     }
 }
 
@@ -24,12 +64,14 @@ static void writeVector(std::ostream & stream, const std::vector<T> & v)
  * Reads a vector of N elements from a stream. 
  */
 template <class T>
-static void readVector(std::istream & stream, std::vector<T> & v, int N)
+static void readVector(std::istream & stream, std::vector<T> & v)
 {
+    int N;
+    readBinary(stream, N);
     v.resize(N);
-
     for (int i = 0; i < N; i++)
     {
+        //readBinary(stream, v[i]);
         stream >> v[i];
     }
 }
@@ -114,22 +156,16 @@ int DecisionTree::classify(DataPoint* x) const
 
 void DecisionTree::read(std::istream& stream)
 {
-    // Read the number of nodes from the stream
-    int N;
-    stream >> N;
-    
     // Write the attributes to the file
-    readVector(stream, splitFeatures, N);
-    readVector(stream, thresholds, N);
-    readVector(stream, leftChild, N);
-    readVector(stream, classLabels, N);
+    readVector(stream, splitFeatures);
+    readVector(stream, thresholds);
+    readVector(stream, leftChild);
+    readVector(stream, classLabels);
     
 }
 
 void DecisionTree::write(std::ostream& stream) const
 {
-    // Write the total number of nodes
-    stream << splitFeatures.size() << ' ';
     // Write the attributes to the file
     writeVector(stream, splitFeatures);
     writeVector(stream, thresholds);
@@ -173,12 +209,12 @@ int RandomForest::classify(DataPoint* x) const
 void RandomForest::write(std::ostream& stream) const
 {
     // Write the number of trees in this ensemble
-    stream << getSize() << ' ';
+    writeBinary(stream, getSize());
+    
     // Write the individual trees
     for (int i = 0; i < getSize(); i++)
     {
         getTree(i)->write(stream);
-        stream << ' ';
     }
 }
 
@@ -186,10 +222,12 @@ void RandomForest::read(std::istream& stream)
 {
     // Read the number of trees in this ensemble
     int size;
-    stream >> size;
+    readBinary(stream, size);
+    
     // Read the trees
     for (int i = 0; i < size; i++)
     {
+        std::cout << i << "\n";
         DecisionTree* tree = new DecisionTree();
         tree->read(stream);
         addTree(tree);

@@ -11,7 +11,7 @@
 #include <iostream>
 #include <vector>
 
-namespace mcmcf {
+namespace libf {
     /**
      * Forward declarations to speed up compiling
      */
@@ -30,9 +30,24 @@ namespace mcmcf {
         virtual int classify(DataPoint* x) const = 0;
         
         /**
-         * Classifies an entire data set. 
+         * Classifies an entire data set and uses the integer values. 
          */
         virtual void classify(DataStorage* storage, std::vector<int> & results) const;
+        
+        /**
+         * Assigns a class label to some data point
+         */
+        //virtual std::string classify(DataPoint* x) const;
+        
+        /**
+         * Classifies an entire data set. 
+         */
+        //virtual void classify(DataStorage* storage, std::vector<std::string> & results) const;
+        
+        /**
+         * Outputs the class probabilities for a given data point.
+         */
+        //virtual void classProbabilities(DataPoint* x, std::vector<float> & probabilities) const = 0;
         
         /**
          * Reads the classifier from a stream
@@ -43,6 +58,28 @@ namespace mcmcf {
          * Writes the classifier to a stream
          */
         virtual void write(std::ostream & stream) const = 0;
+        
+        /**
+         * Sets the class label map
+         */
+        void setClassLabelMap(const std::vector<std::string> & _classLabelMap) 
+        {
+            classLabelMap = _classLabelMap;
+        }
+        
+        /**
+         * Returns the class label map
+         */
+        const std::vector<std::string> & getClassLabelMap() const
+        {
+            return classLabelMap;
+        }
+        
+    protected:
+        /**
+         * The class label map: int -> string
+         */
+        std::vector<std::string> classLabelMap;
     };
     
     /**
@@ -130,6 +167,11 @@ namespace mcmcf {
          * The class label for each node
          */
         std::vector<int> classLabels;
+        /**
+         * The histograms for each node. We only store actual histograms at 
+         * leaf nodes. 
+         */
+        std::vector< std::vector<int> > histograms;
     };
     
     /**
@@ -209,6 +251,10 @@ namespace mcmcf {
          * The individual decision trees. 
          */
         std::vector<DecisionTree*> trees;
+        /**
+         * The smoothing parameter for classification
+         */
+        float smoothing;
     };
 }
 #endif
