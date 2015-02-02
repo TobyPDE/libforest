@@ -16,7 +16,7 @@
       </df>
       <df name="cli_mcmcf">
         <df name="lib">
-          <df name="lib_mcmcf">
+          <df name="libforest">
             <df name="src">
               <in>classifier.cpp</in>
               <in>data.cpp</in>
@@ -75,21 +75,21 @@
             tool="1"
             flavor2="4">
       </item>
-      <item path="cli_mcmcf/lib/lib_mcmcf/src/classifier.cpp"
+      <item path="cli_mcmcf/lib/libforest/src/classifier.cpp"
             ex="false"
             tool="1"
             flavor2="8">
         <ccTool flags="0">
         </ccTool>
       </item>
-      <item path="cli_mcmcf/lib/lib_mcmcf/src/data.cpp"
+      <item path="cli_mcmcf/lib/libforest/src/data.cpp"
             ex="false"
             tool="1"
             flavor2="8">
         <ccTool flags="0">
         </ccTool>
       </item>
-      <item path="cli_mcmcf/lib/lib_mcmcf/src/learning.cpp"
+      <item path="cli_mcmcf/lib/libforest/src/learning.cpp"
             ex="false"
             tool="1"
             flavor2="8">
@@ -103,7 +103,7 @@
       <folder path="0/cli_mcmcf">
         <ccTool>
           <incDir>
-            <pElem>cli_mcmcf/lib/lib_mcmcf/include</pElem>
+            <pElem>cli_mcmcf/lib/libforest/include</pElem>
           </incDir>
         </ccTool>
       </folder>
@@ -111,7 +111,7 @@
         <ccTool>
           <incDir>
             <pElem>/usr/local/include</pElem>
-            <pElem>build/cli_mcmcf/lib/lib_mcmcf</pElem>
+            <pElem>build/cli_mcmcf/lib/libforest</pElem>
           </incDir>
         </ccTool>
       </folder>

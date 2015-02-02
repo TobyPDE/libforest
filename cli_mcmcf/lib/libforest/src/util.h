@@ -20,7 +20,7 @@
 		const char* ptrMessage;		\
 	};
 
-namespace mcmcf {
+namespace libf {
     DEFINE_EXCEPTION(Exception)
 
     class Util {

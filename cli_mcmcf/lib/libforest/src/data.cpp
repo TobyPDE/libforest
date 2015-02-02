@@ -1,16 +1,15 @@
-#include "lib_mcmcf/data.h"
+#include "libforest/data.h"
 #include "util.h"
 #include <fstream>
 #include <iterator>
 #include <boost/tokenizer.hpp>
 #include <boost/tokenizer.hpp>
 #include <cstdlib>
-#include <ctime>
 #include <random>
 #include <iostream>
 
 
-using namespace mcmcf;
+using namespace libf;
 
 ////////////////////////////////////////////////////////////////////////////////
 /// DataPoint
