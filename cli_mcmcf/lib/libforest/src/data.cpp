@@ -219,11 +219,24 @@ void DataStorage::split(float ratio, DataStorage* other)
 
 void DataStorage::bootstrap(int N, DataStorage* dataStorage) const
 {
+    std::vector<bool> sampled;
+    bootstrap(N, dataStorage, sampled);
+}
+
+void DataStorage::bootstrap(int N, DataStorage* dataStorage, std::vector<bool> & sampled) const
+{
     // Set up a probability distribution
     std::random_device rd;
     std::mt19937 g(rd());
     
     std::uniform_int_distribution<int> distribution(0, getSize() - 1);
+    
+    // Initialize the flag array
+    sampled.resize(getSize());
+    for (int n = 0; n < getSize(); n++)
+    {
+        sampled[n] = false;
+    }
     
     // Add the points
     for (int i = 0; i < N; i++)
@@ -231,6 +244,7 @@ void DataStorage::bootstrap(int N, DataStorage* dataStorage) const
         // Select some point
         const int point = distribution(g);
         dataStorage->addDataPoint(getDataPoint(point), getClassLabel(point), false);
+        sampled[point] = true;
     }
 }
 
