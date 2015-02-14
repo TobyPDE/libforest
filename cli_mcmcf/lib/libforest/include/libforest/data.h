@@ -45,6 +45,7 @@ namespace libf {
     
     /**
      * This class represents in individual data point. 
+     * TODO: Make the data point class a derived class.
      */
     class DataPoint {
     public:
@@ -129,11 +130,33 @@ namespace libf {
     };
     
     /**
+     * This is a class label map. The internal data storage works using integer
+     * class labels. When loading a data set from a file, the class labels are
+     * transformed from strings to integers. This map stores the relation 
+     * between them.
+     */
+    class ClassLabelMap {
+    public:
+        
+    private:
+        /**
+         * The actual map
+         */
+        std::map<std::string, int> labelMap;
+        /**
+         * The inverse map for fast class label prediction
+         */
+        std::vector<std::string> inverseLabelMap;
+    };
+    
+    /**
      * This class provides some baseline data storage properties. It is used 
      * to load data sets. It can be used directly in order to learn and evaluate
      * the performance of the classifiers. 
      * 
      * Important: All data points are freed by the storage object!
+     * TODO: Remove string labels in favor of a class map.
+     * TODO: Use abstract data point class.
      */
     class DataStorage {
     public:
@@ -247,6 +270,13 @@ namespace libf {
          */
         void bootstrap(int N, DataStorage* dataStorage) const;
         
+        /**
+         * Bootstraps the training set and creates a set of N examples. The 
+         * sampled array contains a flag for each data point. If it is true, then
+         * the point was used in the bootstrap process.
+         */
+        void bootstrap(int N, DataStorage* dataStorage, std::vector<bool> & sampled) const;
+        
     private:
         /**
          * This is a list of data points. 
@@ -275,6 +305,8 @@ namespace libf {
     /**
      * This is the interface that has to be implemented if you wish to implement
      * a custom data provider. 
+     * 
+     * TODO: Give option to load string labels/int labels
      */
     class DataProvider {
     public:
@@ -324,8 +356,6 @@ namespace libf {
          */
         virtual void write(const std::string & dest, DataStorage* dataStorage) = 0;
     };
-    
-    
 }
 
 #endif

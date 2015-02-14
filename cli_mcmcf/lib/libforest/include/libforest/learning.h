@@ -44,6 +44,17 @@ namespace libf {
             callbackCycles.push_back(cycle);
         }
         
+        /**
+         * Learns a classifier.
+         */
+        virtual T* learn(const DataStorage* storage) const;
+        
+        /**
+         * The autoconf function should set up the learner such that without
+         * any additional settings people can try a learner on a data set. 
+         */
+        virtual void autoconf(const DataStorage* storage);
+        
     protected:
         /**
          * Calls the callbacks. The results of the callbacks are bitwise or'ed
@@ -77,6 +88,27 @@ namespace libf {
     };
     
     /**
+     * This is the parent class for all graph classier learners
+     */
+    template <class T>
+    class GraphClassifierLearner : Learner<T> {
+    protected:
+        /**
+         * Whether or not bootstrapping shall be used
+         */
+        bool useBootstrap;
+        /**
+         * The number of bootstrap examples that shall be used.
+         */
+        int numBootstrapExamples;
+        /**
+         * The number of random features that shall be evaluated for each 
+         * split.
+         */
+        int numFeatures;
+    };
+    
+    /**
      * This is an ordinary decision tree learning algorithm. It learns the tree
      * using the information gain criterion. In order to make learning easier, 
      * simply use the autoconf option. 
@@ -86,7 +118,6 @@ namespace libf {
         DecisionTreeLearner() : 
                 useBootstrap(true), 
                 numBootstrapExamples(10000), 
-                useRandomFeatures(true), 
                 numFeatures(10), 
                 maxDepth(100), 
                 minSplitExamples(3),
@@ -160,22 +191,6 @@ namespace libf {
         }
 
         /**
-         * Sets whether or not random features shall be used.
-         */
-        void setUseRandomFeatures(bool useRandomFeatures) 
-        {
-            this->useRandomFeatures = useRandomFeatures;
-        }
-
-        /**
-         * Returns whether or not random features shall be used.
-         */
-        bool getUseRandomFeatures() const 
-        {
-            return useRandomFeatures;
-        }
-
-        /**
          * Sets the number of bootstrap examples.
          */
         void setNumBootstrapExamples(int numBootstrapExamples) 
@@ -221,7 +236,7 @@ namespace libf {
          * Learns a decision tree on a data set. If you want to make learning
          * easier, just use the autoconf option before learning. 
          */
-        DecisionTree* learn(const DataStorage* storage) const;
+        virtual DecisionTree* learn(const DataStorage* storage) const;
         
     private:
         
@@ -238,11 +253,6 @@ namespace libf {
          * The number of bootstrap examples that shall be used.
          */
         int numBootstrapExamples;
-        /**
-         * Whether or not only a random selection of features shall be 
-         * evaluated for each split.
-         */
-        bool useRandomFeatures;
         /**
          * The number of random features that shall be evaluated for each 
          * split.
@@ -262,6 +272,25 @@ namespace libf {
          * in order to perform a split. 
          */
         int minChildSplitExamples;
+    };
+    
+    /**
+     * A learner for decision DAGs. It performs the stochastic LSearch algorithm.
+     */
+    class DecisionDAGLearner : public GraphClassifierLearner<DecisionDAG> {
+    protected:
+        /**
+         * The maximum number of levels to train
+         */
+        int maxDepths;
+        /**
+         * The merging schedule for the DAG
+         */
+        std::function<int(int)> mergingSchedule;
+        /**
+         * The number of training iterations
+         */
+        int iterations;
     };
     
     /**
@@ -323,7 +352,7 @@ namespace libf {
         /**
          * Learns a forests. 
          */
-        RandomForest* learn(const DataStorage* storage) const;
+        virtual RandomForest* learn(const DataStorage* storage) const;
         
     private:
         /**
@@ -333,7 +362,7 @@ namespace libf {
         /**
          * The tree learner
          */
-        DecisionTreeLearner* treeLearner;
+        Learner<GraphClassifier>* treeLearner;
         /**
          * The number of threads that shall be used to learn the forest
          */

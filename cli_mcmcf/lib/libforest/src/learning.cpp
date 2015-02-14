@@ -153,6 +153,8 @@ public:
     void set(const int i, const int v) { mass -= histogram[i]; mass += v; histogram[i] = v; }
     void add(const int i, const int v) { mass += v; histogram[i] += v; }
     void sub(const int i, const int v) { mass -= v; histogram[i] -= v; }
+    void add1(const int i) { mass++; histogram[i]++; }
+    void sub1(const int i) { mass--; histogram[i]--; }
     void addOne(const int i)
     {
         totalEntropy += ENTROPY(getMass());
@@ -212,7 +214,7 @@ public:
             {
                 if (at(i) == 0) continue;
 
-                entropies[i] = ENTROPY(at(i));
+                entropies[i] = ENTROPY(histogram[i]);
 
                 totalEntropy += entropies[i];
             }
@@ -224,9 +226,6 @@ public:
      */
     void reset()
     {
-        // Only reset the histogram if there are more than 0 bins
-        if (histogram == 0) return;
-
         for (int i = 0; i < bins; i++)
         {
             histogram[i] = 0;
@@ -242,10 +241,10 @@ public:
     int argMax() const
     {
         int maxBin = 0;
-        int maxCount = at(0);
+        int maxCount = histogram[0];
         for (int i = 1; i < bins; i++)
         {
-            if (at(i) > maxCount)
+            if (histogram[i] > maxCount)
             {
                 maxCount = at(i);
                 maxBin = i;
@@ -263,7 +262,7 @@ public:
         bool nonPure = false;
         for (int i = 0; i < bins; i++)
         {
-            if (at(i) > 0)
+            if (histogram[i] > 0)
             {
                 if (nonPure)
                 {
@@ -282,19 +281,58 @@ public:
 void DecisionTreeLearner::autoconf(const DataStorage* dataStorage)
 {
     setUseBootstrap(true);
-    setUseRandomFeatures(true);
     setNumBootstrapExamples(dataStorage->getSize());
     setNumFeatures(std::ceil(std::sqrt(dataStorage->getDimensionality())));
+}
+
+/**
+ * This class can be used in order to sort the array of data point IDs by
+ * a certain dimension
+ */
+class FeatureComparator {
+public:
+    /**
+     * The feature dimension
+     */
+    int feature;
+    /**
+     * The data storage
+     */
+    DataStorage* storage;
+    
+    /**
+     * Compares two training examples
+     */
+    bool operator() (const int lhs, const int rhs)
+    {
+        return storage->getDataPoint(lhs)->at(feature) < storage->getDataPoint(rhs)->at(feature);
+    }
+};
+
+/**
+ * Sets the histogram for a leaf node
+ */
+void updateLeafNodeHistogram(DecisionTree* tree, int node, EfficientEntropyHistogram & hist)
+{
+    std::vector<int> & nodeHistogram = tree->getHistogram(node);
+    nodeHistogram.resize(hist.size());
+    for (int c = 0; c < hist.size(); c++)
+    {
+        nodeHistogram[c] = hist.at(c);
+    }
 }
 
 DecisionTree* DecisionTreeLearner::learn(const DataStorage* dataStorage) const
 {
     DataStorage* storage;
+    // If we use bootstrap sampling, then this array contains the results of 
+    // the sampler. We use it later in order to refine the leaf node histograms
+    std::vector<bool> sampled;
     
     if (useBootstrap)
     {
         storage = new DataStorage;
-        dataStorage->bootstrap(numBootstrapExamples, storage);
+        dataStorage->bootstrap(numBootstrapExamples, storage, sampled);
     }
     else
     {
@@ -310,16 +348,21 @@ DecisionTree* DecisionTreeLearner::learn(const DataStorage* dataStorage) const
     DecisionTree* tree = new DecisionTree();
     
     // This is the list of nodes that still have to be split
-    std::vector<int> splitQueue;
+    std::vector<int> splitStack;
+    splitStack.reserve(static_cast<int>(fastlog2(storage->getSize())));
     
     // Add the root node to the list of nodes that still have to be split
-    splitQueue.push_back(0);
+    splitStack.push_back(0);
     
     // This matrix stores the training examples for certain nodes. 
-    std::vector< std::vector<int> > trainingExamples;
+    std::vector< int* > trainingExamples;
+    std::vector< int > trainingExamplesSizes;
+    trainingExamples.reserve(5000);
+    trainingExamplesSizes.reserve(5000);
     
     // Add all training example to the root node
-    trainingExamples.push_back(std::vector<int>(storage->getSize()));
+    trainingExamplesSizes.push_back(storage->getSize());
+    trainingExamples.push_back(new int[trainingExamplesSizes[0]]);
     for (int n = 0; n < storage->getSize(); n++)
     {
         trainingExamples[0][n] = n;
@@ -336,19 +379,24 @@ DecisionTree* DecisionTreeLearner::learn(const DataStorage* dataStorage) const
     // We keep track on the depth of each node in this array
     // This allows us to stop splitting after a certain depth is reached
     std::vector<int> depths;
+    depths.reserve(5000);
     // The root node has depth 0
     depths.push_back(0);
     
+    // We use this in order to sort the data points
+    FeatureComparator cp;
+    cp.storage = storage;
+    
     // Start training
-    while (splitQueue.size() > 0)
+    while (splitStack.size() > 0)
     {
         // Extract an element from the queue
-        const int node = splitQueue.back();
-        splitQueue.pop_back();
+        const int node = splitStack.back();
+        splitStack.pop_back();
         
         // Get the training example list
-        std::vector<int> & trainingExampleList = trainingExamples[node];
-        const int N = static_cast<int>(trainingExampleList.size());
+        int* trainingExampleList = trainingExamples[node];
+        const int N = trainingExamplesSizes[node];
 
         // Set up the right histogram
         // Because we start with the threshold being at the left most position
@@ -358,8 +406,7 @@ DecisionTree* DecisionTreeLearner::learn(const DataStorage* dataStorage) const
         for (int m = 0; m < N; m++)
         {
             // Get the class label of this training example
-            const int n = trainingExampleList[m];
-            hist.add(storage->getIntClassLabel(n), 1);
+            hist.add1(storage->getIntClassLabel(trainingExampleList[m]));
         }
 
         // Determine the class label for this node
@@ -371,7 +418,8 @@ DecisionTree* DecisionTreeLearner::learn(const DataStorage* dataStorage) const
         //  If the maximum depth is reacherd
         if (hist.getMass() < minSplitExamples || hist.isPure() || depths[node] > maxDepth)
         {
-            trainingExampleList.clear();
+            delete[] trainingExampleList;
+            updateLeafNodeHistogram(tree, node, hist);
             continue;
         }
         
@@ -379,7 +427,7 @@ DecisionTree* DecisionTreeLearner::learn(const DataStorage* dataStorage) const
         
         // These are the parameters we optimize
         float bestThreshold = 0;
-        int bestFeature = 0;
+        int bestFeature = -1;
         float bestObjective = 1e35;
         int bestLeftMass = 0;
         int bestRightMass = N;
@@ -387,15 +435,10 @@ DecisionTree* DecisionTreeLearner::learn(const DataStorage* dataStorage) const
         // Optimize over all features
         for (int f = 0; f < numFeatures; f++)
         {
-            int feature = f;
-            // Sample a random feature if this is required
-            if (useRandomFeatures)
-            {
-                feature = featureDist(g);
-            }
-            std::sort(trainingExampleList.begin(), trainingExampleList.end(), [storage, feature](const int & lhs, const int & rhs) -> bool {
-                return storage->getDataPoint(lhs)->at(feature) < storage->getDataPoint(rhs)->at(feature);
-            });
+            const int feature = featureDist(g);
+            
+            cp.feature = feature;
+            std::sort(trainingExampleList, trainingExampleList + N, cp);
             
             // Initialize the histograms
             leftHistogram.reset();
@@ -434,7 +477,7 @@ DecisionTree* DecisionTreeLearner::learn(const DataStorage* dataStorage) const
                 if (localObjective < bestObjective)
                 {
                     // Get the threshold value
-                    bestThreshold = 0.5f * (leftValue + rightValue);
+                    bestThreshold = (leftValue + rightValue);
                     bestFeature = feature;
                     bestObjective = localObjective;
                     bestLeftMass = leftHistogram.getMass();
@@ -445,28 +488,32 @@ DecisionTree* DecisionTreeLearner::learn(const DataStorage* dataStorage) const
                 leftClass = storage->getIntClassLabel(n);
             }
         }
+        // We spare the additional multiplication at each iteration.
+        bestThreshold *= 0.5f;
         
         // Did we find good split values?
-        if (bestObjective > 1e34 || bestLeftMass < minChildSplitExamples || bestRightMass < minChildSplitExamples)
+        if (bestFeature < 0|| bestLeftMass < minChildSplitExamples || bestRightMass < minChildSplitExamples)
         {
             // We didn't
             // Don't split
-            trainingExampleList.clear();
+            delete[] trainingExampleList;
+            updateLeafNodeHistogram(tree, node, hist);
             continue;
         }
         
         // Set up the data lists for the child nodes
-        trainingExamples.push_back(std::vector<int>(bestLeftMass));
-        trainingExamples.push_back(std::vector<int>(bestRightMass));
+        trainingExamplesSizes.push_back(bestLeftMass);
+        trainingExamplesSizes.push_back(bestRightMass);
+        trainingExamples.push_back(new int[bestLeftMass]);
+        trainingExamples.push_back(new int[bestRightMass]);
         
-        std::vector<int> & list = trainingExamples[node];
-        std::vector<int> & leftList = trainingExamples[trainingExamples.size() - 2];
-        std::vector<int> & rightList = trainingExamples[trainingExamples.size() - 1];
+        int* leftList = trainingExamples[trainingExamples.size() - 2];
+        int* rightList = trainingExamples[trainingExamples.size() - 1];
         
         // Sort the points
         for (int m = 0; m < N; m++)
         {
-            const int n = list[m];
+            const int n = trainingExampleList[m];
             const float featureValue = storage->getDataPoint(n)->at(bestFeature);
             
             if (featureValue < bestThreshold)
@@ -489,10 +536,28 @@ DecisionTree* DecisionTreeLearner::learn(const DataStorage* dataStorage) const
         depths.push_back(depths[node] + 1);
         
         // Prepare to split the child nodes
-        splitQueue.push_back(leftChild);
-        splitQueue.push_back(leftChild + 1);
+        splitStack.push_back(leftChild);
+        splitStack.push_back(leftChild + 1);
         
-        trainingExamples[node].clear();
+        delete[] trainingExampleList;
+    }
+    
+    // If we used bootstrap sampling, we can use the out-of-bag examples
+    // in order to refine the histograms at the leaf nodes. 
+    if (useBootstrap)
+    {
+        // Go through the original data set and check if the points are in the
+        // bootstraped set
+        for (int n = 0; n < dataStorage->getSize(); n++)
+        {
+            // Was this a bootstrapped example?
+            if (!sampled[n])
+            {
+                // Get the leaf node
+                const int node = tree->findLeafNode(dataStorage->getDataPoint(n));
+                tree->getHistogram(node)[dataStorage->getIntClassLabel(n)]++;
+            }
+        }
     }
     
     // Free the data set
@@ -753,14 +818,13 @@ private:
 /**
  * This is the energy function for the pruning optimization
  */
-class PruneEnergy2 : public SAEnergy<StateType> {
+class PruneEnergy : public SAEnergy<StateType> {
 public:
     int dist(const std::vector<int> & a, const std::vector<int> & b) const
     {
         int d = 0;
         for (size_t i = 0; i < a.size(); i++)
         {
-            //if (a[i] != 0 && b[i] != 0)
             if (a[i] != b[i])
             {
                 d++;
@@ -776,17 +840,6 @@ public:
             DecisionTree* tree = forest->getTree(i);
             predictions.push_back(std::vector<int>());
             tree->classify(storage, predictions[i]);
-            /*for (int n = 0; n < storage->getSize(); n++)
-            {
-                if (predictions[i][n] == storage->getIntClassLabel(n))
-                {
-                    predictions[i][n] = 0;
-                }
-                else
-                {
-                    predictions[i][n] = 1;
-                }
-            }*/
         }
         
         // Compute the distances
@@ -818,16 +871,7 @@ public:
             }
             res += min;
         }
-        return res/static_cast<float>(distances[0].size());
-        /*int res = 0;
-        for (size_t j = 0; j < state.size(); j++)
-        {
-            for (size_t i = j+1; i < state.size(); i++)
-            {
-                res += distances[state[i]][state[j]];
-            }
-        }
-        return res/static_cast<float>(distances[0].size());*/
+        return res/static_cast<float>(state.size());
     }
     
 private:
@@ -840,12 +884,12 @@ private:
      */
     std::vector< std::vector<int> > distances;
 };
-#if 1
+
 RandomForest* RandomForestPrune::prune(RandomForest* forest, DataStorage* storage) const
 {
     // We prune the forest using simulated annealing
     SimulatedAnnealing<std::vector<int> > sa;
-    sa.setNumInnerLoops(100);
+    sa.setNumInnerLoops(250);
     
     // Set up the cooling schedule
     GeometricCoolingSchedule schedule;
@@ -855,11 +899,7 @@ RandomForest* RandomForestPrune::prune(RandomForest* forest, DataStorage* storag
     sa.setCoolingSchedule(&schedule);
     
     // Set up the moves
-    PruneMoveAdd addMove(forest);
-    PruneMoveRemove removeMove;
     PruneMoveExchange exchangeMove(forest);
-    //sa.addMove(&addMove, 0.2f);
-    //sa.addMove(&removeMove, 0.2f);
     sa.addMove(&exchangeMove, 1.0f);
     
     // Set up the energy function
@@ -886,51 +926,3 @@ RandomForest* RandomForestPrune::prune(RandomForest* forest, DataStorage* storag
     }
     return newForest;
 }
-#else
-RandomForest* RandomForestPrune::prune(RandomForest* forest, DataStorage* storage) const
-{
-    // We prune the forest using simulated annealing
-    SimulatedAnnealing<std::vector<int> > sa;
-    sa.setNumInnerLoops(1000);
-    
-    // Set up the cooling schedule
-    GeometricCoolingSchedule schedule;
-    schedule.setAlpha(0.99f);
-    schedule.setStartTemperature(1000);
-    schedule.setEndTemperature(1e-4);
-    sa.setCoolingSchedule(&schedule);
-    
-    // Set up the moves
-    PruneMoveAdd addMove(forest);
-    PruneMoveRemove removeMove;
-    PruneMoveExchange exchangeMove(forest);
-    //sa.addMove(&addMove, 0.2f);
-    //sa.addMove(&removeMove, 0.2f);
-    sa.addMove(&exchangeMove, 1.0f);
-    
-    // Set up the energy function
-    PruneEnergy2 energy(forest, storage);
-    sa.setEnergyFunction(&energy);
-    
-    // Set up the callback function
-    PruneCallback callback;
-    sa.addCallback(&callback);
-    
-    // Find some initial state
-    StateType state;
-    for (int i = 0; i < 15; i++)
-    {
-        state.push_back(i);
-    }
-    
-    // Optimize the stuff
-    sa.optimize(state);
-    
-    RandomForest* newForest = new RandomForest;
-    for (size_t i = 0; i < state.size(); i++)
-    {
-        newForest->addTree(forest->getTree(state[i]));
-    }
-    return newForest;
-}
-#endif

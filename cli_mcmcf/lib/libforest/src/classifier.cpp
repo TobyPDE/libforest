@@ -3,6 +3,7 @@
 #include <ios>
 #include <iostream>
 #include <string>
+#include <cmath>
 
 using namespace libf;
 
@@ -99,6 +100,11 @@ void Classifier::classify(DataStorage* storage, std::vector<int> & results) cons
 
 DecisionTree::DecisionTree()
 {
+    splitFeatures.reserve(5000);
+    thresholds.reserve(5000);
+    classLabels.reserve(5000);
+    leftChild.reserve(5000);
+    histograms.reserve(5000);
     // Add at least the root node with index 0
     addNode();
 }
@@ -109,6 +115,7 @@ void DecisionTree::addNode()
     thresholds.push_back(0);
     classLabels.push_back(0);
     leftChild.push_back(0);
+    histograms.push_back(std::vector<int>());
 }
 
 int DecisionTree::splitNode(int node)
@@ -131,7 +138,7 @@ int DecisionTree::splitNode(int node)
     return leftNode;
 }
 
-int DecisionTree::classify(DataPoint* x) const
+int DecisionTree::findLeafNode(DataPoint* x) const
 {
     // Select the root node as current node
     int node = 0;
@@ -150,8 +157,12 @@ int DecisionTree::classify(DataPoint* x) const
             node = leftChild[node] + 1;
         }
     }
-    
-    return classLabels[node];
+    return node;
+}
+
+int DecisionTree::classify(DataPoint* x) const
+{
+    return classLabels[findLeafNode(x)];
 }
 
 void DecisionTree::read(std::istream& stream)
@@ -180,26 +191,47 @@ void DecisionTree::write(std::ostream& stream) const
 int RandomForest::classify(DataPoint* x) const
 {
     // Initialize the voting system
-    std::vector<int> votes;
-    int finalLabel = 0;
+    std::vector<float> votes;
     
     // Let the crowd decide
     for (size_t i = 0; i < trees.size(); i++)
     {
-        const int label = trees[i]->classify(x);
-        // Did we already encounter this label?
-        // Nope, add the intermediate bins
-        const int isize = static_cast<int>(votes.size());
-        for (int k = label; k >= isize; k--)
+        const int node = trees[i]->findLeafNode(x);
+        const std::vector<int> & hist = trees[i]->getHistogram(node);
+        
+        const int C = static_cast<int>(hist.size());
+        
+        // Initialize the vote histogram
+        if (votes.size() == 0)
         {
-            votes.push_back(0);
+            votes.resize(C);
+            for (int c = 0; c < C; c++)
+            {
+                votes[c] = 0;
+            }
         }
         
-        votes[label]++;
-        
-        if (votes[label] > votes[finalLabel])
+        // Accumulate the votes
+        int sum = 0;
+        for (int c = 0; c < C; c++)
         {
-            finalLabel = label;
+            sum += hist[c];
+        }
+        for (int  c = 0; c < C; c++)
+        {
+            votes[c] += std::log((hist[c] + smoothing)/(sum + C*smoothing));
+        }
+    }
+    
+    // Predict the final label
+    float maxVotes = votes[0];
+    int finalLabel = 0;
+    for (size_t c = 0; c < votes.size(); c++)
+    {
+        if (maxVotes < votes[c])
+        {
+            finalLabel = static_cast<int>(c);
+            maxVotes = votes[c];
         }
     }
     

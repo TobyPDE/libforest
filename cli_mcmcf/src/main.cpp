@@ -96,11 +96,12 @@ int main(int c, const char** v)
     RandomForestLearner forestLearner;
     forestLearner.setTreeLearner(&learner);
     learner.autoconf(&storage);
-    forestLearner.setNumTrees(500);
+    learner.setUseBootstrap(true);
+    forestLearner.setNumTrees(8);
     forestLearner.setNumThreads(8);    
     std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
-    //RandomForest* forest = forestLearner.learn(&storage);
-    DecisionTree* tree = learner.learn(&storage);
+    RandomForest* forest = forestLearner.learn(&storage);
+    //DecisionTree* tree = learner.learn(&storage);
     //RandomForest* forest = new RandomForest;
     /*std::ifstream is("model5.txt");
     forest->read(is);
@@ -127,19 +128,22 @@ int main(int c, const char** v)
     //forest = prune.prune(forest, &storage);
     
     
-    std::vector<int> res;
-    tree->classify(&storageT, res);
-    
-    int error = 0;
-    for (int i = 0; i < storageT.getSize(); i++)
     {
-        if (res[i] != storageT.getIntClassLabel(i))
+        std::vector<int> res;
+        forest->classify(&storageT, res);
+
+        int error = 0;
+        for (int i = 0; i < storageT.getSize(); i++)
         {
-            error++;
+            if (res[i] != storageT.getIntClassLabel(i))
+            {
+                error++;
+            }
         }
+
+        std::cout << error/static_cast<float>(storageT.getSize()) << "\n";
     }
-    
-    std::cout << error/static_cast<float>(storageT.getSize()) << "\n";
+
     
     //delete forest;
     return 0;
