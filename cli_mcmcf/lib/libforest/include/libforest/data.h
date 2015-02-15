@@ -18,6 +18,7 @@
 #include <map>
 #include <cassert>
 #include <string>
+#include <iostream>
 
 namespace libf {
     /**
@@ -25,8 +26,10 @@ namespace libf {
      * you wish to use special feature vector such as pixel pairs, 
      * categorical data and so on. 
      */
-    class _DataPoint {
+    class DataPoint {
     public:
+        virtual ~DataPoint() {}
+        
         /**
          * Returns the i-th entry of the feature vector
          */
@@ -41,38 +44,47 @@ namespace libf {
          * Returns the dimensionality
          */
         virtual int getDimensionality() const = 0;
+        
+        /**
+         * Writes the class label map to a stream. 
+         */
+        virtual void write(std::ostream & stream) const = 0;
+        
+        /**
+         * Reads the class label map from a file
+         */
+        virtual void read(std::istream & stream) = 0;
     };
     
     /**
      * This class represents in individual data point. 
-     * TODO: Make the data point class a derived class.
      */
-    class DataPoint {
+    class DataVector : public DataPoint {
     public:
         /**
          * Creates a new data point of size 0
          */
-        DataPoint() : D(0), data(0) {}
+        DataVector() : D(0), data(0) {}
         
         /**
          * Creates a new data point of size D that is not initialized
          */
-        DataPoint(int D) : D(D), data(new float[D]) {}
+        DataVector(int D) : D(D), data(new float[D]) {}
         
         /**
          * Creates a new data point of size D that is initialized with x
          */
-        DataPoint(int D, float x);
+        DataVector(int D, float x);
         
         /**
          * Copy constructor
          */
-        DataPoint(const DataPoint & other);
+        DataVector(const DataVector & other);
         
         /**
          * Destructor
          */
-        virtual ~DataPoint()
+        virtual ~DataVector()
         {
             freeData();
         }
@@ -85,12 +97,12 @@ namespace libf {
         /**
          * Assignment operator
          */
-        DataPoint & operator=(const DataPoint & other);
+        DataVector & operator=(const DataVector & other);
         
         /**
          * Returns the i-th entry of the vector
          */
-        const float & at(int i) const
+        virtual const float & at(int i) const
         {
             assert(0 <= i && i < D);
             return data[i];
@@ -99,7 +111,7 @@ namespace libf {
         /**
          * Returns the i-th entry of the vector
          */
-        float & at(int i)
+        virtual float & at(int i)
         {
             assert(0 <= i && i < D);
             return data[i];
@@ -108,10 +120,20 @@ namespace libf {
         /**
          * Returns the dimensionality
          */
-        int getDimensionality() const
+        virtual int getDimensionality() const
         {
             return D;
         }
+        
+        /**
+         * Writes the class label map to a stream. 
+         */
+        virtual void write(std::ostream & stream) const;
+        
+        /**
+         * Reads the class label map from a file
+         */
+        virtual void read(std::istream & stream);
         
     private:
         /**
@@ -134,9 +156,71 @@ namespace libf {
      * class labels. When loading a data set from a file, the class labels are
      * transformed from strings to integers. This map stores the relation 
      * between them.
+     * 
+     * Please note: All labels have to be in the map before the integer class
+     * labels can be computed. 
      */
     class ClassLabelMap {
     public:
+        /**
+         * Returns the integer class label for a given string class label
+         */
+        int getClassLabel(const std::string & label) const
+        {
+            return labelMap.at(label);
+        }
+        
+        void dump()
+        {
+            for (size_t i = 0; i < inverseLabelMap.size(); i++)
+            {
+                std::cout << i << " -> " << inverseLabelMap[i] << " = " << labelMap[inverseLabelMap[i]] << "\n";
+            }
+        }
+        /**
+         * Returns the string class label for a given integer class label.
+         */
+        std::string getClassLabel(int label) const
+        {
+            return inverseLabelMap[label];
+        }
+        
+        /**
+         * Adds a string class label and returns a primarily integer class label. 
+         */
+        int addClassLabel(const std::string & label)
+        {
+            if (labelMap.find(label) == labelMap.end())
+            {
+                inverseLabelMap.push_back(label);
+                labelMap[label] = static_cast<int>(inverseLabelMap.size() - 1);
+            }
+            return labelMap[label];
+        }
+        
+        /**
+         * Returns the number of classes.
+         */
+        int getClassCount() const
+        {
+            return static_cast<int>(inverseLabelMap.size());
+        }
+        
+        /**
+         * Computes the integer class labels and return a mapping from the 
+         * primarily class labels to the final class labels. 
+         */
+        void computeIntClassLabels(std::vector<int> & intLabelMap);
+        
+        /**
+         * Writes the class label map to a stream. 
+         */
+        void write(std::ostream & stream) const;
+        
+        /**
+         * Reads the class label map from a file
+         */
+        void read(std::istream & stream);
         
     private:
         /**
@@ -155,8 +239,6 @@ namespace libf {
      * the performance of the classifiers. 
      * 
      * Important: All data points are freed by the storage object!
-     * TODO: Remove string labels in favor of a class map.
-     * TODO: Use abstract data point class.
      */
     class DataStorage {
     public:
@@ -166,6 +248,11 @@ namespace libf {
          * Copy constructor
          */
         DataStorage(const DataStorage & other);
+        
+        /**
+         * Assignment operator
+         */
+        DataStorage & operator=(const DataStorage & other);
         
         /**
          * Destructor
@@ -183,7 +270,7 @@ namespace libf {
         /**
          * Returns the i-th data point together with the i-th class label. 
          */
-        std::pair< DataPoint*, std::string> operator[](int i) const
+        std::pair< DataPoint*, int> operator[](int i) const
         {
             return std::make_pair(dataPoints[i], classLabels[i]);
         }
@@ -199,35 +286,23 @@ namespace libf {
         /**
          * Returns the i-th class label. 
          */
-        const std::string & getClassLabel(int i ) const
+        int getClassLabel(int i ) const
         {
             return classLabels[i];
         }
         
         /**
-         * Returns the integer class label for a certain data point. In order
-         * for this to work, the integer class labels have to be computed first.
+         * Returns the i-th class label. 
          */
-        int getIntClassLabel(int i) const
+        int & getClassLabel(int i ) 
         {
-            return intClassLabels[i];
+            return classLabels[i];
         }
-        
-        /**
-         * Computes the integer class labels. 
-         */
-        void computeIntClassLabels();
-        
-        /**
-         * Computes the integer class labels using the class label map from the
-         * provided storage.
-         */
-        void computeIntClassLabels(const DataStorage* dataStorage);
         
         /**
          * Adds a data point to the storage. 
          */
-        void addDataPoint(DataPoint* point, const std::string & label, bool free = true)
+        void addDataPoint(DataPoint* point, int label, bool free = true)
         {
             dataPoints.push_back(point);
             classLabels.push_back(label);
@@ -245,7 +320,7 @@ namespace libf {
          */
         int getClasscount() const
         {
-            return static_cast<int>(classLabelMap.size());
+            return classLabelMap.getClassCount();
         }
         
         /**
@@ -277,7 +352,30 @@ namespace libf {
          */
         void bootstrap(int N, DataStorage* dataStorage, std::vector<bool> & sampled) const;
         
+        /**
+         * Returns the class label map that maps the string class labels to 
+         * integers.
+         */
+        const ClassLabelMap & getClassLabelMap() const
+        {
+            return classLabelMap;
+        }
+        
+        /**
+         * Returns the class label map that maps the string class labels to 
+         * integers.
+         */
+        ClassLabelMap & getClassLabelMap()
+        {
+            return classLabelMap;
+        }
+        
     private:
+        /**
+         * Frees the data points and resets the array structures. 
+         */
+        void free();
+        
         /**
          * This is a list of data points. 
          */
@@ -285,7 +383,7 @@ namespace libf {
         /**
          * These are the corresponding class labels to the data points
          */
-        std::vector<std::string> classLabels;
+        std::vector<int> classLabels;
         /**
          * This keeps track on which data points have to be freed and which 
          * don't. If we for example bootstrap the data set, then the points
@@ -293,27 +391,28 @@ namespace libf {
          */
         std::vector<bool> freeFlags;
         /**
-         * The integer class labels. 
-         */
-        std::vector<int> intClassLabels;
-        /**
          * The class label map
          */
-        std::map<std::string, int> classLabelMap;
+        ClassLabelMap classLabelMap;
     };
     
     /**
      * This is the interface that has to be implemented if you wish to implement
      * a custom data provider. 
-     * 
-     * TODO: Give option to load string labels/int labels
      */
     class DataProvider {
     public:
+        virtual ~DataProvider() {}
+        
         /**
-         * Reads the data from a source and add them to the data storage. 
+         * Reads the data from a stream and add them to the data storage. 
          */
-        virtual void read(const std::string & source, DataStorage* dataStorage) = 0;
+        virtual void read(std::istream & stream, DataStorage* dataStorage) = 0;
+        
+        /**
+         * Reads the data from a file and add them to the data storage. 
+         */
+        virtual void read(const std::string & filename, DataStorage* dataStorage);
     };
     
     /**
@@ -322,12 +421,20 @@ namespace libf {
     class CSVDataProvider : public DataProvider{
     public:
         CSVDataProvider(int classColumnIndex) : classColumnIndex(classColumnIndex) {}
+        virtual ~CSVDataProvider() {}
         
         /**
          * Reads the data from a source and add them to the data storage. 
          */
-        virtual void read(const std::string & source, DataStorage* dataStorage);
+        virtual void read(std::istream & stream, DataStorage* dataStorage);
         
+        /**
+         * Reads the data from a file and add them to the data storage. 
+         */
+        virtual void read(const std::string & filename, DataStorage* dataStorage)
+        {
+            DataProvider::read(filename, dataStorage);
+        }
     private:
         /**
          * The index of the column that contains the class label
@@ -343,7 +450,19 @@ namespace libf {
         /**
          * Reads the data from a source and add them to the data storage. 
          */
-        virtual void read(const std::string & source, DataStorage* dataStorage);
+        virtual void read(std::istream & stream, DataStorage* dataStorage);
+    };
+    
+    /**
+     * Reads the data set from a binary libforest format. This is the fastest
+     * way to load a data set. 
+     */
+    class LibforestDataProvider : public DataProvider {
+    public:
+        /**
+         * Reads the data from a source and add them to the data storage. 
+         */
+        virtual void read(std::istream & stream, DataStorage* dataStorage);
     };
     
     /**
@@ -352,9 +471,49 @@ namespace libf {
     class DataWriter {
     public:
         /**
-         * Writes the data
+         * Writes the data to a stream. 
          */
-        virtual void write(const std::string & dest, DataStorage* dataStorage) = 0;
+        virtual void write(std::ostream & stream, DataStorage* dataStorage) = 0;
+        
+        /**
+         * Writes the data to a file and add them to the data storage. 
+         */
+        virtual void write(const std::string & filename, DataStorage* dataStorage) = 0;
+    };
+    
+    
+    /**
+     * This data provider reads data from a local CSV file. 
+     */
+    class CSVDataWriter : public DataWriter {
+    public:
+        /**
+         * Writes the data to a stream. 
+         */
+        virtual void write(std::ostream & stream, DataStorage* dataStorage) = 0;
+    };
+    
+    /**
+     * This data provider write data to a local LIBSVM file. 
+     */
+    class LIBSVMDataPWriter : public DataWriter {
+    public:
+        /**
+         * Writes the data to a stream. 
+         */
+        virtual void write(std::ostream & stream, DataStorage* dataStorage) = 0;
+    };
+    
+    /**
+     * Writes the data set to a binary libforest format. This is the fastest
+     * way to save a data set. 
+     */
+    class LibforestDataWriter : public DataWriter {
+    public:
+        /**
+         * Writes the data to a stream. 
+         */
+        virtual void write(std::ostream & stream, DataStorage* dataStorage) = 0;
     };
 }
 

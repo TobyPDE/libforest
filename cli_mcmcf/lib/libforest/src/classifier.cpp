@@ -1,81 +1,13 @@
 #include "libforest/classifiers.h"
 #include "libforest/data.h"
+#include "libforest/io.h"
+#include "libforest/util.h"
 #include <ios>
 #include <iostream>
 #include <string>
 #include <cmath>
 
 using namespace libf;
-
-
-////////////////////////////////////////////////////////////////////////////////
-/// Helper functions
-////////////////////////////////////////////////////////////////////////////////
-
-/**
- * Writes a binary value to a stream
- */
-template<typename T>
-void writeBinary(std::ostream& stream, const T& value)
-{
-    stream.write(reinterpret_cast<const char*>(&value), sizeof(T));
-}
-
-/**
- * Reads a binary value from a stream
- */
-template<typename T>
-void readBinary(std::istream& stream, T& value)
-{
-    stream.read(reinterpret_cast<char*>(&value), sizeof(T));
-}
-
-/**
- * Writes a binary string to a stream
- */
-template <>
-void writeBinary(std::ostream & stream, const std::string & value)
-{
-    
-}
-
-/**
- * Reads a binary string from a stream
- */
-template <>
-void readBinary(std::istream & stream, std::string & value)
-{
-    
-}
-
-/**
- * Writes a vector to a stream
- */
-template <class T>
-static void writeVector(std::ostream & stream, const std::vector<T> & v)
-{
-    writeBinary(stream, static_cast<int>(v.size()));
-    for (size_t i = 0; i < v.size(); i++)
-    {
-        writeBinary(stream, v[i]);
-    }
-}
-
-/**
- * Reads a vector of N elements from a stream. 
- */
-template <class T>
-static void readVector(std::istream & stream, std::vector<T> & v)
-{
-    int N;
-    readBinary(stream, N);
-    v.resize(N);
-    for (int i = 0; i < N; i++)
-    {
-        //readBinary(stream, v[i]);
-        stream >> v[i];
-    }
-}
 
 ////////////////////////////////////////////////////////////////////////////////
 /// Classifier
@@ -94,17 +26,41 @@ void Classifier::classify(DataStorage* storage, std::vector<int> & results) cons
     }
 }
 
+int Classifier::classify(DataPoint* x) const
+{
+    // Get the class posterior
+    std::vector<float> posterior;
+    float normalization;
+    this->classPosterior(x, posterior, normalization);
+    
+    assert(posterior.size() > 0);
+    
+    int label = 0;
+    float prob = posterior[0];
+    const int size = static_cast<int>(posterior.size());
+    
+    for (int i = 1; i < size; i++)
+    {
+        if (posterior[i] > prob)
+        {
+            label = i;
+            prob = posterior[i];
+        }
+    }
+    
+    return label;
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 /// DecisionTree
 ////////////////////////////////////////////////////////////////////////////////
 
 DecisionTree::DecisionTree()
 {
-    splitFeatures.reserve(5000);
-    thresholds.reserve(5000);
-    classLabels.reserve(5000);
-    leftChild.reserve(5000);
-    histograms.reserve(5000);
+    splitFeatures.reserve(GRAPH_BUFFER_SIZE);
+    thresholds.reserve(GRAPH_BUFFER_SIZE);
+    leftChild.reserve(GRAPH_BUFFER_SIZE);
+    histograms.reserve(GRAPH_BUFFER_SIZE);
     // Add at least the root node with index 0
     addNode();
 }
@@ -113,7 +69,6 @@ void DecisionTree::addNode()
 {
     splitFeatures.push_back(0);
     thresholds.push_back(0);
-    classLabels.push_back(0);
     leftChild.push_back(0);
     histograms.push_back(std::vector<int>());
 }
@@ -160,82 +115,91 @@ int DecisionTree::findLeafNode(DataPoint* x) const
     return node;
 }
 
-int DecisionTree::classify(DataPoint* x) const
+void DecisionTree::classPosterior(DataPoint* x, std::vector<float>& probabilities, float & normalization) const
 {
-    return classLabels[findLeafNode(x)];
+    // Get the leaf node
+    int leafNode = findLeafNode(x);
+    
+    normalization = 0;
+    probabilities.resize(getHistogram(leafNode).size());
+    
+    // Copy the histogram
+    for (size_t i = 0; i < getHistogram(leafNode).size(); i++)
+    {
+        probabilities[i] = static_cast<int>(getHistogram(leafNode)[i]);
+        normalization += probabilities[i];
+    }
 }
 
 void DecisionTree::read(std::istream& stream)
 {
     // Write the attributes to the file
-    readVector(stream, splitFeatures);
-    readVector(stream, thresholds);
-    readVector(stream, leftChild);
-    readVector(stream, classLabels);
-    
+    readBinary(stream, splitFeatures);
+    readBinary(stream, thresholds);
+    readBinary(stream, leftChild);
+    readBinary(stream, histograms);
 }
 
 void DecisionTree::write(std::ostream& stream) const
 {
     // Write the attributes to the file
-    writeVector(stream, splitFeatures);
-    writeVector(stream, thresholds);
-    writeVector(stream, leftChild);
-    writeVector(stream, classLabels);
+    writeBinary(stream, splitFeatures);
+    writeBinary(stream, thresholds);
+    writeBinary(stream, leftChild);
+    writeBinary(stream, histograms);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-/// DecisionTree
+/// RandomForest
 ////////////////////////////////////////////////////////////////////////////////
 
-int RandomForest::classify(DataPoint* x) const
+RandomForest::~RandomForest()
 {
-    // Initialize the voting system
-    std::vector<float> votes;
+    for (size_t i = 0; i < trees.size(); i++)
+    {
+        delete trees[i];
+    }
+}
+
+void RandomForest::classPosterior(DataPoint* x, std::vector<float> & probabilities, float & normalization) const
+{
+    // The normalization constant will we 1 for this type of
+    // decision
+    normalization = 1;
+    
+    std::vector<float> currentProbs;
+    float currentNormalization;
     
     // Let the crowd decide
     for (size_t i = 0; i < trees.size(); i++)
     {
-        const int node = trees[i]->findLeafNode(x);
-        const std::vector<int> & hist = trees[i]->getHistogram(node);
+        // Get the probabilities from the current tree
+        trees[i]->classPosterior(x, currentProbs, currentNormalization);
         
-        const int C = static_cast<int>(hist.size());
-        
-        // Initialize the vote histogram
-        if (votes.size() == 0)
+        // Do we need to initialize the result?
+        if (i == 0)
         {
-            votes.resize(C);
-            for (int c = 0; c < C; c++)
+            // Does the result have the correct size?
+            if (probabilities.size() != currentProbs.size())
             {
-                votes[c] = 0;
+                // Nope, correct it
+                probabilities.resize(currentProbs.size());
+            }
+            // Initialize all bins with 0
+            for (size_t c = 0; c < probabilities.size(); c++)
+            {
+                probabilities[c] = 0;
             }
         }
         
+        const int C = static_cast<int>(probabilities.size());
+        
         // Accumulate the votes
-        int sum = 0;
-        for (int c = 0; c < C; c++)
-        {
-            sum += hist[c];
-        }
         for (int  c = 0; c < C; c++)
         {
-            votes[c] += std::log((hist[c] + smoothing)/(sum + C*smoothing));
+            probabilities[c] += std::log((currentProbs[c] + smoothing)/(currentNormalization + C*smoothing));
         }
     }
-    
-    // Predict the final label
-    float maxVotes = votes[0];
-    int finalLabel = 0;
-    for (size_t c = 0; c < votes.size(); c++)
-    {
-        if (maxVotes < votes[c])
-        {
-            finalLabel = static_cast<int>(c);
-            maxVotes = votes[c];
-        }
-    }
-    
-    return finalLabel;
 }
 
 void RandomForest::write(std::ostream& stream) const
@@ -259,7 +223,6 @@ void RandomForest::read(std::istream& stream)
     // Read the trees
     for (int i = 0; i < size; i++)
     {
-        std::cout << i << "\n";
         DecisionTree* tree = new DecisionTree();
         tree->read(stream);
         addTree(tree);

@@ -1,5 +1,6 @@
 #include "libforest/data.h"
-#include "util.h"
+#include "libforest/io.h"
+#include "libforest/util.h"
 #include <fstream>
 #include <iterator>
 #include <boost/tokenizer.hpp>
@@ -11,11 +12,13 @@
 
 using namespace libf;
 
+std::random_device rd;
+
 ////////////////////////////////////////////////////////////////////////////////
-/// DataPoint
+/// DataVector
 ////////////////////////////////////////////////////////////////////////////////
 
-DataPoint::DataPoint(int newD, float x)
+DataVector::DataVector(int newD, float x)
 {
     D = newD;
     data = new float[D];
@@ -26,7 +29,7 @@ DataPoint::DataPoint(int newD, float x)
     }
 }
 
-DataPoint::DataPoint(const DataPoint & other)
+DataVector::DataVector(const DataVector & other)
 {
     D = other.D;
     data = new float[D];
@@ -36,14 +39,14 @@ DataPoint::DataPoint(const DataPoint & other)
     }
 }
 
-void DataPoint::resize(int newD)
+void DataVector::resize(int newD)
 {
     freeData();
     D = newD;
     data = new float[D];
 }
 
-DataPoint & DataPoint::operator=(const DataPoint & other)
+DataVector & DataVector::operator=(const DataVector & other)
 {
     // Do nothing at self assignments. 
     if (this != &other)
@@ -59,12 +62,98 @@ DataPoint & DataPoint::operator=(const DataPoint & other)
     return *this;
 }
 
-void DataPoint::freeData()
+void DataVector::freeData()
 {
     if (data != 0)
     {
         delete[] data;
         data = 0;
+    }
+}
+
+void DataVector::read(std::istream& stream)
+{
+    // Read the dimensionality
+    readBinary(stream, D);
+    
+    // Create the vector
+    freeData();
+    data = new float[D];
+    
+    for (int d = 0; d < D; d++)
+    {
+        readBinary(stream, data[d]);
+    }
+}
+
+void DataVector::write(std::ostream& stream) const
+{
+    // Write the dimensionality
+    writeBinary(stream, D);
+    
+    // Write the vector
+    for (int d = 0; d < D; d++)
+    {
+        writeBinary(stream, data[d]);
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+/// ClassLabelMap
+////////////////////////////////////////////////////////////////////////////////
+
+void ClassLabelMap::computeIntClassLabels(std::vector<int>& intLabelMap)
+{
+    // First: Get all string class labels
+    std::vector<std::string> stringClassLabels(inverseLabelMap);
+    
+    // Because all class labels are distinct, the lexicographical ordering
+    // is unique. This has the effect that the integer class labels are
+    // always the same regardless of the order in which the data points
+    // were loaded.
+    std::sort(stringClassLabels.begin(), stringClassLabels.end());
+    
+    // Update the maps
+    for (size_t i = 0; i < stringClassLabels.size(); i++)
+    {
+        // Update the map
+        labelMap[stringClassLabels[i]] = static_cast<int>(i);
+    }
+    intLabelMap.resize(intLabelMap.size());
+    
+    // Compute the intLabelMap
+    for (size_t i = 0; i < intLabelMap.size(); i++)
+    {
+        intLabelMap[i] = labelMap[inverseLabelMap[i]];
+    }
+    inverseLabelMap = stringClassLabels;
+}
+
+void ClassLabelMap::write(std::ostream& stream) const
+{
+    // Write the number of correspondences
+    writeBinary(stream, static_cast<int>(inverseLabelMap.size()));
+    
+    // Write the pairs of strings and integers
+    for (size_t i = 0; i < inverseLabelMap.size(); i++)
+    {
+        writeBinary(stream, inverseLabelMap[i]);
+    }
+}
+
+void ClassLabelMap::read(std::istream& stream)
+{
+    // Get the number of labels
+    int numLabels;
+    readBinary(stream, numLabels);
+    
+    // Load the label maps
+    for (int i = 0; i < numLabels; i++)
+    {
+        std::string label;
+        readBinary(stream, label);
+        inverseLabelMap[i] = label;
+        labelMap[label] = i;
     }
 }
 
@@ -78,15 +167,36 @@ DataStorage::DataStorage(const DataStorage & other)
     dataPoints = other.dataPoints;
     classLabels = other.classLabels;
     freeFlags = other.freeFlags;
+    classLabelMap = other.classLabelMap;
     
     // Set all free flags to false as this is not the owner of the data points
     for (size_t i = 0; i < freeFlags.size(); i++)
     {
         freeFlags[i] = false;
     }
+    
 }
 
-DataStorage::~DataStorage()
+DataStorage & DataStorage::operator=(const DataStorage & other)
+{
+    if (this != &other)
+    {
+        free();
+        dataPoints = other.dataPoints;
+        classLabels = other.classLabels;
+        freeFlags = other.freeFlags;
+        classLabelMap = other.classLabelMap;
+
+        // Set all free flags to false as this is not the owner of the data points
+        for (size_t i = 0; i < freeFlags.size(); i++)
+        {
+            freeFlags[i] = false;
+        }
+    }
+    return *this;
+}
+
+void DataStorage::free()
 {
     for (size_t i = 0; i < dataPoints.size(); i++)
     {
@@ -96,67 +206,14 @@ DataStorage::~DataStorage()
             dataPoints[i] = 0;
         }
     }
+    dataPoints.empty();
+    classLabels.empty();
+    freeFlags.empty();
 }
 
-void DataStorage::computeIntClassLabels()
+DataStorage::~DataStorage()
 {
-    // Reset the current map and class label list
-    classLabelMap.erase(classLabelMap.begin(), classLabelMap.end());
-    intClassLabels.erase(intClassLabels.begin(), intClassLabels.end());
-
-    // Prepare the integer class labels
-    intClassLabels.resize(dataPoints.size());
-
-    // The current class label counter
-    int classLabelCounter = 0;
-
-    // Compute the labels
-    for (size_t i = 0; i < classLabels.size(); i++)
-    {
-        // Did we already observe this label?
-        if (classLabelMap.find(classLabels[i]) != classLabelMap.end())
-        {
-            // Yes, we already observed it
-            // FIXME: intClassLabels[i] = classLabelMap[classLabels[i]];
-            intClassLabels[i] = atoi(classLabels[i].c_str());
-        }
-        else
-        {
-            // Nope, we did not observe it
-            // Add the class label to the label map
-            classLabelMap[classLabels[i]] = classLabelCounter;
-            // FIXME: intClassLabels[i] = classLabelCounter;
-            intClassLabels[i] = atoi(classLabels[i].c_str());
-
-            classLabelCounter++;
-        }
-    }
-}
-
-void DataStorage::computeIntClassLabels(const DataStorage* dataStorage)
-{
-    classLabelMap = dataStorage->classLabelMap;
-
-    // Prepare the integer class labels
-    intClassLabels.resize(dataPoints.size());
-
-    // Compute the labels
-    for (size_t i = 0; i < classLabels.size(); i++)
-    {
-        // Did we already observe this label?
-        if (classLabelMap.find(classLabels[i]) != classLabelMap.end())
-        {
-            // Yes, we already observed it
-            // FIXME: intClassLabels[i] = classLabelMap[classLabels[i]];
-            intClassLabels[i] = atoi(classLabels[i].c_str());
-        }
-        else
-        {
-            // Nope, we did not observe it
-            // This means the two data sets have different class labels
-            throw Exception("Data storages are not compatible.");
-        }
-    }
+    free();
 }
     
 int DataStorage::getDimensionality() const
@@ -177,15 +234,13 @@ void DataStorage::permute(const std::vector<int>& permutation)
 {
     // Copy the arrays because we cannot permute in-place
     std::vector< DataPoint* > dataPointsCopy(dataPoints);
-    std::vector<std::string> classLabelsCopy(classLabels);
+    std::vector<int> classLabelsCopy(classLabels);
     std::vector<bool> freeFlagsCopy(freeFlags);
     
     // Permute the original arrays
     Util::permute(permutation, dataPointsCopy, dataPoints);
     Util::permute(permutation, classLabelsCopy, classLabels);
     Util::permute(permutation, freeFlagsCopy, freeFlags);
-    
-    computeIntClassLabels();
 }
 
 void DataStorage::randPermute()
@@ -197,7 +252,7 @@ void DataStorage::randPermute()
         permutation[i] = i;
     }
     
-    // TODO: Add random permutation
+    std::shuffle(permutation.begin(), permutation.end(), std::default_random_engine(rd()));
     
     permute(permutation);
 }
@@ -213,8 +268,8 @@ void DataStorage::split(float ratio, DataStorage* other)
         dataPoints.pop_back();
         classLabels.pop_back();
         freeFlags.pop_back();
-        intClassLabels.pop_back();
     }
+    other->classLabelMap = classLabelMap;
 }
 
 void DataStorage::bootstrap(int N, DataStorage* dataStorage) const
@@ -249,25 +304,34 @@ void DataStorage::bootstrap(int N, DataStorage* dataStorage, std::vector<bool> &
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+/// DataProvider
+////////////////////////////////////////////////////////////////////////////////
+void DataProvider::read(const std::string& filename, DataStorage* dataStorage)
+{
+    // Open the file
+    std::ifstream stream(filename, std::ios::binary);
+    if (!stream.is_open())
+    {
+        throw Exception("Could not open file.");
+    }
+    read(stream, dataStorage);
+    stream.close();
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
 /// CSVDataProvider
 ////////////////////////////////////////////////////////////////////////////////
 
-void CSVDataProvider::read(const std::string & source, DataStorage* dataStorage)
+void CSVDataProvider::read(std::istream & stream, DataStorage* dataStorage)
 {
-    // Open the file
-    std::ifstream in(source);
-    if (!in.is_open())
-    {
-        throw Exception("Could not open data set file.");
-    }
-
     // Tokenize the stream
     typedef boost::tokenizer< boost::escaped_list_separator<char> > Tokenizer;
 
     std::vector< std::string > row;
     std::string line;
 
-    while (std::getline(in,line))
+    while (std::getline(stream,line))
     {
         // Tokenize the line
         Tokenizer tok(line);
@@ -277,14 +341,14 @@ void CSVDataProvider::read(const std::string & source, DataStorage* dataStorage)
         if (row.size() == 0) continue;
         
         // Load the data point
-        DataPoint* dataPoint = new DataPoint(static_cast<int>(row.size() - 1));
-        std::string label;
+        DataVector* dataPoint = new DataVector(static_cast<int>(row.size() - 1));
+        int  label;
         const int isize = static_cast<int>(row.size());
         for (int  i = 0; i < isize; i++)
         {
             if (i == classColumnIndex)
             {
-                label = row[i];
+                label = dataStorage->getClassLabelMap().addClassLabel(row[i]);
             }
             else if (i < classColumnIndex)
             {
@@ -297,5 +361,21 @@ void CSVDataProvider::read(const std::string & source, DataStorage* dataStorage)
         }
         
         dataStorage->addDataPoint(dataPoint, label);
+    }
+    
+    // Compute the integer class label
+    std::vector<int> intLabelMap;
+    dataStorage->getClassLabelMap().computeIntClassLabels(intLabelMap);
+    
+    for (size_t i = 0; i < intLabelMap.size(); i++)
+    {
+        std::cout << intLabelMap[i] << " - " << i << "\n";
+    }
+    std::cout.flush();
+    
+    // Update the class labels
+    for (int i = 0; i < dataStorage->getSize(); i++)
+    {
+        dataStorage->getClassLabel(i) = intLabelMap[dataStorage->getClassLabel(i)];
     }
 }

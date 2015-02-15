@@ -1,6 +1,7 @@
 #include "libforest/learning.h"
 #include "libforest/data.h"
 #include "libforest/classifiers.h"
+#include "libforest/util.h"
 #include "fastlog.h"
 #include "mcmc.h"
 
@@ -338,7 +339,6 @@ DecisionTree* DecisionTreeLearner::learn(const DataStorage* dataStorage) const
     {
         storage = new DataStorage(*dataStorage);
     }
-    storage->computeIntClassLabels(dataStorage);
     
     // Get the number of training examples and the dimensionality of the data set
     const int D = storage->getDimensionality();
@@ -357,8 +357,8 @@ DecisionTree* DecisionTreeLearner::learn(const DataStorage* dataStorage) const
     // This matrix stores the training examples for certain nodes. 
     std::vector< int* > trainingExamples;
     std::vector< int > trainingExamplesSizes;
-    trainingExamples.reserve(5000);
-    trainingExamplesSizes.reserve(5000);
+    trainingExamples.reserve(GRAPH_BUFFER_SIZE);
+    trainingExamplesSizes.reserve(GRAPH_BUFFER_SIZE);
     
     // Add all training example to the root node
     trainingExamplesSizes.push_back(storage->getSize());
@@ -406,16 +406,13 @@ DecisionTree* DecisionTreeLearner::learn(const DataStorage* dataStorage) const
         for (int m = 0; m < N; m++)
         {
             // Get the class label of this training example
-            hist.add1(storage->getIntClassLabel(trainingExampleList[m]));
+            hist.add1(storage->getClassLabel(trainingExampleList[m]));
         }
 
-        // Determine the class label for this node
-        tree->setClassLabel(node, hist.argMax());
-        
         // Don't split this node
         //  If the number of examples is too small
         //  If the training examples are all of the same class
-        //  If the maximum depth is reacherd
+        //  If the maximum depth is reached
         if (hist.getMass() < minSplitExamples || hist.isPure() || depths[node] > maxDepth)
         {
             delete[] trainingExampleList;
@@ -445,7 +442,7 @@ DecisionTree* DecisionTreeLearner::learn(const DataStorage* dataStorage) const
             rightHistogram = hist;
             
             float leftValue = storage->getDataPoint(trainingExampleList[0])->at(feature);
-            int leftClass = storage->getIntClassLabel(trainingExampleList[0]);
+            int leftClass = storage->getClassLabel(trainingExampleList[0]);
             
             // Test different thresholds
             // Go over all examples in this node
@@ -467,7 +464,7 @@ DecisionTree* DecisionTreeLearner::learn(const DataStorage* dataStorage) const
                 if (diff < 1e-6f)
                 {
                     leftValue = rightValue;
-                    leftClass = storage->getIntClassLabel(n);
+                    leftClass = storage->getClassLabel(n);
                     continue;
                 }
                 
@@ -485,7 +482,7 @@ DecisionTree* DecisionTreeLearner::learn(const DataStorage* dataStorage) const
                 }
                 
                 leftValue = rightValue;
-                leftClass = storage->getIntClassLabel(n);
+                leftClass = storage->getClassLabel(n);
             }
         }
         // We spare the additional multiplication at each iteration.
@@ -555,7 +552,7 @@ DecisionTree* DecisionTreeLearner::learn(const DataStorage* dataStorage) const
             {
                 // Get the leaf node
                 const int node = tree->findLeafNode(dataStorage->getDataPoint(n));
-                tree->getHistogram(node)[dataStorage->getIntClassLabel(n)]++;
+                tree->getHistogram(node)[dataStorage->getClassLabel(n)]++;
             }
         }
     }
@@ -588,341 +585,4 @@ RandomForest* RandomForestLearner::learn(const DataStorage* storage) const
         }
     }
     return forest;
-}
-
-
-////////////////////////////////////////////////////////////////////////////////
-/// RandomForestPrune
-////////////////////////////////////////////////////////////////////////////////
-
-/**
- * This is the type of the state vector for the pruning
- */
-typedef std::vector<int> StateType;
-
-/**
- * This is the simulated annealing callback. It just logs everything to the 
- * console
- */
-class PruneCallback : public SACallback<StateType> {
-public:
-    /**
-     * The function that is called
-     */
-    virtual int callback(const StateType & state, float energy, const StateType & bestState, float bestEnergy, int iteration, float temperature)
-    {
-        std::cout << 
-                "iteration: " << iteration << 
-                " energy: " << energy << 
-                " best: " << bestEnergy << 
-                " temp: " << temperature << 
-                " state: " << state.size() << std::endl;
-        std::cout.flush();
-        return 0;
-    }
-};
-
-/**
- * This is the move that reduces the dimensionality of the state by removing
- * a random tree from the ensemble.
- */
-class PruneMoveRemove : public SAMove<StateType> {
-public:
-    PruneMoveRemove() : g(rd()) {}
-    
-    /**
-     * Computes the move
-     */
-    void move(const StateType & state, StateType & newState)
-    {
-        // Only remove something if the state has at least two trees
-        if (state.size() < 2)
-        {
-            // Just copy the state
-            newState = state;
-        }
-        else
-        {
-            // Set up a probability distribution
-            std::uniform_int_distribution<int> dist(0, static_cast<int>(state.size() - 1));
-            // Decide which tree to remove
-            const int removeTree = dist(g);
-            // Copy all other trees to the new state
-            for (int i = 0; i < static_cast<int>(state.size()); i++)
-            {
-                if (i == removeTree)
-                {
-                    // Don't add the tree that is supposed to be removed
-                    continue;
-                }
-                else
-                {
-                    // Add the tree
-                    newState.push_back(state[i]);
-                }
-            }
-        }
-    }
-private:
-    /**
-     * This is the random number generator
-     */
-    std::mt19937 g;
-};
-
-/**
- * Adds a random tree to the ensemble. 
- */
-
-/**
- * This is the move that reduces the dimensionality of the state by removing
- * a random tree from the ensemble.
- */
-class PruneMoveAdd : public SAMove<StateType> {
-public:
-    PruneMoveAdd(RandomForest* forest) : g(rd()), dist(0, forest->getSize() - 1) {}
-    
-    /**
-     * Computes the move
-     */
-    void move(const StateType & state, StateType & newState)
-    {
-        // Copy all other trees
-        newState = state;
-        
-        // Add a random tree
-        const int tree = dist(g);
-        newState.push_back(tree);
-    }
-    
-private:
-    /**
-     * This is the random number generator
-     */
-    std::mt19937 g;
-    /**
-     * This is a distribution over the trees
-     */
-    std::uniform_int_distribution<int> dist;
-};
-
-/**
- * Exchanges a tree with some other tree
- */
-class PruneMoveExchange : public SAMove<StateType> {
-public:
-    PruneMoveExchange(RandomForest* forest) : g(rd()), dist(0, forest->getSize() - 1) {}
-    
-    /**
-     * Computes the move
-     */
-    void move(const StateType & state, StateType & newState)
-    {
-        // Copy all other trees
-        newState = state;
-        
-        // Set up a distribution over the current state
-        std::uniform_int_distribution<int> stateDist(0, static_cast<int>(state.size() - 1));
-        
-        // Choose a tree to add
-        const int addTree = dist(g);
-        // Choose a tree to replace
-        const int replaceTree = stateDist(g);
-        
-        newState[replaceTree] = addTree;
-    }
-    
-private:
-    /**
-     * This is the random number generator
-     */
-    std::mt19937 g;
-    /**
-     * This is a distribution over the trees
-     */
-    std::uniform_int_distribution<int> dist;
-};
-
-/**
- * This is the energy function for the pruning optimization
- */
-class PruneEnergy : public SAEnergy<StateType> {
-public:
-    PruneEnergy(RandomForest* forest, DataStorage* storage) : storage(storage) {
-        // Determine the predictions
-        for (int i = 0; i < forest->getSize(); i++)
-        {
-            DecisionTree* tree = forest->getTree(i);
-            predictions.push_back(std::vector<int>());
-            tree->classify(storage, predictions[i]);
-        }
-    }
-    
-    /**
-     * Computes the energy
-     */
-    virtual float energy(const StateType & state)
-    {
-        // Calculate the prediction for the current ensemble and every data point
-        float error = 0;
-        for (int n = 0; n < storage->getSize(); n++)
-        {
-            // Get the votes from each tree
-            std::vector<int> votes(storage->getClasscount());
-            // Initialize the votes
-            for (int c = 0; c < storage->getClasscount(); c++)
-            {
-                votes[c] = 0;
-            }
-            
-            // Keep track on the maximum
-            int maxLabel = 0;
-            int maxVotes = 0;
-            // Cast the votes
-            for (size_t j = 0; j < state.size(); j++)
-            {
-                const int vote = predictions[state[j]][n];
-                votes[vote]++;
-                
-                if (votes[vote] > maxVotes)
-                {
-                    maxVotes = votes[vote];
-                    maxLabel = vote;
-                }
-            }
-            
-            // Was the label predicted correctly?
-            if (maxLabel != storage->getIntClassLabel(n))
-            {
-                // Nope, it wasn't
-                error += 1;
-            }
-        }
-        
-        // Return the normalized error
-        return error/storage->getSize();
-    }
-    
-private:
-    /**
-     * These are the predictions for every data point and every tree
-     */
-    std::vector< std::vector<int> > predictions;
-    /**
-     * This is the storage
-     */
-    DataStorage* storage;
-};
-
-
-/**
- * This is the energy function for the pruning optimization
- */
-class PruneEnergy : public SAEnergy<StateType> {
-public:
-    int dist(const std::vector<int> & a, const std::vector<int> & b) const
-    {
-        int d = 0;
-        for (size_t i = 0; i < a.size(); i++)
-        {
-            if (a[i] != b[i])
-            {
-                d++;
-            }
-        }
-        return d;
-    }
-    
-    PruneEnergy2(RandomForest* forest, DataStorage* storage) {
-        // Determine the predictions
-        for (int i = 0; i < forest->getSize(); i++)
-        {
-            DecisionTree* tree = forest->getTree(i);
-            predictions.push_back(std::vector<int>());
-            tree->classify(storage, predictions[i]);
-        }
-        
-        // Compute the distances
-        for (int i = 0; i < forest->getSize(); i++)
-        {
-            distances.push_back(std::vector<int>(forest->getSize()));
-            for (int j = 0; j < forest->getSize(); j++)
-            {
-                distances[i][j] = dist(predictions[i], predictions[j]);
-            }
-        }
-    }
-    
-    /**
-     * Computes the energy
-     */
-    virtual float energy(const StateType & state)
-    {
-        int res = 0;
-        for (size_t j = 0; j < distances[0].size(); j++)
-        {
-            int min = distances[state[0]][j];
-            for (size_t i = 0; i < state.size(); i++)
-            {
-                if (distances[state[i]][j] < min)
-                {
-                    min = distances[state[i]][j];
-                }
-            }
-            res += min;
-        }
-        return res/static_cast<float>(state.size());
-    }
-    
-private:
-    /**
-     * These are the predictions for every data point and every tree
-     */
-    std::vector< std::vector<int> > predictions;
-    /**
-     * The distance matrix
-     */
-    std::vector< std::vector<int> > distances;
-};
-
-RandomForest* RandomForestPrune::prune(RandomForest* forest, DataStorage* storage) const
-{
-    // We prune the forest using simulated annealing
-    SimulatedAnnealing<std::vector<int> > sa;
-    sa.setNumInnerLoops(250);
-    
-    // Set up the cooling schedule
-    GeometricCoolingSchedule schedule;
-    schedule.setAlpha(0.95f);
-    schedule.setStartTemperature(100);
-    schedule.setEndTemperature(1e-5);
-    sa.setCoolingSchedule(&schedule);
-    
-    // Set up the moves
-    PruneMoveExchange exchangeMove(forest);
-    sa.addMove(&exchangeMove, 1.0f);
-    
-    // Set up the energy function
-    PruneEnergy energy(forest, storage);
-    sa.setEnergyFunction(&energy);
-    
-    // Set up the callback function
-    PruneCallback callback;
-    sa.addCallback(&callback);
-    
-    // Find some initial state
-    StateType state;
-    for (int i = 0; i < 15; i++)
-    {
-        state.push_back(i);
-    }
-    
-    // Optimize the stuff
-    sa.optimize(state);
-    RandomForest* newForest = new RandomForest;
-    for (size_t i = 0; i < state.size(); i++)
-    {
-        newForest->addTree(forest->getTree(state[i]));
-    }
-    return newForest;
 }
