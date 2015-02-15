@@ -26,10 +26,12 @@ namespace libf {
      */
     class Classifier {
     public:
+        virtual ~Classifier() {}
+        
         /**
          * Assigns an integer class label to some data point
          */
-        virtual int classify(DataPoint* x) const = 0;
+        virtual int classify(DataPoint* x) const;
         
         /**
          * Classifies an entire data set and uses the integer values. 
@@ -37,19 +39,9 @@ namespace libf {
         virtual void classify(DataStorage* storage, std::vector<int> & results) const;
         
         /**
-         * Assigns a class label to some data point
+         * Outputs the posterior class probabilities for a given data point.
          */
-        //virtual std::string classify(DataPoint* x) const;
-        
-        /**
-         * Classifies an entire data set. 
-         */
-        //virtual void classify(DataStorage* storage, std::vector<std::string> & results) const;
-        
-        /**
-         * Outputs the class probabilities for a given data point.
-         */
-        //virtual void classProbabilities(DataPoint* x, std::vector<float> & probabilities) const = 0;
+        virtual void classPosterior(DataPoint* x, std::vector<float> & probabilities, float & normalization) const = 0;
         
         /**
          * Reads the classifier from a stream
@@ -60,82 +52,10 @@ namespace libf {
          * Writes the classifier to a stream
          */
         virtual void write(std::ostream & stream) const = 0;
-        
-        /**
-         * Sets the class label map
-         */
-        void setClassLabelMap(const std::vector<std::string> & _classLabelMap) 
-        {
-            classLabelMap = _classLabelMap;
-        }
-        
-        /**
-         * Returns the class label map
-         */
-        const std::vector<std::string> & getClassLabelMap() const
-        {
-            return classLabelMap;
-        }
-        
-    protected:
-        /**
-         * The class label map: int -> string
-         */
-        std::vector<std::string> classLabelMap;
     };
-    
-    /**
-     * This is the abstract parent class of decision trees and decision DAGs
-     */
-    class GraphClassifier : public Classifier {
-    public:
-        /**
-         * Returns the leaf node for a specific data point
-         */
-        int findLeafNode(DataPoint* x) const;
-        
-        /**
-         * Returns the histogram for a node
-         */
-        std::vector<int> & getHistogram(int node)
-        {
-            return histograms[node];
-        }
-        
-        /**
-         * Returns the histogram for a node
-         */
-        const std::vector<int> & getHistogram(int node) const
-        {
-            return histograms[node];
-        }
-        
-        /**
-         * Returns the mass of a histogram
-         */
-        int getHistogramMass(int node) const;
-        
-        /**
-         * Calculates the masses of the histograms
-         */
-        void calcHistogramMasses();
-        
-    protected:
-        /**
-         * The histograms for each node. We only store actual histograms at 
-         * leaf nodes. 
-         */
-        std::vector< std::vector<int> > histograms;   
-        /**
-         * The masses of the histograms
-         */
-        std::vector<int> histogramMasses;
-    };
-    
+
     /**
      * This class represents a decision tree.
-     * 
-     * TODO: Make this a derived class of GraphClassifier
      */
     class DecisionTree : public Classifier {
     public:
@@ -161,14 +81,6 @@ namespace libf {
         }
         
         /**
-         * Sets the class label for a node
-         */
-        void setClassLabel(int node, int label)
-        {
-            classLabels[node] = label;
-        }
-        
-        /**
          * Splits a child node and returns the index of the left child. 
          */
         int splitNode(int node);
@@ -179,17 +91,9 @@ namespace libf {
         int findLeafNode(DataPoint* x) const;
         
         /**
-         * Classifies a data point
+         * Returns the class posterior probability and a normalization constant.
          */
-        virtual int classify(DataPoint* x) const;
-        
-        /**
-         * Classifies an entire data set. 
-         */
-        virtual void classify(DataStorage* storage, std::vector<int> & results) const
-        {
-            Classifier::classify(storage, results);
-        }
+        virtual void classPosterior(DataPoint* x, std::vector<float> & probabilities, float & normalization) const;
         
         /**
          * Reads the tree from a stream
@@ -237,10 +141,6 @@ namespace libf {
          */
         std::vector<int> leftChild;
         /**
-         * The class label for each node
-         */
-        std::vector<int> classLabels;
-        /**
          * The histograms for each node. We only store actual histograms at 
          * leaf nodes. 
          */
@@ -251,8 +151,10 @@ namespace libf {
      * A kernel decision tree. Each split is based on thresholding a kernel 
      * function k(x, x_i) <= t where x_i is some data point from the training
      * set and x is the evaluation point.
+     * 
+     * TODO: Implement Kernel Trees
      */
-    class KernelDecisionTree : public GraphClassifier {
+    class KernelDecisionTree : public Classifier {
     private:
         /**
          * The data points that are used at every split. 
@@ -280,8 +182,9 @@ namespace libf {
     
     /**
      * Decision DAG class. 
+     * TODO: Implement decision DAGs
      */
-    class DecisionDAG : public GraphClassifier {
+    class DecisionDAG : public Classifier {
     private:
         /**
          * The split features
@@ -308,25 +211,12 @@ namespace libf {
     /**
      * A random forests that classifies a data point using a simple majority 
      * voting schema. 
-     * 
-     * TODO: Use abstract GraphClassifier class
      */
     class RandomForest : public Classifier {
     public:
         RandomForest() : smoothing(1) {}
         
-        /**
-         * Classifies a data point
-         */
-        virtual int classify(DataPoint* x) const;
-        
-        /**
-         * Classifies an entire data set. 
-         */
-        virtual void classify(DataStorage* storage, std::vector<int> & results) const
-        {
-            Classifier::classify(storage, results);
-        }
+        virtual ~RandomForest();
         
         /**
          * Reads the tree from a stream
@@ -339,9 +229,14 @@ namespace libf {
         virtual void write(std::ostream & stream) const;
         
         /**
+         * Returns the class posterior probability and a normalization constant.
+         */
+        virtual void classPosterior(DataPoint* x, std::vector<float> & probabilities, float & normalization) const;
+        
+        /**
          * Adds a tree to the ensemble
          */
-        void addTree(GraphClassifier* tree)
+        void addTree(Classifier* tree)
         {
             trees.push_back(tree);
         }
@@ -357,7 +252,7 @@ namespace libf {
         /**
          * Returns the i-th tree
          */
-        GraphClassifier* getTree(int i)
+        Classifier* getTree(int i)
         {
             return trees[i];
         }
@@ -365,7 +260,7 @@ namespace libf {
         /**
          * Returns the i-th tree
          */
-        const GraphClassifier* getTree(int i) const
+        const Classifier* getTree(int i) const
         {
             return trees[i];
         }
@@ -400,7 +295,7 @@ namespace libf {
         /**
          * The individual decision trees. 
          */
-        std::vector<GraphClassifier*> trees;
+        std::vector<Classifier*> trees;
         /**
          * The smoothing parameter for classification
          */

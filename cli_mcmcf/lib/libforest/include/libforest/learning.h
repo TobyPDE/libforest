@@ -47,13 +47,13 @@ namespace libf {
         /**
          * Learns a classifier.
          */
-        virtual T* learn(const DataStorage* storage) const;
+        virtual T* learn(const DataStorage* storage) const = 0;
         
         /**
          * The autoconf function should set up the learner such that without
          * any additional settings people can try a learner on a data set. 
          */
-        virtual void autoconf(const DataStorage* storage);
+        virtual void autoconf(const DataStorage* storage) = 0;
         
     protected:
         /**
@@ -85,27 +85,6 @@ namespace libf {
          * The learning cycle. The callback is called very cycle iterations
          */
         std::vector<int> callbackCycles;
-    };
-    
-    /**
-     * This is the parent class for all graph classier learners
-     */
-    template <class T>
-    class GraphClassifierLearner : Learner<T> {
-    protected:
-        /**
-         * Whether or not bootstrapping shall be used
-         */
-        bool useBootstrap;
-        /**
-         * The number of bootstrap examples that shall be used.
-         */
-        int numBootstrapExamples;
-        /**
-         * The number of random features that shall be evaluated for each 
-         * split.
-         */
-        int numFeatures;
     };
     
     /**
@@ -230,7 +209,7 @@ namespace libf {
          * Configures the learning automatically depending on a certain data
          * set. 
          */
-        void autoconf(const DataStorage* storage);
+        virtual void autoconf(const DataStorage* storage);
         
         /**
          * Learns a decision tree on a data set. If you want to make learning
@@ -274,24 +253,6 @@ namespace libf {
         int minChildSplitExamples;
     };
     
-    /**
-     * A learner for decision DAGs. It performs the stochastic LSearch algorithm.
-     */
-    class DecisionDAGLearner : public GraphClassifierLearner<DecisionDAG> {
-    protected:
-        /**
-         * The maximum number of levels to train
-         */
-        int maxDepths;
-        /**
-         * The merging schedule for the DAG
-         */
-        std::function<int(int)> mergingSchedule;
-        /**
-         * The number of training iterations
-         */
-        int iterations;
-    };
     
     /**
      * This is a random forest learner. 
@@ -354,6 +315,12 @@ namespace libf {
          */
         virtual RandomForest* learn(const DataStorage* storage) const;
         
+        
+        /**
+         * The autoconf function should set up the learner such that without
+         * any additional settings people can try a learner on a data set. 
+         */
+        virtual void autoconf(const DataStorage* storage) {}
     private:
         /**
          * The number of trees that we shall learn
@@ -362,23 +329,11 @@ namespace libf {
         /**
          * The tree learner
          */
-        Learner<GraphClassifier>* treeLearner;
+        DecisionTreeLearner* treeLearner;
         /**
          * The number of threads that shall be used to learn the forest
          */
         int numThreads;
-    };
-    
-    /**
-     * Global random forest pruning. We remove trees from the forest in order to
-     * get an optimal error rate. 
-     */
-    class RandomForestPrune : public Learner<RandomForest> {
-    public:
-        /**
-         * Prunes a random forest using the given data set.
-         */
-        RandomForest* prune(RandomForest* forest, DataStorage* storage) const;
     };
 }
 

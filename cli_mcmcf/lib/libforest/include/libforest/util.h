@@ -20,6 +20,11 @@
 		const char* ptrMessage;		\
 	};
 
+/**
+ * This is the buffer size for the arrays in the graph structures
+ */
+#define GRAPH_BUFFER_SIZE 5000
+
 namespace libf {
     DEFINE_EXCEPTION(Exception)
 

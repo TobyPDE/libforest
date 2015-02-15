@@ -89,16 +89,21 @@ int main(int c, const char** v)
     reader.read("mnist_train.txt", &storage);
     reader.read("mnist_test.txt", &storageT);
     std::cout << "loaded" << "\n";
+    std::cout << storage.getSize() << "\n";
+    storage.getClassLabelMap().dump();
+    exit(0);
     
-    DecisionTreeLearner learner;
-    storage.computeIntClassLabels();
-    storageT.computeIntClassLabels();
+    DecisionTreeLearner treeLearner;
+    
+    treeLearner.autoconf(&storage);
+    treeLearner.setUseBootstrap(true);
+    
     RandomForestLearner forestLearner;
-    forestLearner.setTreeLearner(&learner);
-    learner.autoconf(&storage);
-    learner.setUseBootstrap(true);
+    
+    forestLearner.setTreeLearner(&treeLearner);
     forestLearner.setNumTrees(8);
     forestLearner.setNumThreads(8);    
+    
     std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
     RandomForest* forest = forestLearner.learn(&storage);
     //DecisionTree* tree = learner.learn(&storage);
@@ -135,7 +140,7 @@ int main(int c, const char** v)
         int error = 0;
         for (int i = 0; i < storageT.getSize(); i++)
         {
-            if (res[i] != storageT.getIntClassLabel(i))
+            if (res[i] != storageT.getClassLabel(i))
             {
                 error++;
             }
