@@ -711,3 +711,163 @@ int RandomForestLearner::defaultCallback(RandomForest* forest, RandomForestLearn
     return 0;
 
 }
+
+
+////////////////////////////////////////////////////////////////////////////////
+/// BoostedRandomForestLearner
+////////////////////////////////////////////////////////////////////////////////
+
+BoostedRandomForest* BoostedRandomForestLearner::learn(const DataStorage* storage) const
+{
+    // Set up the empty random forest
+    BoostedRandomForest* forest = new BoostedRandomForest();
+    
+    // Set up the state for the call backs
+    BoostedRandomForestLearnerState state;
+    state.learner = this;
+    state.forest = forest;
+    state.action = ACTION_START_FOREST;
+    
+    evokeCallback(forest, 0, &state);
+    
+    // Set up the weights for the data points
+    const int N = storage->getSize();
+    std::vector<float> dataWeights(N);
+    std::vector<float> cumsum(N);
+    std::vector<bool> misclassified(N);
+    for (int n = 0; n < N; n++)
+    {
+        dataWeights[n] = 1.0f/N;
+        cumsum[n] = (n+1) * 1.0f/N;
+        misclassified[n] = false;
+    }
+    
+    // We need this distribution in order to sample according to the weights
+    std::mt19937 g(rd());
+    std::uniform_real_distribution<float> U(0, 1);
+    
+    const int C = storage->getClasscount();
+    
+    int treeStartCounter = 0; 
+    int treeFinishCounter = 0; 
+    for (int i = 0; i < numTrees; i++)
+    {
+        state.tree = ++treeStartCounter;
+        state.action = ACTION_START_TREE;
+        evokeCallback(forest, treeStartCounter - 1, &state);
+        
+        // Learn the tree
+        // --------------
+        
+        // Sample data points according to the weights
+        DataStorage treeData;
+        treeData.setClasscount(storage->getClasscount());
+        
+        for (int n = 0; n < N; n++)
+        {
+            const float u = U(g);
+            int index = 0;
+            while (u > cumsum[index])
+            {
+                index++;
+            }
+            treeData.addDataPoint(storage->getDataPoint(index), storage->getClassLabel(index), false);
+        }
+        
+        // Learn the tree
+        DecisionTree* tree = treeLearner->learn(&treeData);
+        
+        // Calculate the error term
+        float error = 0;
+        for (int n = 0; n < N; n++)
+        {
+            const int predictedLabel = tree->classify(storage->getDataPoint(n));
+            if (predictedLabel != storage->getClassLabel(n))
+            {
+                error += dataWeights[n];
+                misclassified[n] = true;
+            }
+            else
+            {
+                misclassified[n] = false;
+            }
+        }
+        
+        // Compute the classifier weight
+        const float alpha = std::log((1-error)/error) + std::log(C - 1);
+        
+        std::cout << "error = " << error << ", alpha = " << alpha << "\n";
+        
+        // Update the weights
+        float total = 0;
+        for (int n = 0; n < N; n++)
+        {
+            if (misclassified[n])
+            {
+                dataWeights[n] *= std::exp(alpha);
+            }
+            total += dataWeights[n];
+        }
+        dataWeights[0] /= total;
+        cumsum[0] = dataWeights[0];
+        for (int n = 1; n < N; n++)
+        {
+            dataWeights[n] /= total;
+            cumsum[n] = dataWeights[n] + cumsum[n-1];
+        }
+        
+        // Add the classifier
+        forest->addTree(tree, alpha);
+        
+        // --------------
+        // Add it to the forest
+        state.tree = ++treeFinishCounter;
+        state.action = ACTION_FINISH_TREE;
+        evokeCallback(forest, treeFinishCounter - 1, &state);
+    }
+    
+    state.tree = 0;
+    state.action = ACTION_FINISH_FOREST;
+    evokeCallback(forest, 0, &state);
+    
+    return forest;
+}
+
+
+void BoostedRandomForestLearner::dumpSetting(std::ostream& stream) const
+{
+    stream << std::setw(30) << "Learner" << ": BoostedRandomForestLearner" << "\n";
+    stream << std::setw(30) << "Number of trees" << ": " << getNumTrees() << "\n";
+    stream << "Tree learner settings" << "\n";
+    treeLearner->dumpSetting(stream);
+}
+
+int BoostedRandomForestLearner::defaultCallback(BoostedRandomForest* forest, BoostedRandomForestLearnerState* state)
+{
+    switch (state->action) {
+        case BoostedRandomForestLearner::ACTION_START_FOREST:
+            std::cout << "Start boosted random forest training\n";
+            state->learner->dumpSetting();
+            std::cout << "\n";
+            break;
+        case BoostedRandomForestLearner::ACTION_START_TREE:
+            std::cout   << std::setw(15) << std::left << "Start tree " 
+                        << std::setw(4) << std::right << state->tree 
+                        << " out of " 
+                        << std::setw(4) << state->learner->getNumTrees() << "\n";
+            break;
+        case BoostedRandomForestLearner::ACTION_FINISH_TREE:
+            std::cout   << std::setw(15) << std::left << "Finish tree " 
+                        << std::setw(4) << std::right << state->tree 
+                        << " out of " 
+                        << std::setw(4) << state->learner->getNumTrees() << "\n";
+            break;
+        case BoostedRandomForestLearner::ACTION_FINISH_FOREST:
+            std::cout << "Finished boosted forest in " << state->getPassedTime().count()/1000000. << "s\n";
+            break;
+        default:
+            std::cout << "UNKNOWN ACTION CODE " << state->action << "\n";
+            break;
+    }
+    return 0;
+}
