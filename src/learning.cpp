@@ -38,7 +38,7 @@ private:
     /**
      * The integral over the entire histogram
      */
-    int mass;
+    float mass;
 
     /**
      * The entropies for the single bins
@@ -155,13 +155,13 @@ public:
     void set(const int i, const int v) { mass -= histogram[i]; mass += v; histogram[i] = v; }
     void add(const int i, const int v) { mass += v; histogram[i] += v; }
     void sub(const int i, const int v) { mass -= v; histogram[i] -= v; }
-    void add1(const int i) { mass++; histogram[i]++; }
-    void sub1(const int i) { mass--; histogram[i]--; }
+    void add1(const int i) { mass += 1; histogram[i]++; }
+    void sub1(const int i) { mass -= 1; histogram[i]--; }
     void addOne(const int i)
     {
-        totalEntropy += ENTROPY(getMass());
-        mass++;
-        totalEntropy -= ENTROPY(getMass());
+        totalEntropy += ENTROPY(mass);
+        mass += 1;
+        totalEntropy -= ENTROPY(mass);
         histogram[i]++;
         totalEntropy -= entropies[i];
         entropies[i] = ENTROPY(histogram[i]); 
@@ -169,9 +169,9 @@ public:
     }
     void subOne(const int i)
     { 
-        totalEntropy += ENTROPY(getMass());
-        mass--; 
-        totalEntropy -= ENTROPY(getMass());
+        totalEntropy += ENTROPY(mass);
+        mass -= 1;
+        totalEntropy -= ENTROPY(mass);
 
         histogram[i]--;
         totalEntropy -= entropies[i];
@@ -300,12 +300,12 @@ public:
     /**
      * The data storage
      */
-    DataStorage* storage;
+    const DataStorage* storage;
     
     /**
      * Compares two training examples
      */
-    bool operator() (const int lhs, const int rhs)
+    bool operator() (const int lhs, const int rhs) const
     {
         return storage->getDataPoint(lhs)->at(feature) < storage->getDataPoint(rhs)->at(feature);
     }
@@ -490,7 +490,7 @@ DecisionTree* DecisionTreeLearner::learn(const DataStorage* dataStorage) const
         bestThreshold *= 0.5f;
         
         // Did we find good split values?
-        if (bestFeature < 0|| bestLeftMass < minChildSplitExamples || bestRightMass < minChildSplitExamples)
+        if (bestFeature < 0 || bestLeftMass < minChildSplitExamples || bestRightMass < minChildSplitExamples)
         {
             // We didn't
             // Don't split
@@ -540,8 +540,6 @@ DecisionTree* DecisionTreeLearner::learn(const DataStorage* dataStorage) const
         delete[] trainingExampleList;
     }
     
-    learnLogClassPriors(tree, storage);
-    
     // Free the data set
     delete storage;
     
@@ -550,9 +548,6 @@ DecisionTree* DecisionTreeLearner::learn(const DataStorage* dataStorage) const
 
 void DecisionTreeLearner::updateHistograms(DecisionTree* tree, const DataStorage* storage) const
 {
-    // First: Update the priors
-    learnLogClassPriors(tree, storage);
-    
     // Now update the histograms
     for (int i = 0; i < storage->getSize(); i++)
     {
@@ -637,8 +632,6 @@ RandomForest* RandomForestLearner::learn(const DataStorage* storage) const
             forest->addTree(tree);
         }
     }
-    
-    this->learnLogClassPriors(forest, storage);
     
     state.tree = 0;
     state.action = ACTION_FINISH_FOREST;

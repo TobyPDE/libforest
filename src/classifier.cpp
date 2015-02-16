@@ -50,18 +50,6 @@ int Classifier::classify(DataPoint* x) const
     return label;
 }
 
-void Classifier::classLogPosterior(DataPoint* x, std::vector<float>& probabilities) const
-{
-    // Get the likelihood
-    classLogLikelihood(x, probabilities);
-    
-    // Add the prior
-    for (size_t c = 0; c < probabilities.size(); c++)
-    {
-        probabilities[c] += classLogPriors[c];
-    }
-}
-
 ////////////////////////////////////////////////////////////////////////////////
 /// DecisionTree
 ////////////////////////////////////////////////////////////////////////////////
@@ -126,7 +114,7 @@ int DecisionTree::findLeafNode(DataPoint* x) const
     return node;
 }
 
-void DecisionTree::classLogLikelihood(DataPoint* x, std::vector<float> & probabilities) const
+void DecisionTree::classLogPosterior(DataPoint* x, std::vector<float> & probabilities) const
 {
     // Get the leaf node
     const int leafNode = findLeafNode(x);
@@ -163,17 +151,17 @@ RandomForest::~RandomForest()
     }
 }
 
-void RandomForest::classLogLikelihood(DataPoint* x, std::vector<float> & probabilities) const
+void RandomForest::classLogPosterior(DataPoint* x, std::vector<float> & probabilities) const
 {
     assert(getSize() > 0);
-    trees[0]->classLogLikelihood(x, probabilities);
+    trees[0]->classLogPosterior(x, probabilities);
     
     // Let the crowd decide
     for (size_t i = 1; i < trees.size(); i++)
     {
         // Get the probabilities from the current tree
         std::vector<float> currentHist;
-        trees[i]->classLogLikelihood(x, currentHist);
+        trees[i]->classLogPosterior(x, currentHist);
         
         // Accumulate the votes
         for (int  c = 0; c < currentHist.size(); c++)

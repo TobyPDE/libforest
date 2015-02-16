@@ -67,35 +67,6 @@ namespace libf {
         
     protected:
         /**
-         * Updates the class prior probabilities
-         */
-        void learnLogClassPriors(Classifier* classifier, const DataStorage* storage, float smoothing = 0.0f) const
-        {
-            const int C = storage->getClasscount();
-            std::vector<float> & hist = classifier->getClassLogPriors();
-            hist.resize(C);
-            
-            // Initialize the priors
-            for (int c = 0; c < C; c++)
-            {
-                hist[c] = 0.0f;
-            }
-            
-            // Go through the data storage and update the pirors
-            for (int i = 0; i < storage->getSize(); i++)
-            {
-                const int c = storage->getClassLabel(i);
-                hist[c] += 1;
-            }
-            
-            // Normalize and apply smoothing 
-            for (int c = 0; c < C; c++)
-            {
-                hist[c] = std::log((hist[c] + smoothing)/(storage->getSize() + C*smoothing));
-            }
-        }
-        
-        /**
          * Calls the callbacks. The results of the callbacks are bitwise or'ed
          */
         int evokeCallback(T* learnedObject, int iteration, S* state) const
