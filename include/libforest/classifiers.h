@@ -320,5 +320,84 @@ namespace libf {
          */
         std::vector<Classifier*> trees;
     };
+    
+    /**
+     * A boosted random forest classifier.
+     */
+    class BoostedRandomForest : public Classifier {
+    public:
+        virtual ~BoostedRandomForest();
+        
+        /**
+         * Reads the tree from a stream
+         */
+        virtual void read(std::istream & stream);
+        
+        /**
+         * Writes the tree to a stream
+         */
+        virtual void write(std::ostream & stream) const;
+        
+        /**
+         * Returns the class log posterior p(c | x). In this case, this cannot
+         * be seen as a probability because of the boosting effects.
+         */
+        virtual void classLogPosterior(const DataPoint* x, std::vector<float> & probabilities) const;
+        
+        /**
+         * Adds a tree to the ensemble
+         */
+        void addTree(Classifier* tree, float weight)
+        {
+            trees.push_back(tree);
+            weights.push_back(weight);
+        }
+        
+        /**
+         * Returns the number of trees
+         */
+        int getSize() const
+        {
+            return static_cast<int>(trees.size());
+        }
+        
+        /**
+         * Returns the i-th tree
+         */
+        Classifier* getTree(int i)
+        {
+            return trees[i];
+        }
+        
+        /**
+         * Returns the i-th tree
+         */
+        const Classifier* getTree(int i) const
+        {
+            return trees[i];
+        }
+        
+        /**
+         * Removes the i-th tree
+         */
+        void removeTree(int i)
+        {
+            // Delete the tree
+            delete trees[i];
+            // Remove it from the array
+            trees.erase(trees.begin() + i);
+            weights.erase(weights.begin() + i);
+        }
+        
+    private:
+        /**
+         * The individual decision trees. 
+         */
+        std::vector<Classifier*> trees;
+        /**
+         * The tree weights
+         */
+        std::vector<float> weights;
+    };
 }
 #endif

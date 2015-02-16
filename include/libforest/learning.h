@@ -21,6 +21,8 @@
 #include <cmath>
 #include <vector>
 
+#include "classifiers.h"
+
 namespace libf {
     /**
      * Forward declarations to reduce compile time
@@ -28,7 +30,9 @@ namespace libf {
     class DataStorage;
     class DecisionTree;
     class RandomForest;
+    class BoostedRandomForest;
     class RandomForestLearner;
+    class BoostedRandomForestLearner;
     
     /**
      * This is the base class for all learners. It allows you to set a callback
@@ -430,6 +434,127 @@ namespace libf {
          * The number of threads that shall be used to learn the forest
          */
         int numThreads;
+    };
+    
+    
+    /**
+     * This class holds the current state of the boosted random forest learning
+     * algorithm.
+     */
+    class BoostedRandomForestLearnerState {
+    public:
+        BoostedRandomForestLearnerState() : action(0), learner(0), forest(0), tree(0), startTime(std::chrono::high_resolution_clock::now()) {}
+        
+        /**
+         * The current action
+         */
+        int action;
+        /**
+         * The learner object
+         */
+        const BoostedRandomForestLearner* learner;
+        /**
+         * The learned object
+         */
+        const BoostedRandomForest* forest;
+        /**
+         * The current tree
+         */
+        int tree;
+        /**
+         * The start time
+         */
+        std::chrono::high_resolution_clock::time_point startTime;
+        
+        /**
+         * Returns the passed time in microseconds
+         */
+        std::chrono::microseconds getPassedTime()
+        {
+            std::chrono::high_resolution_clock::time_point now = std::chrono::high_resolution_clock::now();
+            return std::chrono::duration_cast<std::chrono::microseconds>( now - startTime );
+        }
+    };
+    
+    /**
+     * This is a random forest learner. 
+     */
+    class BoostedRandomForestLearner : public Learner<BoostedRandomForest, BoostedRandomForestLearnerState> {
+    public:
+        /**
+         * These are the actions of the learning algorithm that are passed
+         * to the callback functions.
+         */
+        const static int ACTION_START_TREE = 1;
+        const static int ACTION_FINISH_TREE = 2;
+        const static int ACTION_START_FOREST = 3;
+        const static int ACTION_FINISH_FOREST = 4;
+        
+        /**
+         * The default callback for this learner.
+         */
+        static int defaultCallback(BoostedRandomForest* forest, BoostedRandomForestLearnerState* state);
+        
+        BoostedRandomForestLearner() : numTrees(8), treeLearner(0) {}
+        
+        /**
+         * Sets the number of trees. 
+         */
+        void setNumTrees(int _numTrees)
+        {
+            assert(_numTrees >= 1);
+            numTrees = _numTrees;
+        }
+        
+        /**
+         * Returns the number of trees
+         */
+        int getNumTrees() const
+        {
+            return numTrees;
+        }
+        
+        /**
+         * Sets the decision tree learner
+         */
+        void setTreeLearner(DecisionTreeLearner* _treeLearner)
+        {
+            treeLearner = _treeLearner;
+        }
+        
+        /**
+         * Returns the decision tree learner
+         */
+        DecisionTreeLearner* getTreeLearner() const
+        {
+            return treeLearner;
+        }
+        
+        /**
+         * Learns a forests. 
+         */
+        virtual BoostedRandomForest* learn(const DataStorage* storage) const;
+        
+        /**
+         * The autoconf function should set up the learner such that without
+         * any additional settings people can try a learner on a data set. 
+         */
+        virtual void autoconf(const DataStorage* storage) {}
+        
+        /**
+         * Dumps the settings
+         */
+        virtual void dumpSetting(std::ostream & stream = std::cout) const;
+        
+    private:
+        /**
+         * The number of trees that we shall learn
+         */
+        int numTrees;
+        /**
+         * The tree learner
+         */
+        DecisionTreeLearner* treeLearner;
     };
 }
 

@@ -333,6 +333,15 @@ namespace libf {
             return classLabelMap;
         }
         
+        /**
+         * Sets the number of class label manually. Do not use this unless you
+         * are sure what you are doing.
+         */
+        void setClasscount(int _classcount)
+        {
+            classcount = _classcount;
+        }
+        
     private:
         /**
          * Frees the data points and resets the array structures. 

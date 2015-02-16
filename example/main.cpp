@@ -93,16 +93,15 @@ int main(int c, const char** v)
     
     treeLearner.autoconf(&storage);
     treeLearner.setUseBootstrap(false);
+    treeLearner.setMaxDepth(5);
     
-    RandomForestLearner forestLearner;
-    
-    forestLearner.addCallback(RandomForestLearner::defaultCallback, 1);
+    BoostedRandomForestLearner forestLearner;
+    forestLearner.addCallback(BoostedRandomForestLearner::defaultCallback, 1);
     
     forestLearner.setTreeLearner(&treeLearner);
-    forestLearner.setNumTrees(15);
-    forestLearner.setNumThreads(8);    
+    forestLearner.setNumTrees(50);
     
-    RandomForest* forest = forestLearner.learn(&storage);
+    BoostedRandomForest* forest = forestLearner.learn(&storage);
     
     AccuracyTool accuracyTool;
     accuracyTool.measureAndPrint(forest, &storageT);

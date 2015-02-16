@@ -197,3 +197,70 @@ void RandomForest::read(std::istream& stream)
         addTree(tree);
     }
 }
+
+////////////////////////////////////////////////////////////////////////////////
+/// BoostedRandomForest
+////////////////////////////////////////////////////////////////////////////////
+
+BoostedRandomForest::~BoostedRandomForest()
+{
+    for (size_t i = 0; i < trees.size(); i++)
+    {
+        delete trees[i];
+    }
+}
+
+
+void BoostedRandomForest::write(std::ostream& stream) const
+{
+    // Write the number of trees in this ensemble
+    writeBinary(stream, getSize());
+    
+    // Write the individual trees
+    for (int i = 0; i < getSize(); i++)
+    {
+        // Write the weight
+        writeBinary(stream, weights[i]);
+        getTree(i)->write(stream);
+    }
+}
+
+void BoostedRandomForest::read(std::istream& stream)
+{
+    // Read the number of trees in this ensemble
+    int size;
+    readBinary(stream, size);
+    
+    // Read the trees
+    for (int i = 0; i < size; i++)
+    {
+        DecisionTree* tree = new DecisionTree();
+        tree->read(stream);
+        // Read the weight
+        float weight;
+        readBinary(stream, weight);
+        addTree(tree, weight);
+    }
+}
+
+
+void BoostedRandomForest::classLogPosterior(const DataPoint* x, std::vector<float> & probabilities) const
+{
+    assert(getSize() > 0);
+    // Determine the number of classes by looking at a histogram
+    trees[0]->classLogPosterior(x, probabilities);
+    // Initialize the result vector
+    const int C = static_cast<int>(probabilities.size());
+    for (int c = 0; c < C; c++)
+    {
+        probabilities[c] = 0;
+    }
+    
+    // Let the crowd decide
+    for (size_t i = 0; i < trees.size(); i++)
+    {
+        // Get the resulting label
+        const int label = trees[i]->classify(x);
+        probabilities[label] += weights[i];
+    }
+}
