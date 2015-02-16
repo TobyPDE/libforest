@@ -1,6 +1,8 @@
 #ifndef MCMCF_UTIL_H
 #define MCMCF_UTIL_H
 
+#include <iostream>
+
 /**
  * This makro helps you creating custom exception classes which accept error messages as constructor arguments. 
  * You can define a new exception class by: DEFINE_EXCEPTION(classname)
@@ -49,6 +51,16 @@ namespace libf {
             }
         }
     };
+    
+    template <class T>
+    void dumpVector(const std::vector<T> & v)
+    {
+        for (size_t i = 0; i < v.size(); i++)
+        {
+            std::cout << i << ": " << v[i] << std::endl;
+        }
+        std::cout.flush();
+    }
 }
 #endif
  

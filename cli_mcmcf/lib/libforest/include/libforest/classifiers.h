@@ -39,9 +39,14 @@ namespace libf {
         virtual void classify(DataStorage* storage, std::vector<int> & results) const;
         
         /**
-         * Outputs the posterior class probabilities for a given data point.
+         * Returns the class posterior probability p(c|x).
          */
-        virtual void classPosterior(DataPoint* x, std::vector<float> & probabilities, float & normalization) const = 0;
+        virtual void classLogPosterior(DataPoint* x, std::vector<float> & probabilities) const;
+        
+        /**
+         * Returns the class likelihood p(x | c).
+         */
+        virtual void classLogLikelihood(DataPoint* x, std::vector<float> & probabilities) const = 0;
         
         /**
          * Reads the classifier from a stream
@@ -52,6 +57,28 @@ namespace libf {
          * Writes the classifier to a stream
          */
         virtual void write(std::ostream & stream) const = 0;
+        
+        /**
+         * Returns the class priors
+         */
+        const std::vector<float> & getClassLogPriors() const
+        {
+            return classLogPriors;
+        }
+        
+        /**
+         * Returns the class priors
+         */
+        std::vector<float> & getClassLogPriors()
+        {
+            return classLogPriors;
+        }
+        
+    protected:
+        /**
+         * The class prior probabilities
+         */
+        std::vector<float> classLogPriors;
     };
 
     /**
@@ -91,9 +118,9 @@ namespace libf {
         int findLeafNode(DataPoint* x) const;
         
         /**
-         * Returns the class posterior probability and a normalization constant.
+         * Returns the class likelihood p(x | c).
          */
-        virtual void classPosterior(DataPoint* x, std::vector<float> & probabilities, float & normalization) const;
+        virtual void classLogLikelihood(DataPoint* x, std::vector<float> & probabilities) const;
         
         /**
          * Reads the tree from a stream
@@ -108,7 +135,7 @@ namespace libf {
         /**
          * Returns the histogram for a node
          */
-        std::vector<int> & getHistogram(int node)
+        std::vector<float> & getHistogram(int node)
         {
             return histograms[node];
         }
@@ -116,9 +143,25 @@ namespace libf {
         /**
          * Returns the histogram for a node
          */
-        const std::vector<int> & getHistogram(int node) const
+        const std::vector<float> & getHistogram(int node) const
         {
             return histograms[node];
+        }
+        
+        /**
+         * Returns the total number of nodes
+         */
+        int getNumNodes() const
+        {
+            return static_cast<int>(leftChild.size());
+        }
+        
+        /**
+         * Returns true if the given node is a leaf node
+         */
+        bool isLeafNode(int node) const 
+        {
+            return leftChild[node] == 0;
         }
         
     private:
@@ -144,7 +187,7 @@ namespace libf {
          * The histograms for each node. We only store actual histograms at 
          * leaf nodes. 
          */
-        std::vector< std::vector<int> > histograms;
+        std::vector< std::vector<float> > histograms;
     };
     
     /**
@@ -214,8 +257,6 @@ namespace libf {
      */
     class RandomForest : public Classifier {
     public:
-        RandomForest() : smoothing(1) {}
-        
         virtual ~RandomForest();
         
         /**
@@ -229,9 +270,9 @@ namespace libf {
         virtual void write(std::ostream & stream) const;
         
         /**
-         * Returns the class posterior probability and a normalization constant.
+         * Returns the class likelihood p(x | c).
          */
-        virtual void classPosterior(DataPoint* x, std::vector<float> & probabilities, float & normalization) const;
+        virtual void classLogLikelihood(DataPoint* x, std::vector<float> & probabilities) const;
         
         /**
          * Adds a tree to the ensemble
@@ -276,30 +317,11 @@ namespace libf {
             trees.erase(trees.begin() + i);
         }
         
-        /**
-         * Sets the smoothing parameter
-         */
-        void setSmoothing(float _smoothing)
-        {
-            smoothing = _smoothing;
-        }
-        
-        /**
-         * Returns the smoothing parameter
-         */
-        float getSmoothing() const
-        {
-            return smoothing;
-        }
     private:
         /**
          * The individual decision trees. 
          */
         std::vector<Classifier*> trees;
-        /**
-         * The smoothing parameter for classification
-         */
-        float smoothing;
     };
 }
 #endif

@@ -167,20 +167,13 @@ namespace libf {
          */
         int getClassLabel(const std::string & label) const
         {
-            return labelMap.at(label);
+            return labelMap.find(label)->second;
         }
         
-        void dump()
-        {
-            for (size_t i = 0; i < inverseLabelMap.size(); i++)
-            {
-                std::cout << i << " -> " << inverseLabelMap[i] << " = " << labelMap[inverseLabelMap[i]] << "\n";
-            }
-        }
         /**
          * Returns the string class label for a given integer class label.
          */
-        std::string getClassLabel(int label) const
+        const std::string & getClassLabel(int label) const
         {
             return inverseLabelMap[label];
         }
@@ -242,7 +235,7 @@ namespace libf {
      */
     class DataStorage {
     public:
-        explicit DataStorage() {}
+        explicit DataStorage() : classcount(0) {}
         
         /**
          * Copy constructor
@@ -307,7 +300,12 @@ namespace libf {
             dataPoints.push_back(point);
             classLabels.push_back(label);
             freeFlags.push_back(free);
+            if (label >= classcount)
+            {
+                classcount = label+1;
+            }
         }
+        
         
         /**
          * Returns the dimensionality of the data storage. 
@@ -320,7 +318,7 @@ namespace libf {
          */
         int getClasscount() const
         {
-            return classLabelMap.getClassCount();
+            return classcount;
         }
         
         /**
@@ -375,7 +373,10 @@ namespace libf {
          * Frees the data points and resets the array structures. 
          */
         void free();
-        
+        /**
+         * The total number of classes
+         */
+        int classcount;
         /**
          * This is a list of data points. 
          */
@@ -463,6 +464,14 @@ namespace libf {
          * Reads the data from a source and add them to the data storage. 
          */
         virtual void read(std::istream & stream, DataStorage* dataStorage);
+        
+        /**
+         * Reads the data from a file and add them to the data storage. 
+         */
+        virtual void read(const std::string & filename, DataStorage* dataStorage)
+        {
+            DataProvider::read(filename, dataStorage);
+        }
     };
     
     /**
@@ -478,7 +487,7 @@ namespace libf {
         /**
          * Writes the data to a file and add them to the data storage. 
          */
-        virtual void write(const std::string & filename, DataStorage* dataStorage) = 0;
+        virtual void write(const std::string & filename, DataStorage* dataStorage);
     };
     
     
@@ -513,7 +522,15 @@ namespace libf {
         /**
          * Writes the data to a stream. 
          */
-        virtual void write(std::ostream & stream, DataStorage* dataStorage) = 0;
+        virtual void write(std::ostream & stream, DataStorage* dataStorage);
+        
+        /**
+         * Writes the data to a file and add them to the data storage. 
+         */
+        virtual void write(const std::string & filename, DataStorage* dataStorage)
+        {
+            DataWriter::write(filename, dataStorage);
+        }
     };
 }
 

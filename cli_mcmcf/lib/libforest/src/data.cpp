@@ -4,7 +4,6 @@
 #include <fstream>
 #include <iterator>
 #include <boost/tokenizer.hpp>
-#include <boost/tokenizer.hpp>
 #include <cstdlib>
 #include <random>
 #include <iostream>
@@ -102,7 +101,7 @@ void DataVector::write(std::ostream& stream) const
 /// ClassLabelMap
 ////////////////////////////////////////////////////////////////////////////////
 
-void ClassLabelMap::computeIntClassLabels(std::vector<int>& intLabelMap)
+void ClassLabelMap::computeIntClassLabels(std::vector<int> & intLabelMap)
 {
     // First: Get all string class labels
     std::vector<std::string> stringClassLabels(inverseLabelMap);
@@ -119,7 +118,7 @@ void ClassLabelMap::computeIntClassLabels(std::vector<int>& intLabelMap)
         // Update the map
         labelMap[stringClassLabels[i]] = static_cast<int>(i);
     }
-    intLabelMap.resize(intLabelMap.size());
+    intLabelMap.resize(inverseLabelMap.size());
     
     // Compute the intLabelMap
     for (size_t i = 0; i < intLabelMap.size(); i++)
@@ -301,6 +300,7 @@ void DataStorage::bootstrap(int N, DataStorage* dataStorage, std::vector<bool> &
         dataStorage->addDataPoint(getDataPoint(point), getClassLabel(point), false);
         sampled[point] = true;
     }
+    dataStorage->classLabelMap = classLabelMap;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -315,6 +315,22 @@ void DataProvider::read(const std::string& filename, DataStorage* dataStorage)
         throw Exception("Could not open file.");
     }
     read(stream, dataStorage);
+    stream.close();
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+/// DataWriter
+////////////////////////////////////////////////////////////////////////////////
+void DataWriter::write(const std::string& filename, DataStorage* dataStorage)
+{
+    // Open the file
+    std::ofstream stream(filename, std::ios::binary);
+    if (!stream.is_open())
+    {
+        throw Exception("Could not open file.");
+    }
+    write(stream, dataStorage);
     stream.close();
 }
 
@@ -342,7 +358,7 @@ void CSVDataProvider::read(std::istream & stream, DataStorage* dataStorage)
         
         // Load the data point
         DataVector* dataPoint = new DataVector(static_cast<int>(row.size() - 1));
-        int  label;
+        int  label = 0;
         const int isize = static_cast<int>(row.size());
         for (int  i = 0; i < isize; i++)
         {
@@ -360,22 +376,70 @@ void CSVDataProvider::read(std::istream & stream, DataStorage* dataStorage)
             }
         }
         
-        dataStorage->addDataPoint(dataPoint, label);
+        dataStorage->addDataPoint(dataPoint, label, true);
     }
     
     // Compute the integer class label
     std::vector<int> intLabelMap;
     dataStorage->getClassLabelMap().computeIntClassLabels(intLabelMap);
     
-    for (size_t i = 0; i < intLabelMap.size(); i++)
-    {
-        std::cout << intLabelMap[i] << " - " << i << "\n";
-    }
-    std::cout.flush();
-    
     // Update the class labels
     for (int i = 0; i < dataStorage->getSize(); i++)
     {
         dataStorage->getClassLabel(i) = intLabelMap[dataStorage->getClassLabel(i)];
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+/// LibforestDataProvider
+////////////////////////////////////////////////////////////////////////////////
+
+void LibforestDataProvider::read(std::istream& stream, DataStorage* dataStorage)
+{
+    // Read the number of data points
+    int N;
+    readBinary(stream, N);
+    // Read the number of dimensions
+    int D;
+    readBinary(stream, D);
+    
+    // Read the data set
+    for (int n = 0; n < N; n++)
+    {
+        // Read the class label
+        int label;
+        readBinary(stream, label);
+        // Set up the data point
+        DataVector* v = new DataVector(D);
+        
+        for (int d = 0; d < D; d++)
+        {
+            float value;
+            readBinary(stream, value);
+            v->at(d) = value;
+        }
+        
+        dataStorage->addDataPoint(v, label, true);
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+/// LibforestDataWriter
+////////////////////////////////////////////////////////////////////////////////
+
+void LibforestDataWriter::write(std::ostream& stream, DataStorage* dataStorage)
+{
+    // Write the number of data points
+    writeBinary(stream, dataStorage->getSize());
+    // Write the number of dimensions
+    writeBinary(stream, dataStorage->getDimensionality());
+    // Write the content
+    for (int n = 0; n < dataStorage->getSize(); n++)
+    {
+        writeBinary(stream, dataStorage->getClassLabel(n));
+        for (int d = 0; d < dataStorage->getDimensionality(); d++)
+        {
+            writeBinary(stream, dataStorage->getDataPoint(n)->at(d));
+        }
     }
 }

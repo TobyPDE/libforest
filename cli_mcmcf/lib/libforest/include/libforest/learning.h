@@ -15,6 +15,10 @@
  * The data structure sorts the data set according to each dimension.
  */
 #include <cassert>
+#include <functional>
+#include <iostream>
+#include <chrono>
+#include <cmath>
 
 #include "data.h"
 #include "classifiers.h"
@@ -26,19 +30,20 @@ namespace libf {
     class DataStorage;
     class DecisionTree;
     class RandomForest;
-
+    class RandomForestLearner;
+    
     /**
      * This is the base class for all learners. It allows you to set a callback
      * function that is called very n iterations of the respective training
      * algorithm.
      */
-    template <class T>
+    template <class T, class S>
     class Learner {
     public:
         /**
          * Registers a callback function that is called every cycle iterations. 
          */
-        void addCallback(int (*callback)(T* learnedObject, int iteration), int cycle)
+        void addCallback(std::function<int(T*, S*)> callback, int cycle)
         {
             callbacks.push_back(callback);
             callbackCycles.push_back(cycle);
@@ -55,11 +60,45 @@ namespace libf {
          */
         virtual void autoconf(const DataStorage* storage) = 0;
         
+        /**
+         * Dumps the current settings
+         */
+        virtual void dumpSetting(std::ostream & stream = std::cout) const = 0;
+        
     protected:
+        /**
+         * Updates the class prior probabilities
+         */
+        void learnLogClassPriors(Classifier* classifier, const DataStorage* storage, float smoothing = 0.0f) const
+        {
+            const int C = storage->getClasscount();
+            std::vector<float> & hist = classifier->getClassLogPriors();
+            hist.resize(C);
+            
+            // Initialize the priors
+            for (int c = 0; c < C; c++)
+            {
+                hist[c] = 0.0f;
+            }
+            
+            // Go through the data storage and update the pirors
+            for (int i = 0; i < storage->getSize(); i++)
+            {
+                const int c = storage->getClassLabel(i);
+                hist[c] += 1;
+            }
+            
+            // Normalize and apply smoothing 
+            for (int c = 0; c < C; c++)
+            {
+                hist[c] = std::log((hist[c] + smoothing)/(storage->getSize() + C*smoothing));
+            }
+        }
+        
         /**
          * Calls the callbacks. The results of the callbacks are bitwise or'ed
          */
-        int evokeCallback(T* learnedObject, int iteration) const
+        int evokeCallback(T* learnedObject, int iteration, S* state) const
         {
             int result = 0;
             
@@ -69,7 +108,7 @@ namespace libf {
                 if ((iteration % callbackCycles[i]) == 0 )
                 {
                     // It's time to call this function 
-                    result = result | callbacks[i](learnedObject, iteration);
+                    result = result | callbacks[i](learnedObject, state);
                 }
             }
             
@@ -80,7 +119,7 @@ namespace libf {
         /**
          * The callback functions.
          */
-        std::vector<int (*)(T* learnedObject, int iteration)> callbacks;
+        std::vector<std::function<int(T*, S*)>  > callbacks;
         /**
          * The learning cycle. The callback is called very cycle iterations
          */
@@ -92,7 +131,7 @@ namespace libf {
      * using the information gain criterion. In order to make learning easier, 
      * simply use the autoconf option. 
      */
-    class DecisionTreeLearner : public Learner<DecisionTree> {
+    class DecisionTreeLearner : public Learner<DecisionTree, void> {
     public:
         DecisionTreeLearner() : 
                 useBootstrap(true), 
@@ -100,7 +139,8 @@ namespace libf {
                 numFeatures(10), 
                 maxDepth(100), 
                 minSplitExamples(3),
-                minChildSplitExamples(1) {}
+                minChildSplitExamples(1), 
+                smoothingParameter(1) {}
                 
         /**
          * Sets whether or not bootstrapping shall be used
@@ -217,6 +257,32 @@ namespace libf {
          */
         virtual DecisionTree* learn(const DataStorage* storage) const;
         
+        /**
+         * Dumps the settings
+         */
+        virtual void dumpSetting(std::ostream & stream = std::cout) const;
+        
+        /**
+         * Sets the smoothing parameter
+         */
+        void setSmoothingParameter(float _smoothingParameter)
+        {
+            smoothingParameter = _smoothingParameter;
+        }
+        
+        /**
+         * Returns the smoothing parameter
+         */
+        float getSmoothingParameter() const
+        {
+            return smoothingParameter;
+        }
+        
+        /**
+         * Updates the histograms
+         */
+        void updateHistograms(DecisionTree* tree, const DataStorage* storage) const;
+        
     private:
         
         /**
@@ -251,14 +317,70 @@ namespace libf {
          * in order to perform a split. 
          */
         int minChildSplitExamples;
+        /**
+         * The smoothing parameter for the histograms
+         */
+        float smoothingParameter;
     };
     
+    /**
+     * This class holds the current state of the random forest learning
+     * algorithm.
+     */
+    class RandomForestLearnerState {
+    public:
+        RandomForestLearnerState() : action(0), learner(0), forest(0), tree(0), startTime(std::chrono::high_resolution_clock::now()) {}
+        
+        /**
+         * The current action
+         */
+        int action;
+        /**
+         * The learner object
+         */
+        const RandomForestLearner* learner;
+        /**
+         * The learned object
+         */
+        const RandomForest* forest;
+        /**
+         * The current tree
+         */
+        int tree;
+        /**
+         * The start time
+         */
+        std::chrono::high_resolution_clock::time_point startTime;
+        
+        /**
+         * Returns the passed time in microseconds
+         */
+        std::chrono::microseconds getPassedTime()
+        {
+            std::chrono::high_resolution_clock::time_point now = std::chrono::high_resolution_clock::now();
+            return std::chrono::duration_cast<std::chrono::microseconds>( now - startTime );
+        }
+    };
     
     /**
      * This is a random forest learner. 
      */
-    class RandomForestLearner : public Learner<RandomForest> {
+    class RandomForestLearner : public Learner<RandomForest, RandomForestLearnerState> {
     public:
+        /**
+         * These are the actions of the learning algorithm that are passed
+         * to the callback functions.
+         */
+        const static int ACTION_START_TREE = 1;
+        const static int ACTION_FINISH_TREE = 2;
+        const static int ACTION_START_FOREST = 3;
+        const static int ACTION_FINISH_FOREST = 4;
+        
+        /**
+         * The default callback for this learner.
+         */
+        static int defaultCallback(RandomForest* forest, RandomForestLearnerState* state);
+        
         RandomForestLearner() : numTrees(8), treeLearner(0), numThreads(1) {}
         
         /**
@@ -266,7 +388,7 @@ namespace libf {
          */
         void setNumTrees(int _numTrees)
         {
-            assert(_numTrees > 1);
+            assert(_numTrees >= 1);
             numTrees = _numTrees;
         }
         
@@ -315,12 +437,17 @@ namespace libf {
          */
         virtual RandomForest* learn(const DataStorage* storage) const;
         
-        
         /**
          * The autoconf function should set up the learner such that without
          * any additional settings people can try a learner on a data set. 
          */
         virtual void autoconf(const DataStorage* storage) {}
+        
+        /**
+         * Dumps the settings
+         */
+        virtual void dumpSetting(std::ostream & stream = std::cout) const;
+        
     private:
         /**
          * The number of trees that we shall learn
