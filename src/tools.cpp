@@ -2,6 +2,7 @@
 #include "libforest/data.h"
 #include "libforest/classifiers.h"
 #include "libforest/io.h"
+#include "libforest/util.h"
 
 #include <iostream>
 #include <iomanip>
@@ -178,6 +179,90 @@ void ConfusionMatrixTool::print(const std::vector<std::vector<float> >& result) 
 }
 
 void ConfusionMatrixTool::measureAndPrint(const Classifier* classifier, const DataStorage* storage) const
+{
+    std::vector< std::vector<float> > result;
+    measure(classifier, storage, result);
+    print(result);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+/// CorrelationTool
+////////////////////////////////////////////////////////////////////////////////
+
+void CorrelationTool::measure(const RandomForest* forest, const DataStorage* storage, std::vector<std::vector<float> >& result) const
+{
+    const int T = forest->getSize();
+    
+    // Reset the result
+    result.resize(T);
+    // Keep track on the number of elements per class
+    std::vector<int> classCounts(T);
+    
+    // Initialize the result
+    for (int t = 0; t < T; t++)
+    {
+        std::vector<float> row(T);
+        for (int tt = 0; tt < T; tt++)
+        {
+            row[tt] = 0;
+        }
+        result[t] = row;
+        classCounts[t] = 0;
+    }
+    
+    // Compute the classification result for each tree
+    std::vector< std::vector<int> > classificationResults(T);
+    for (int t = 0; t < T; t++)
+    {
+        forest->getTree(t)->classify(storage, classificationResults[t]);
+    }
+    
+    // Compute the matrix
+    for (int t = 0; t < T; t++)
+    {
+        for (int tt = t; tt < T; tt++)
+        {
+            // Compute the normalized hamming distance
+            float normalizedDistance = Util::hammingDist(classificationResults[t], classificationResults[tt])/static_cast<float>(storage->getSize());
+            result[t][tt] = 1-normalizedDistance;
+            result[tt][t] = 1-normalizedDistance;
+        }
+    }
+}
+
+void CorrelationTool::print(const std::vector<std::vector<float> >& result) const
+{
+    const int C = static_cast<int>(result.size());
+    
+    // Print the header
+    printf("         |");
+    for (int c = 0; c < C; c++)
+    {
+        printf(" %7d |", c);
+    }
+    printf("\n");
+    for (int c = 0; c < C+1; c++)
+    {
+        printf("---------|");
+    }
+    printf("\n");
+    for (int c = 0; c < C; c++)
+    {
+        printf(" %7d |", c);
+        for (int cc = 0; cc < C; cc++)
+        {
+            printf(" %6.2f%% |", result[c][cc] * 100);
+        }
+        printf("\n");
+        for (int c = 0; c < C+1; c++)
+        {
+            printf("---------|");
+        }
+        printf("\n");
+    }
+}
+
+void CorrelationTool::measureAndPrint(const RandomForest* classifier, const DataStorage* storage) const
 {
     std::vector< std::vector<float> > result;
     measure(classifier, storage, result);

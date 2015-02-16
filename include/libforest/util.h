@@ -50,6 +50,24 @@ namespace libf {
                 out[permutation[i]] = in[i];
             }
         }
+        
+        /**
+         * Computes the hamming distance between two vectors
+         */
+        template <class T>
+        static int hammingDist(const std::vector<T> & v1, const std::vector<T> & v2)
+        {
+            assert(v1.size() == v2.size());
+            int result = 0;
+            for (size_t i = 0; i < v1.size(); i++)
+            {
+                if (v1[i] != v2[i])
+                {
+                    result++;
+                }
+            }
+            return result;
+        }
     };
     
     template <class T>

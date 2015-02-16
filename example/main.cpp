@@ -99,7 +99,7 @@ int main(int c, const char** v)
     forestLearner.addCallback(RandomForestLearner::defaultCallback, 1);
     
     forestLearner.setTreeLearner(&treeLearner);
-    forestLearner.setNumTrees(8);
+    forestLearner.setNumTrees(15);
     forestLearner.setNumThreads(8);    
     
     RandomForest* forest = forestLearner.learn(&storage);
@@ -109,14 +109,6 @@ int main(int c, const char** v)
     
     ConfusionMatrixTool confusionMatrixTool;
     confusionMatrixTool.measureAndPrint(forest, &storageT);
-    
-    return 0;
-    
-    for (int t = 0; t < forest->getSize(); t++)
-    {
-        std::cout << t << "\n";
-        treeLearner.updateHistograms(static_cast<DecisionTree*>(forest->getTree(t)), &storage);
-    }
     
     delete forest;
     return 0;
