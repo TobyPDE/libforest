@@ -11,6 +11,7 @@
 namespace libf {
     class DataStorage;
     class Classifier;
+    class RandomForest;
     
     /**
      * Computes the accuracy on the data set.
@@ -58,13 +59,12 @@ namespace libf {
      * Measures the correlation between the the trees of an ensemble by using
      * the hamming distance on their results. 
      */
-#if 0
     class CorrelationTool {
     public:
         /**
          * Returns the correlation
          */
-        void measure(const Classifier* classifier, const DataStorage* storage, std::vector< std::vector<float> > & result) const;
+        void measure(const RandomForest* classifier, const DataStorage* storage, std::vector< std::vector<float> > & result) const;
         
         /**
          * Prints the correlation
@@ -74,14 +74,8 @@ namespace libf {
         /**
          * Prints and measures the correlation. 
          */
-        float measureAndPrint(const Classifier* classifier, const DataStorage* storage) const
-        {
-            std::vector< std::vector<float> > result;
-            measure(classifier, storage, result);
-            print(result);
-        }
+        void measureAndPrint(const RandomForest* classifier, const DataStorage* storage) const;
     };
-#endif
 }
 
 #endif
