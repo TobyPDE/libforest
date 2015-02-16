@@ -1,34 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configurationDescriptor version="94">
   <logicalFolder name="root" displayName="root" projectFiles="true" kind="ROOT">
-    <df root="." name="0">
-      <df name="build">
-        <df name="CMakeFiles">
-          <df name="2.8.12.2">
-            <df name="CompilerIdC">
-              <in>CMakeCCompilerId.c</in>
-            </df>
-            <df name="CompilerIdCXX">
-              <in>CMakeCXXCompilerId.cpp</in>
-            </df>
-          </df>
-        </df>
-      </df>
-      <df name="example">
-        <in>main.cpp</in>
-      </df>
-      <df name="include">
-        <df name="libforest">
-          <in>io.h</in>
-          <in>util.h</in>
-        </df>
-      </df>
-      <df name="src">
-        <in>classifier.cpp</in>
-        <in>data.cpp</in>
-        <in>io.cpp</in>
-        <in>learning.cpp</in>
-      </df>
+    <df root="include" name="1">
+    </df>
+    <df root="src" name="2">
     </df>
     <logicalFolder name="ExternalFiles"
                    displayName="Important Files"
@@ -40,8 +15,7 @@
   </logicalFolder>
   <sourceFolderFilter>^(nbproject)$</sourceFolderFilter>
   <sourceRootList>
-    <Elem>include</Elem>
-    <Elem>src</Elem>
+    <Elem>.</Elem>
   </sourceRootList>
   <projectmakefile>build/Makefile</projectmakefile>
   <confs>
@@ -64,30 +38,6 @@
           </ccTool>
         </makeTool>
       </makefileType>
-      <item path="build/CMakeFiles/2.8.12.2/CompilerIdC/CMakeCCompilerId.c"
-            ex="false"
-            tool="0"
-            flavor2="2">
-      </item>
-      <item path="build/CMakeFiles/2.8.12.2/CompilerIdCXX/CMakeCXXCompilerId.cpp"
-            ex="false"
-            tool="1"
-            flavor2="4">
-      </item>
-      <item path="example/main.cpp" ex="false" tool="1" flavor2="8">
-      </item>
-      <item path="include/libforest/io.h" ex="false" tool="3" flavor2="0">
-      </item>
-      <item path="include/libforest/util.h" ex="false" tool="3" flavor2="0">
-      </item>
-      <item path="src/classifier.cpp" ex="false" tool="1" flavor2="8">
-      </item>
-      <item path="src/data.cpp" ex="false" tool="1" flavor2="8">
-      </item>
-      <item path="src/io.cpp" ex="false" tool="1" flavor2="0">
-      </item>
-      <item path="src/learning.cpp" ex="false" tool="1" flavor2="8">
-      </item>
     </conf>
   </confs>
 </configurationDescriptor>
