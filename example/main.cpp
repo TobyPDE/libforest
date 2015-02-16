@@ -86,14 +86,13 @@ int main(int c, const char** v)
     DataStorage storageT;
     
     LibforestDataProvider reader;
-    reader.read("mnist_train.dat", &storage);
-    reader.read("mnist_test.dat", &storageT);
+    reader.read("/Users/Toby/Projects/libforest/example/build/mnist_train.dat", &storage);
+    reader.read("/Users/Toby/Projects/libforest/example/build/mnist_test.dat", &storageT);
     
     DecisionTreeLearner treeLearner;
     
     treeLearner.autoconf(&storage);
     treeLearner.setUseBootstrap(true);
-    treeLearner.setMinSplitExamples(5);
     
     RandomForestLearner forestLearner;
     
@@ -103,9 +102,7 @@ int main(int c, const char** v)
     forestLearner.setNumTrees(1);
     forestLearner.setNumThreads(8);    
     
-    RandomForestLearnerState state;
     RandomForest* forest = forestLearner.learn(&storage);
-    std::cout << state.getPassedTime().count()/1000000.0f << "s\n";
     
     std::vector<int> res;
     forest->classify(&storageT, res);

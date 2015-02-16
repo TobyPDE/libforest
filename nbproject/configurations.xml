@@ -1,9 +1,53 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configurationDescriptor version="94">
   <logicalFolder name="root" displayName="root" projectFiles="true" kind="ROOT">
-    <df root="include" name="1">
-    </df>
-    <df root="src" name="2">
+    <df root="." name="0">
+      <df name="build">
+        <df name="CMakeFiles">
+          <df name="3.0.0">
+            <df name="CompilerIdC">
+              <in>CMakeCCompilerId.c</in>
+            </df>
+            <df name="CompilerIdCXX">
+              <in>CMakeCXXCompilerId.cpp</in>
+            </df>
+          </df>
+        </df>
+      </df>
+      <df name="example">
+        <df name="build">
+          <df name="CMakeFiles">
+            <df name="3.0.0">
+              <df name="CompilerIdC">
+                <in>CMakeCCompilerId.c</in>
+              </df>
+              <df name="CompilerIdCXX">
+                <in>CMakeCXXCompilerId.cpp</in>
+              </df>
+            </df>
+          </df>
+        </df>
+        <in>main.cpp</in>
+      </df>
+      <df name="include">
+        <df name="libforest">
+          <in>classifiers.h</in>
+          <in>data.h</in>
+          <in>io.h</in>
+          <in>learning.h</in>
+          <in>libforest.h</in>
+          <in>util.h</in>
+        </df>
+      </df>
+      <df name="src">
+        <in>classifier.cpp</in>
+        <in>data.cpp</in>
+        <in>fastlog.h</in>
+        <in>io.cpp</in>
+        <in>learning.cpp</in>
+        <in>mcmc.h</in>
+        <in>sse.h</in>
+      </df>
     </df>
     <logicalFolder name="ExternalFiles"
                    displayName="Important Files"
@@ -38,6 +82,54 @@
           </ccTool>
         </makeTool>
       </makefileType>
+      <item path="build/CMakeFiles/3.0.0/CompilerIdC/CMakeCCompilerId.c"
+            ex="false"
+            tool="0"
+            flavor2="0">
+      </item>
+      <item path="build/CMakeFiles/3.0.0/CompilerIdCXX/CMakeCXXCompilerId.cpp"
+            ex="false"
+            tool="1"
+            flavor2="0">
+      </item>
+      <item path="example/build/CMakeFiles/3.0.0/CompilerIdC/CMakeCCompilerId.c"
+            ex="false"
+            tool="0"
+            flavor2="0">
+      </item>
+      <item path="example/build/CMakeFiles/3.0.0/CompilerIdCXX/CMakeCXXCompilerId.cpp"
+            ex="false"
+            tool="1"
+            flavor2="0">
+      </item>
+      <item path="example/main.cpp" ex="false" tool="1" flavor2="0">
+      </item>
+      <item path="include/libforest/classifiers.h" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="include/libforest/data.h" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="include/libforest/io.h" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="include/libforest/learning.h" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="include/libforest/libforest.h" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="include/libforest/util.h" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="src/classifier.cpp" ex="false" tool="1" flavor2="0">
+      </item>
+      <item path="src/data.cpp" ex="false" tool="1" flavor2="0">
+      </item>
+      <item path="src/fastlog.h" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="src/io.cpp" ex="false" tool="1" flavor2="0">
+      </item>
+      <item path="src/learning.cpp" ex="false" tool="1" flavor2="0">
+      </item>
+      <item path="src/mcmc.h" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="src/sse.h" ex="false" tool="3" flavor2="0">
+      </item>
     </conf>
   </confs>
 </configurationDescriptor>

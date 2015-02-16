@@ -41,12 +41,7 @@ namespace libf {
         /**
          * Returns the class posterior probability p(c|x).
          */
-        virtual void classLogPosterior(DataPoint* x, std::vector<float> & probabilities) const;
-        
-        /**
-         * Returns the class likelihood p(x | c).
-         */
-        virtual void classLogLikelihood(DataPoint* x, std::vector<float> & probabilities) const = 0;
+        virtual void classLogPosterior(DataPoint* x, std::vector<float> & probabilities) const = 0;
         
         /**
          * Reads the classifier from a stream
@@ -57,28 +52,6 @@ namespace libf {
          * Writes the classifier to a stream
          */
         virtual void write(std::ostream & stream) const = 0;
-        
-        /**
-         * Returns the class priors
-         */
-        const std::vector<float> & getClassLogPriors() const
-        {
-            return classLogPriors;
-        }
-        
-        /**
-         * Returns the class priors
-         */
-        std::vector<float> & getClassLogPriors()
-        {
-            return classLogPriors;
-        }
-        
-    protected:
-        /**
-         * The class prior probabilities
-         */
-        std::vector<float> classLogPriors;
     };
 
     /**
@@ -118,9 +91,9 @@ namespace libf {
         int findLeafNode(DataPoint* x) const;
         
         /**
-         * Returns the class likelihood p(x | c).
+         * Returns the class log posterior p(c | x).
          */
-        virtual void classLogLikelihood(DataPoint* x, std::vector<float> & probabilities) const;
+        virtual void classLogPosterior(DataPoint* x, std::vector<float> & probabilities) const;
         
         /**
          * Reads the tree from a stream
@@ -270,9 +243,9 @@ namespace libf {
         virtual void write(std::ostream & stream) const;
         
         /**
-         * Returns the class likelihood p(x | c).
+         * Returns the class log posterior p(c | x).
          */
-        virtual void classLogLikelihood(DataPoint* x, std::vector<float> & probabilities) const;
+        virtual void classLogPosterior(DataPoint* x, std::vector<float> & probabilities) const;
         
         /**
          * Adds a tree to the ensemble
