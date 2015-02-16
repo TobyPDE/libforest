@@ -40,7 +40,8 @@
   </logicalFolder>
   <sourceFolderFilter>^(nbproject)$</sourceFolderFilter>
   <sourceRootList>
-    <Elem>.</Elem>
+    <Elem>include</Elem>
+    <Elem>src</Elem>
   </sourceRootList>
   <projectmakefile>build/Makefile</projectmakefile>
   <confs>

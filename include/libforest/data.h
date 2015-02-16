@@ -22,69 +22,34 @@
 
 namespace libf {
     /**
-     * This is the data point interface. You can implement this interface if
-     * you wish to use special feature vector such as pixel pairs, 
-     * categorical data and so on. 
-     */
-    class DataPoint {
-    public:
-        virtual ~DataPoint() {}
-        
-        /**
-         * Returns the i-th entry of the feature vector
-         */
-        virtual const float & at(int i) const = 0;
-        
-        /**
-         * Returns the i-th entry of the feature vector
-         */
-        virtual float & at(int i) = 0;
-        
-        /**
-         * Returns the dimensionality
-         */
-        virtual int getDimensionality() const = 0;
-        
-        /**
-         * Writes the class label map to a stream. 
-         */
-        virtual void write(std::ostream & stream) const = 0;
-        
-        /**
-         * Reads the class label map from a file
-         */
-        virtual void read(std::istream & stream) = 0;
-    };
-    
-    /**
      * This class represents in individual data point. 
      */
-    class DataVector : public DataPoint {
+    class DataPoint {
     public:
         /**
          * Creates a new data point of size 0
          */
-        DataVector() : D(0), data(0) {}
+        DataPoint() : D(0), data(0) {}
         
         /**
          * Creates a new data point of size D that is not initialized
          */
-        DataVector(int D) : D(D), data(new float[D]) {}
+        DataPoint(int D) : D(D), data(new float[D]) {}
         
         /**
          * Creates a new data point of size D that is initialized with x
          */
-        DataVector(int D, float x);
+        DataPoint(int D, float x);
         
         /**
          * Copy constructor
          */
-        DataVector(const DataVector & other);
+        DataPoint(const DataPoint & other);
         
         /**
          * Destructor
          */
-        virtual ~DataVector()
+        virtual ~DataPoint()
         {
             freeData();
         }
@@ -97,12 +62,12 @@ namespace libf {
         /**
          * Assignment operator
          */
-        DataVector & operator=(const DataVector & other);
+        DataPoint & operator=(const DataPoint & other);
         
         /**
          * Returns the i-th entry of the vector
          */
-        virtual const float & at(int i) const
+        const float & at(int i) const
         {
             assert(0 <= i && i < D);
             return data[i];
@@ -111,7 +76,7 @@ namespace libf {
         /**
          * Returns the i-th entry of the vector
          */
-        virtual float & at(int i)
+        float & at(int i)
         {
             assert(0 <= i && i < D);
             return data[i];
@@ -120,7 +85,7 @@ namespace libf {
         /**
          * Returns the dimensionality
          */
-        virtual int getDimensionality() const
+        int getDimensionality() const
         {
             return D;
         }
@@ -128,12 +93,12 @@ namespace libf {
         /**
          * Writes the class label map to a stream. 
          */
-        virtual void write(std::ostream & stream) const;
+        void write(std::ostream & stream) const;
         
         /**
          * Reads the class label map from a file
          */
-        virtual void read(std::istream & stream);
+        void read(std::istream & stream);
         
     private:
         /**
