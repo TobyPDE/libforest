@@ -36,6 +36,7 @@
           <in>io.h</in>
           <in>learning.h</in>
           <in>libforest.h</in>
+          <in>tools.h</in>
           <in>util.h</in>
         </df>
       </df>
@@ -43,10 +44,10 @@
         <in>classifier.cpp</in>
         <in>data.cpp</in>
         <in>fastlog.h</in>
-        <in>io.cpp</in>
         <in>learning.cpp</in>
         <in>mcmc.h</in>
         <in>sse.h</in>
+        <in>tools.cpp</in>
       </df>
     </df>
     <logicalFolder name="ExternalFiles"
@@ -114,6 +115,8 @@
       </item>
       <item path="include/libforest/libforest.h" ex="false" tool="3" flavor2="0">
       </item>
+      <item path="include/libforest/tools.h" ex="false" tool="3" flavor2="0">
+      </item>
       <item path="include/libforest/util.h" ex="false" tool="3" flavor2="0">
       </item>
       <item path="src/classifier.cpp" ex="false" tool="1" flavor2="0">
@@ -122,13 +125,13 @@
       </item>
       <item path="src/fastlog.h" ex="false" tool="3" flavor2="0">
       </item>
-      <item path="src/io.cpp" ex="false" tool="1" flavor2="0">
-      </item>
       <item path="src/learning.cpp" ex="false" tool="1" flavor2="0">
       </item>
       <item path="src/mcmc.h" ex="false" tool="3" flavor2="0">
       </item>
       <item path="src/sse.h" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="src/tools.cpp" ex="false" tool="1" flavor2="0">
       </item>
     </conf>
   </confs>

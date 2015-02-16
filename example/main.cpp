@@ -92,31 +92,31 @@ int main(int c, const char** v)
     DecisionTreeLearner treeLearner;
     
     treeLearner.autoconf(&storage);
-    treeLearner.setUseBootstrap(true);
+    treeLearner.setUseBootstrap(false);
     
     RandomForestLearner forestLearner;
     
     forestLearner.addCallback(RandomForestLearner::defaultCallback, 1);
     
     forestLearner.setTreeLearner(&treeLearner);
-    forestLearner.setNumTrees(1);
+    forestLearner.setNumTrees(8);
     forestLearner.setNumThreads(8);    
     
     RandomForest* forest = forestLearner.learn(&storage);
     
-    std::vector<int> res;
-    forest->classify(&storageT, res);
-
-    int error = 0;
-    for (int i = 0; i < storageT.getSize(); i++)
+    AccuracyTool accuracyTool;
+    accuracyTool.measureAndPrint(forest, &storageT);
+    
+    ConfusionMatrixTool confusionMatrixTool;
+    confusionMatrixTool.measureAndPrint(forest, &storageT);
+    
+    return 0;
+    
+    for (int t = 0; t < forest->getSize(); t++)
     {
-        if (res[i] != storageT.getClassLabel(i))
-        {
-            error++;
-        }
+        std::cout << t << "\n";
+        treeLearner.updateHistograms(static_cast<DecisionTree*>(forest->getTree(t)), &storage);
     }
-
-    std::cout << error/static_cast<float>(storageT.getSize()) << "\n";
     
     delete forest;
     return 0;

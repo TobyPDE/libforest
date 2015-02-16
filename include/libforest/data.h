@@ -1,5 +1,5 @@
-#ifndef MCMCF_DATA_H
-#define MCMCF_DATA_H
+#ifndef LIBF_DATA_H
+#define LIBF_DATA_H
 
 /**
  * This file contains everything that is related to reading data sets. We use 

@@ -1,5 +1,5 @@
-#ifndef MCMCF_UTIL_H
-#define MCMCF_UTIL_H
+#ifndef LIBF_UTIL_H
+#define LIBF_UTIL_H
 
 #include <iostream>
 
@@ -8,7 +8,7 @@
  * You can define a new exception class by: DEFINE_EXCEPTION(classname)
  * You can throw a new exception by: throw classname("Error message");
  */
-#define DEFINE_EXCEPTION(classname)		\
+#define LIBF_DEFINE_EXCEPTION(classname)		\
 	class classname : public std::exception {	\
 	public:		\
 		classname() { this->ptrMessage = 0; };	\
@@ -25,10 +25,10 @@
 /**
  * This is the buffer size for the arrays in the graph structures
  */
-#define GRAPH_BUFFER_SIZE 5000
+#define LIBF_GRAPH_BUFFER_SIZE 5000
 
 namespace libf {
-    DEFINE_EXCEPTION(Exception)
+    LIBF_DEFINE_EXCEPTION(Exception)
 
     class Util {
     public:

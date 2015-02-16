@@ -1,5 +1,5 @@
-#ifndef MCMCF_LEARNING_H
-#define MCMCF_LEARNING_H
+#ifndef LIBF_LEARNING_H
+#define LIBF_LEARNING_H
 
 /**
  * This file implements the actual learning algorithms. There are basically 
@@ -19,9 +19,7 @@
 #include <iostream>
 #include <chrono>
 #include <cmath>
-
-#include "data.h"
-#include "classifiers.h"
+#include <vector>
 
 namespace libf {
     /**

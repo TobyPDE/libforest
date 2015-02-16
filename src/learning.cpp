@@ -13,6 +13,7 @@
 using namespace libf;
 
 #define ENTROPY(p) (-(p)*fastlog2(p))
+#define SIGMOID(x) (1.0f/(1.0f + std::exp(x)))
 
 static std::random_device rd;
 
@@ -319,7 +320,7 @@ inline void updateLeafNodeHistogram(std::vector<float> & leafNodeHistograms, con
     leafNodeHistograms.resize(hist.size());
     for (int c = 0; c < hist.size(); c++)
     {
-        leafNodeHistograms[c] = std::log((hist.at(c) + smoothing)/(hist.at(c) + hist.size() * smoothing));
+        leafNodeHistograms[c] = std::log((hist.at(c) + smoothing)/(hist.getMass() + hist.size() * smoothing));
     }
 }
 
@@ -357,8 +358,8 @@ DecisionTree* DecisionTreeLearner::learn(const DataStorage* dataStorage) const
     // This matrix stores the training examples for certain nodes. 
     std::vector< int* > trainingExamples;
     std::vector< int > trainingExamplesSizes;
-    trainingExamples.reserve(GRAPH_BUFFER_SIZE);
-    trainingExamplesSizes.reserve(GRAPH_BUFFER_SIZE);
+    trainingExamples.reserve(LIBF_GRAPH_BUFFER_SIZE);
+    trainingExamplesSizes.reserve(LIBF_GRAPH_BUFFER_SIZE);
     
     // Add all training example to the root node
     trainingExamplesSizes.push_back(storage->getSize());
@@ -372,14 +373,11 @@ DecisionTree* DecisionTreeLearner::learn(const DataStorage* dataStorage) const
     EfficientEntropyHistogram leftHistogram(C);
     EfficientEntropyHistogram rightHistogram(C);
     
-    // Set up a probability distribution over the features
-    std::mt19937 g(rd());
-    std::uniform_int_distribution<int> featureDist(0, D - 1);
     
     // We keep track on the depth of each node in this array
     // This allows us to stop splitting after a certain depth is reached
     std::vector<int> depths;
-    depths.reserve(GRAPH_BUFFER_SIZE);
+    depths.reserve(LIBF_GRAPH_BUFFER_SIZE);
     // The root node has depth 0
     depths.push_back(0);
     
@@ -387,6 +385,16 @@ DecisionTree* DecisionTreeLearner::learn(const DataStorage* dataStorage) const
     FeatureComparator cp;
     cp.storage = storage;
     
+    // Set up a probability distribution over the features
+    std::mt19937 g(rd());
+    // Set up the array of possible features, we use it in order to sample
+    // the features without replacement
+    std::vector<int> sampledFeatures(D);
+    for (int d = 0; d < D; d++)
+    {
+        sampledFeatures[d] = d;
+    }
+
     // Start training
     while (splitStack.size() > 0)
     {
@@ -430,10 +438,13 @@ DecisionTree* DecisionTreeLearner::learn(const DataStorage* dataStorage) const
         int bestLeftMass = 0;
         int bestRightMass = N;
 
+        // Sample random features
+        std::shuffle(sampledFeatures.begin(), sampledFeatures.end(), std::default_random_engine(rd()));
+        
         // Optimize over all features
         for (int f = 0; f < numFeatures; f++)
         {
-            const int feature = featureDist(g);
+            const int feature = sampledFeatures[f];
             
             cp.feature = feature;
             std::sort(trainingExampleList, trainingExampleList + N, cp);
@@ -546,36 +557,133 @@ DecisionTree* DecisionTreeLearner::learn(const DataStorage* dataStorage) const
     return tree;
 }
 
+void updateWeightsRecursively(DecisionTree* tree, const DataPoint & stdev, float steepness, const DataPoint* point, int classLabel, int node, float parentWeights = 1.0f)
+{
+    // Is this a leaf node?
+    if (tree->isLeafNode(node))
+    {
+        // Update the histogram
+        tree->getHistogram(node)[classLabel] += parentWeights;
+    }
+    else
+    {
+        // Compute the weights
+        const float threshold = tree->getThreshold(node);
+        const int feature = tree->getSplitFeature(node);
+        const float argument = (point->at(feature) - threshold)/stdev.at(feature);
+        const float weight = SIGMOID(steepness * argument);
+        updateWeightsRecursively(tree, stdev, steepness, point, classLabel, tree->getLeftChild(node), parentWeights*weight);
+        updateWeightsRecursively(tree, stdev, steepness, point, classLabel, tree->getLeftChild(node) + 1, parentWeights*(1-weight));
+    }
+}
+
 void DecisionTreeLearner::updateHistograms(DecisionTree* tree, const DataStorage* storage) const
 {
-    // Now update the histograms
-    for (int i = 0; i < storage->getSize(); i++)
+    const int C = storage->getClasscount();
+    
+    
+    for (int v = 0; v < tree->getNumNodes(); v++)
     {
-        const int leafNode = tree->findLeafNode(storage->getDataPoint(i));
-        tree->getHistogram(leafNode)[storage->getClassLabel(i)] += 1;
+        if (tree->isLeafNode(v))
+        {
+            std::vector<float> & hist = tree->getHistogram(v);
+            for (int c = 0; c < C; c++)
+            {
+                std::cout << "c : " << c << " -> " << std::exp(hist[c]) << "\n";
+            }
+            break;
+        }
     }
     
-    // Normalize and apply the smoothing
-    for (int n = 0; n < tree->getNumNodes(); n++)
+    // Reset all histograms
+    for (int v = 0; v < tree->getNumNodes(); v++)
     {
-        // Only do something if this is a leaf node
-        if (!tree->isLeafNode(n))
+        if (tree->isLeafNode(v))
         {
-            continue;
+            std::vector<float> & hist = tree->getHistogram(v);
+            for (int c = 0; c < C; c++)
+            {
+                hist[c] = 0;
+            }
         }
-        
-        // Ok, this is a leaf node. Get the normalization constant
-        float normalization = 0;
-        std::vector<float> & hist = tree->getHistogram(n);
-        const int C = static_cast<int>(hist.size());
-        for (int c = 0; c < C; c++)
+    }
+    
+    // Compute the standard deviation in each dimension
+    DataPoint stdev(storage->getDimensionality());
+    DataPoint avg(storage->getDimensionality());
+    // Initialize the vector
+    for (int d = 0; d < stdev.getDimensionality(); d++)
+    {
+        stdev.at(d) = 0;
+        avg.at(d) = 0;
+    }
+    
+    // Go through the data set and compute the average
+    for (int n = 0; n < storage->getSize(); n++)
+    {
+        for (int d = 0; d < avg.getDimensionality(); d++)
         {
-            normalization += hist[c];
+            avg.at(d) += storage->getDataPoint(n)->at(d);
         }
-        // Normalize + log
-        for (int c = 0; c < C; c++)
+    }
+    
+    // Normalize the vector
+    for (int d = 0; d < stdev.getDimensionality(); d++)
+    {
+        avg.at(d) /= storage->getSize();
+    }
+    
+    // Compute the standard deviation
+    for (int n = 0; n < storage->getSize(); n++)
+    {
+        for (int d = 0; d < avg.getDimensionality(); d++)
         {
-            hist[c] = (hist[c] + smoothingParameter)/(normalization + C*smoothingParameter);
+            const float temp = storage->getDataPoint(n)->at(d) - avg.at(d);
+            stdev.at(d) += temp*temp;
+        }
+    }
+    // Normalize the vector
+    for (int d = 0; d < stdev.getDimensionality(); d++)
+    {
+        stdev.at(d) /= storage->getSize();
+        stdev.at(d) = std::sqrt(stdev.at(d));
+        stdev.at(d) = 1;
+    }
+    
+    // Compute the weights for each data point
+    for (int n = 0; n < storage->getSize(); n++)
+    {
+        updateWeightsRecursively(tree, stdev, 1, storage->getDataPoint(n), storage->getClassLabel(n), 0);
+    }
+    
+    // Normalize the histograms
+    for (int v = 0; v < tree->getNumNodes(); v++)
+    {
+        if (tree->isLeafNode(v))
+        {
+            std::vector<float> & hist = tree->getHistogram(v);
+            float total = 0;
+            for (int c = 0; c < C; c++)
+            {
+                total += hist[c];
+            }
+            for (int c = 0; c < C; c++)
+            {
+                hist[c] = std::log(hist[c]/total);
+            }
+        }
+    }
+    
+    for (int v = 0; v < tree->getNumNodes(); v++)
+    {
+        if (tree->isLeafNode(v))
+        {
+            std::vector<float> & hist = tree->getHistogram(v);
+            for (int c = 0; c < C; c++)
+            {
+                std::cout << "c : " << c << " -> " << std::exp(hist[c]) << "\n";
+            }
+            break;
         }
     }
 }
