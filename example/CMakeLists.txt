@@ -1,13 +1,13 @@
 cmake_minimum_required(VERSION 2.6)
 project(test)
 
-add_subdirectory(lib/libforest)
+add_subdirectory(libforest)
 
 set(CMAKE_CXX_FLAGS "-std=c++0x")
 
-file(GLOB SOURCES "src/*.cpp")
+file(GLOB SOURCES "*.cpp")
 
-include_directories(lib/libforest/include)
+include_directories(../include)
 message(STATUS ${LIBF_INCLUDE_DIRS})
 add_executable(cli_mcmcf ${SOURCES})
 target_link_libraries( cli_mcmcf libforest )
