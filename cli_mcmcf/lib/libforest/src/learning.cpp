@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <random>
 #include <map>
+#include <iomanip>
 
 using namespace libf;
 
@@ -311,15 +312,14 @@ public:
 };
 
 /**
- * Sets the histogram for a leaf node
+ * Updates the leaf node histograms using a smoothing parameter
  */
-void updateLeafNodeHistogram(DecisionTree* tree, int node, EfficientEntropyHistogram & hist)
+void updateLeafNodeHistogram(std::vector<float> & leafNodeHistograms, const EfficientEntropyHistogram & hist, float smoothing)
 {
-    std::vector<int> & nodeHistogram = tree->getHistogram(node);
-    nodeHistogram.resize(hist.size());
+    leafNodeHistograms.resize(hist.size());
     for (int c = 0; c < hist.size(); c++)
     {
-        nodeHistogram[c] = hist.at(c);
+        leafNodeHistograms[c] = std::log((hist.at(c) + smoothing)/(hist.at(c) + hist.size() * smoothing));
     }
 }
 
@@ -379,7 +379,7 @@ DecisionTree* DecisionTreeLearner::learn(const DataStorage* dataStorage) const
     // We keep track on the depth of each node in this array
     // This allows us to stop splitting after a certain depth is reached
     std::vector<int> depths;
-    depths.reserve(5000);
+    depths.reserve(GRAPH_BUFFER_SIZE);
     // The root node has depth 0
     depths.push_back(0);
     
@@ -416,7 +416,8 @@ DecisionTree* DecisionTreeLearner::learn(const DataStorage* dataStorage) const
         if (hist.getMass() < minSplitExamples || hist.isPure() || depths[node] > maxDepth)
         {
             delete[] trainingExampleList;
-            updateLeafNodeHistogram(tree, node, hist);
+            // Resize and initialize the leaf node histogram
+            updateLeafNodeHistogram(tree->getHistogram(node), hist, smoothingParameter);
             continue;
         }
         
@@ -494,7 +495,7 @@ DecisionTree* DecisionTreeLearner::learn(const DataStorage* dataStorage) const
             // We didn't
             // Don't split
             delete[] trainingExampleList;
-            updateLeafNodeHistogram(tree, node, hist);
+            updateLeafNodeHistogram(tree->getHistogram(node), hist, smoothingParameter);
             continue;
         }
         
@@ -539,28 +540,61 @@ DecisionTree* DecisionTreeLearner::learn(const DataStorage* dataStorage) const
         delete[] trainingExampleList;
     }
     
-    // If we used bootstrap sampling, we can use the out-of-bag examples
-    // in order to refine the histograms at the leaf nodes. 
-    if (useBootstrap)
-    {
-        // Go through the original data set and check if the points are in the
-        // bootstraped set
-        for (int n = 0; n < dataStorage->getSize(); n++)
-        {
-            // Was this a bootstrapped example?
-            if (!sampled[n])
-            {
-                // Get the leaf node
-                const int node = tree->findLeafNode(dataStorage->getDataPoint(n));
-                tree->getHistogram(node)[dataStorage->getClassLabel(n)]++;
-            }
-        }
-    }
+    learnLogClassPriors(tree, storage);
     
     // Free the data set
     delete storage;
     
     return tree;
+}
+
+void DecisionTreeLearner::updateHistograms(DecisionTree* tree, const DataStorage* storage) const
+{
+    // First: Update the priors
+    learnLogClassPriors(tree, storage);
+    
+    // Now update the histograms
+    for (int i = 0; i < storage->getSize(); i++)
+    {
+        const int leafNode = tree->findLeafNode(storage->getDataPoint(i));
+        tree->getHistogram(leafNode)[storage->getClassLabel(i)] += 1;
+    }
+    
+    // Normalize and apply the smoothing
+    for (int n = 0; n < tree->getNumNodes(); n++)
+    {
+        // Only do something if this is a leaf node
+        if (!tree->isLeafNode(n))
+        {
+            continue;
+        }
+        
+        // Ok, this is a leaf node. Get the normalization constant
+        float normalization = 0;
+        std::vector<float> & hist = tree->getHistogram(n);
+        const int C = static_cast<int>(hist.size());
+        for (int c = 0; c < C; c++)
+        {
+            normalization += hist[c];
+        }
+        // Normalize + log
+        for (int c = 0; c < C; c++)
+        {
+            hist[c] = (hist[c] + smoothingParameter)/(normalization + C*smoothingParameter);
+        }
+    }
+}
+
+void DecisionTreeLearner::dumpSetting(std::ostream & stream) const
+{
+    stream << std::setw(30) << "Learner" << ": DecisionTreeLearner" << "\n";
+    stream << std::setw(30) << "Bootstrap Sampling" << ": " << getUseBootstrap() << "\n";
+    stream << std::setw(30) << "Bootstrap Samples" << ": " << getNumBootstrapExamples() << "\n";
+    stream << std::setw(30) << "Feature evaluations" << ": " << getNumFeatures() << "\n";
+    stream << std::setw(30) << "Max depth" << ": " << getMaxDepth() << "\n";
+    stream << std::setw(30) << "Minimum Split Examples" << ": " << getMinSplitExamples() << "\n";
+    stream << std::setw(30) << "Minimum Child Split Examples" << ": " << getMinChildSplitExamples() << "\n";
+    stream << std::setw(30) << "Smoothing Parameter" << ": " << getSmoothingParameter() << "\n";
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -571,18 +605,84 @@ RandomForest* RandomForestLearner::learn(const DataStorage* storage) const
 {
     // Set up the empty random forest
     RandomForest* forest = new RandomForest();
-    int k = 0; 
+    
+    // Set up the state for the call backs
+    RandomForestLearnerState state;
+    state.learner = this;
+    state.forest = forest;
+    state.action = ACTION_START_FOREST;
+    
+    evokeCallback(forest, 0, &state);
+    
+    int treeStartCounter = 0; 
+    int treeFinishCounter = 0; 
     #pragma omp parallel for num_threads(numThreads)
     for (int i = 0; i < numTrees; i++)
     {
+        #pragma omp critical
+        {
+            state.tree = ++treeStartCounter;
+            state.action = ACTION_START_TREE;
+            evokeCallback(forest, treeStartCounter - 1, &state);
+        }
+        
         // Learn the tree
         DecisionTree* tree = treeLearner->learn(storage);
         // Add it to the forest
         #pragma omp critical
         {
-            std::cout << ++k << "/" << numTrees << std::endl;
+            state.tree = ++treeFinishCounter;
+            state.action = ACTION_FINISH_TREE;
+            evokeCallback(forest, treeFinishCounter - 1, &state);
             forest->addTree(tree);
         }
     }
+    
+    this->learnLogClassPriors(forest, storage);
+    
+    state.tree = 0;
+    state.action = ACTION_FINISH_FOREST;
+    evokeCallback(forest, 0, &state);
+    
     return forest;
+}
+
+void RandomForestLearner::dumpSetting(std::ostream& stream) const
+{
+    stream << std::setw(30) << "Learner" << ": RandomForestLearner" << "\n";
+    stream << std::setw(30) << "Number of trees" << ": " << getNumTrees() << "\n";
+    stream << std::setw(30) << "Number of threads" << ": " << getNumThreads() << "\n";
+    stream << "Tree learner settings" << "\n";
+    treeLearner->dumpSetting(stream);
+}
+
+int RandomForestLearner::defaultCallback(RandomForest* forest, RandomForestLearnerState* state)
+{
+    switch (state->action) {
+        case RandomForestLearner::ACTION_START_FOREST:
+            std::cout << "Start random forest training\n";
+            state->learner->dumpSetting();
+            std::cout << "\n";
+            break;
+        case RandomForestLearner::ACTION_START_TREE:
+            std::cout   << std::setw(15) << std::left << "Start tree " 
+                        << std::setw(4) << std::right << state->tree 
+                        << " out of " 
+                        << std::setw(4) << state->learner->getNumTrees() << "\n";
+            break;
+        case RandomForestLearner::ACTION_FINISH_TREE:
+            std::cout   << std::setw(15) << std::left << "Finish tree " 
+                        << std::setw(4) << std::right << state->tree 
+                        << " out of " 
+                        << std::setw(4) << state->learner->getNumTrees() << "\n";
+            break;
+        case RandomForestLearner::ACTION_FINISH_FOREST:
+            std::cout << "Finished forest in " << state->getPassedTime().count()/1000000. << "s\n";
+            break;
+        default:
+            std::cout << "UNKNOWN ACTION CODE " << state->action << "\n";
+            break;
+    }
+    return 0;
+
 }

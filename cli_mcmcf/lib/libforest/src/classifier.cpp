@@ -30,8 +30,7 @@ int Classifier::classify(DataPoint* x) const
 {
     // Get the class posterior
     std::vector<float> posterior;
-    float normalization;
-    this->classPosterior(x, posterior, normalization);
+    this->classLogPosterior(x, posterior);
     
     assert(posterior.size() > 0);
     
@@ -49,6 +48,18 @@ int Classifier::classify(DataPoint* x) const
     }
     
     return label;
+}
+
+void Classifier::classLogPosterior(DataPoint* x, std::vector<float>& probabilities) const
+{
+    // Get the likelihood
+    classLogLikelihood(x, probabilities);
+    
+    // Add the prior
+    for (size_t c = 0; c < probabilities.size(); c++)
+    {
+        probabilities[c] += classLogPriors[c];
+    }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -70,7 +81,7 @@ void DecisionTree::addNode()
     splitFeatures.push_back(0);
     thresholds.push_back(0);
     leftChild.push_back(0);
-    histograms.push_back(std::vector<int>());
+    histograms.push_back(std::vector<float>());
 }
 
 int DecisionTree::splitNode(int node)
@@ -115,20 +126,11 @@ int DecisionTree::findLeafNode(DataPoint* x) const
     return node;
 }
 
-void DecisionTree::classPosterior(DataPoint* x, std::vector<float>& probabilities, float & normalization) const
+void DecisionTree::classLogLikelihood(DataPoint* x, std::vector<float> & probabilities) const
 {
     // Get the leaf node
-    int leafNode = findLeafNode(x);
-    
-    normalization = 0;
-    probabilities.resize(getHistogram(leafNode).size());
-    
-    // Copy the histogram
-    for (size_t i = 0; i < getHistogram(leafNode).size(); i++)
-    {
-        probabilities[i] = static_cast<int>(getHistogram(leafNode)[i]);
-        normalization += probabilities[i];
-    }
+    const int leafNode = findLeafNode(x);
+    probabilities = getHistogram(leafNode);
 }
 
 void DecisionTree::read(std::istream& stream)
@@ -161,43 +163,22 @@ RandomForest::~RandomForest()
     }
 }
 
-void RandomForest::classPosterior(DataPoint* x, std::vector<float> & probabilities, float & normalization) const
+void RandomForest::classLogLikelihood(DataPoint* x, std::vector<float> & probabilities) const
 {
-    // The normalization constant will we 1 for this type of
-    // decision
-    normalization = 1;
-    
-    std::vector<float> currentProbs;
-    float currentNormalization;
+    assert(getSize() > 0);
+    trees[0]->classLogLikelihood(x, probabilities);
     
     // Let the crowd decide
-    for (size_t i = 0; i < trees.size(); i++)
+    for (size_t i = 1; i < trees.size(); i++)
     {
         // Get the probabilities from the current tree
-        trees[i]->classPosterior(x, currentProbs, currentNormalization);
-        
-        // Do we need to initialize the result?
-        if (i == 0)
-        {
-            // Does the result have the correct size?
-            if (probabilities.size() != currentProbs.size())
-            {
-                // Nope, correct it
-                probabilities.resize(currentProbs.size());
-            }
-            // Initialize all bins with 0
-            for (size_t c = 0; c < probabilities.size(); c++)
-            {
-                probabilities[c] = 0;
-            }
-        }
-        
-        const int C = static_cast<int>(probabilities.size());
+        std::vector<float> currentHist;
+        trees[i]->classLogLikelihood(x, currentHist);
         
         // Accumulate the votes
-        for (int  c = 0; c < C; c++)
+        for (int  c = 0; c < currentHist.size(); c++)
         {
-            probabilities[c] += std::log((currentProbs[c] + smoothing)/(currentNormalization + C*smoothing));
+            probabilities[c] += currentHist[c];
         }
     }
 }

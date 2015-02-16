@@ -85,71 +85,42 @@ int main(int c, const char** v)
     DataStorage storage;
     DataStorage storageT;
     
-    CSVDataProvider reader(0);
-    reader.read("mnist_train.txt", &storage);
-    reader.read("mnist_test.txt", &storageT);
-    std::cout << "loaded" << "\n";
-    std::cout << storage.getSize() << "\n";
-    storage.getClassLabelMap().dump();
-    exit(0);
+    LibforestDataProvider reader;
+    reader.read("mnist_train.dat", &storage);
+    reader.read("mnist_test.dat", &storageT);
     
     DecisionTreeLearner treeLearner;
     
     treeLearner.autoconf(&storage);
     treeLearner.setUseBootstrap(true);
+    treeLearner.setMinSplitExamples(5);
     
     RandomForestLearner forestLearner;
+    
+    forestLearner.addCallback(RandomForestLearner::defaultCallback, 1);
     
     forestLearner.setTreeLearner(&treeLearner);
     forestLearner.setNumTrees(8);
     forestLearner.setNumThreads(8);    
     
-    std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
+    RandomForestLearnerState state;
     RandomForest* forest = forestLearner.learn(&storage);
-    //DecisionTree* tree = learner.learn(&storage);
-    //RandomForest* forest = new RandomForest;
-    /*std::ifstream is("model5.txt");
-    forest->read(is);
-    is.close();
-    */
+    std::cout << state.getPassedTime().count()/1000000.0f << "s\n";
+    
+    std::vector<int> res;
+    forest->classify(&storageT, res);
 
-    std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
-    auto duration = std::chrono::duration_cast<std::chrono::microseconds>( t2 - t1 ).count();
-
-/*    std::ofstream s("modelbin.dat", std::ios::binary);
-    if (!s.is_open())
+    int error = 0;
+    for (int i = 0; i < storageT.getSize(); i++)
     {
-        std::cout << "Eh";
-        return 1;
-    }
-    forest->write(s);
-    s.close();
-  */  
-    std::cout.precision(16);
-    std::cout << "\n" << duration/1000000. << "s\n";
-    
-    //exit(1);
-    //RandomForestPrune prune;
-    //forest = prune.prune(forest, &storage);
-    
-    
-    {
-        std::vector<int> res;
-        forest->classify(&storageT, res);
-
-        int error = 0;
-        for (int i = 0; i < storageT.getSize(); i++)
+        if (res[i] != storageT.getClassLabel(i))
         {
-            if (res[i] != storageT.getClassLabel(i))
-            {
-                error++;
-            }
+            error++;
         }
-
-        std::cout << error/static_cast<float>(storageT.getSize()) << "\n";
     }
 
+    std::cout << error/static_cast<float>(storageT.getSize()) << "\n";
     
-    //delete forest;
+    delete forest;
     return 0;
 }
