@@ -314,7 +314,7 @@ public:
 /**
  * Updates the leaf node histograms using a smoothing parameter
  */
-void updateLeafNodeHistogram(std::vector<float> & leafNodeHistograms, const EfficientEntropyHistogram & hist, float smoothing)
+inline void updateLeafNodeHistogram(std::vector<float> & leafNodeHistograms, const EfficientEntropyHistogram & hist, float smoothing)
 {
     leafNodeHistograms.resize(hist.size());
     for (int c = 0; c < hist.size(); c++)
