@@ -167,6 +167,7 @@ DataStorage::DataStorage(const DataStorage & other)
     classLabels = other.classLabels;
     freeFlags = other.freeFlags;
     classLabelMap = other.classLabelMap;
+    classcount = other.classcount;
     
     // Set all free flags to false as this is not the owner of the data points
     for (size_t i = 0; i < freeFlags.size(); i++)
@@ -185,6 +186,7 @@ DataStorage & DataStorage::operator=(const DataStorage & other)
         classLabels = other.classLabels;
         freeFlags = other.freeFlags;
         classLabelMap = other.classLabelMap;
+        classcount = other.classcount;
 
         // Set all free flags to false as this is not the owner of the data points
         for (size_t i = 0; i < freeFlags.size(); i++)
@@ -399,9 +401,6 @@ void LibforestDataProvider::read(std::istream& stream, DataStorage* dataStorage)
     // Read the number of data points
     int N;
     readBinary(stream, N);
-    // Read the number of dimensions
-    int D;
-    readBinary(stream, D);
     
     // Read the data set
     for (int n = 0; n < N; n++)
@@ -410,15 +409,8 @@ void LibforestDataProvider::read(std::istream& stream, DataStorage* dataStorage)
         int label;
         readBinary(stream, label);
         // Set up the data point
-        DataPoint* v = new DataPoint(D);
-        
-        for (int d = 0; d < D; d++)
-        {
-            float value;
-            readBinary(stream, value);
-            v->at(d) = value;
-        }
-        
+        DataPoint* v = new DataPoint();
+        v->read(stream);
         dataStorage->addDataPoint(v, label, true);
     }
 }
@@ -431,15 +423,10 @@ void LibforestDataWriter::write(std::ostream& stream, DataStorage* dataStorage)
 {
     // Write the number of data points
     writeBinary(stream, dataStorage->getSize());
-    // Write the number of dimensions
-    writeBinary(stream, dataStorage->getDimensionality());
     // Write the content
     for (int n = 0; n < dataStorage->getSize(); n++)
     {
         writeBinary(stream, dataStorage->getClassLabel(n));
-        for (int d = 0; d < dataStorage->getDimensionality(); d++)
-        {
-            writeBinary(stream, dataStorage->getDataPoint(n)->at(d));
-        }
+        dataStorage->getDataPoint(n)->write(stream);
     }
 }

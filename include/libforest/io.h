@@ -6,6 +6,27 @@
 #include <iostream>
 #include <fstream>
 
+/**
+ * These are color codes that can be used with prinft
+ */
+
+#define LIBF_COLOR_NORMAL   "\x1B[0m"
+#define LIBF_COLOR_RED      "\x1B[31m"
+#define LIBF_COLOR_GREEN    "\x1B[32m"
+#define LIBF_COLOR_YELLOW   "\x1B[33m"
+#define LIBF_COLOR_BLUE     "\x1B[34m"
+#define LIBF_COLOR_MAGENTA  "\x1B[35m"
+#define LIBF_COLOR_CYAN     "\x1B[36m"
+#define LIBF_COLOR_WHITE    "\x1B[37m"
+#define LIBF_COLOR_RESET    "\033[0m"
+#define LIBF_BG_COLOR_RED      "\x1B[41m"
+#define LIBF_BG_COLOR_GREEN    "\x1B[42m"
+#define LIBF_BG_COLOR_YELLOW   "\x1B[43m"
+#define LIBF_BG_COLOR_BLUE     "\x1B[44m"
+#define LIBF_BG_COLOR_MAGENTA  "\x1B[45m"
+#define LIBF_BG_COLOR_CYAN     "\x1B[46m"
+#define LIBF_BG_COLOR_WHITE    "\x1B[47m"
+
 namespace libf {
     /**
      * Writes a binary value to a stream

@@ -1,5 +1,5 @@
-#ifndef MCMCF_CLASSIFIERS_H
-#define MCMCF_CLASSIFIERS_H
+#ifndef LIBF_CLASSIFIERS_H
+#define LIBF_CLASSIFIERS_H
 
 /**
  * This file contains the data structures for the classifiers. There are 
@@ -31,17 +31,17 @@ namespace libf {
         /**
          * Assigns an integer class label to some data point
          */
-        virtual int classify(DataPoint* x) const;
+        virtual int classify(const DataPoint* x) const;
         
         /**
          * Classifies an entire data set and uses the integer values. 
          */
-        virtual void classify(DataStorage* storage, std::vector<int> & results) const;
+        virtual void classify(const DataStorage* storage, std::vector<int> & results) const;
         
         /**
          * Returns the class posterior probability p(c|x).
          */
-        virtual void classLogPosterior(DataPoint* x, std::vector<float> & probabilities) const = 0;
+        virtual void classLogPosterior(const DataPoint* x, std::vector<float> & probabilities) const = 0;
         
         /**
          * Reads the classifier from a stream
@@ -73,11 +73,27 @@ namespace libf {
         }
         
         /**
+         * Returns the split feature for a node
+         */
+        int getSplitFeature(int node) const
+        {
+            return splitFeatures[node];
+        }
+        
+        /**
          * Sets the threshold for a node
          */
         void setThreshold(int node, float threshold)
         {
             thresholds[node] = threshold;
+        }
+        
+        /**
+         * Returns the threshold for a node
+         */
+        float getThreshold(int node) const
+        {
+            return thresholds[node];
         }
         
         /**
@@ -88,12 +104,12 @@ namespace libf {
         /**
          * Returns the leaf node for a specific data point
          */
-        int findLeafNode(DataPoint* x) const;
+        int findLeafNode(const DataPoint* x) const;
         
         /**
          * Returns the class log posterior p(c | x).
          */
-        virtual void classLogPosterior(DataPoint* x, std::vector<float> & probabilities) const;
+        virtual void classLogPosterior(const DataPoint* x, std::vector<float> & probabilities) const;
         
         /**
          * Reads the tree from a stream
@@ -135,6 +151,14 @@ namespace libf {
         bool isLeafNode(int node) const 
         {
             return leftChild[node] == 0;
+        }
+        
+        /**
+         * Returns the left child for a node
+         */
+        int getLeftChild(int node) const
+        {
+            return leftChild[node];
         }
         
     private:
@@ -245,7 +269,7 @@ namespace libf {
         /**
          * Returns the class log posterior p(c | x).
          */
-        virtual void classLogPosterior(DataPoint* x, std::vector<float> & probabilities) const;
+        virtual void classLogPosterior(const DataPoint* x, std::vector<float> & probabilities) const;
         
         /**
          * Adds a tree to the ensemble

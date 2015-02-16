@@ -13,7 +13,7 @@ using namespace libf;
 /// Classifier
 ////////////////////////////////////////////////////////////////////////////////
 
-void Classifier::classify(DataStorage* storage, std::vector<int> & results) const
+void Classifier::classify(const DataStorage* storage, std::vector<int> & results) const
 {
     // Clean the result set
     results.erase(results.begin(), results.end());
@@ -26,7 +26,7 @@ void Classifier::classify(DataStorage* storage, std::vector<int> & results) cons
     }
 }
 
-int Classifier::classify(DataPoint* x) const
+int Classifier::classify(const DataPoint* x) const
 {
     // Get the class posterior
     std::vector<float> posterior;
@@ -56,10 +56,10 @@ int Classifier::classify(DataPoint* x) const
 
 DecisionTree::DecisionTree()
 {
-    splitFeatures.reserve(GRAPH_BUFFER_SIZE);
-    thresholds.reserve(GRAPH_BUFFER_SIZE);
-    leftChild.reserve(GRAPH_BUFFER_SIZE);
-    histograms.reserve(GRAPH_BUFFER_SIZE);
+    splitFeatures.reserve(LIBF_GRAPH_BUFFER_SIZE);
+    thresholds.reserve(LIBF_GRAPH_BUFFER_SIZE);
+    leftChild.reserve(LIBF_GRAPH_BUFFER_SIZE);
+    histograms.reserve(LIBF_GRAPH_BUFFER_SIZE);
     // Add at least the root node with index 0
     addNode();
 }
@@ -92,7 +92,7 @@ int DecisionTree::splitNode(int node)
     return leftNode;
 }
 
-int DecisionTree::findLeafNode(DataPoint* x) const
+int DecisionTree::findLeafNode(const DataPoint* x) const
 {
     // Select the root node as current node
     int node = 0;
@@ -114,7 +114,7 @@ int DecisionTree::findLeafNode(DataPoint* x) const
     return node;
 }
 
-void DecisionTree::classLogPosterior(DataPoint* x, std::vector<float> & probabilities) const
+void DecisionTree::classLogPosterior(const DataPoint* x, std::vector<float> & probabilities) const
 {
     // Get the leaf node
     const int leafNode = findLeafNode(x);
@@ -151,7 +151,7 @@ RandomForest::~RandomForest()
     }
 }
 
-void RandomForest::classLogPosterior(DataPoint* x, std::vector<float> & probabilities) const
+void RandomForest::classLogPosterior(const DataPoint* x, std::vector<float> & probabilities) const
 {
     assert(getSize() > 0);
     trees[0]->classLogPosterior(x, probabilities);
