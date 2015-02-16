@@ -100,7 +100,7 @@ int main(int c, const char** v)
     forestLearner.addCallback(RandomForestLearner::defaultCallback, 1);
     
     forestLearner.setTreeLearner(&treeLearner);
-    forestLearner.setNumTrees(8);
+    forestLearner.setNumTrees(1);
     forestLearner.setNumThreads(8);    
     
     RandomForestLearnerState state;

@@ -14,10 +14,10 @@ using namespace libf;
 std::random_device rd;
 
 ////////////////////////////////////////////////////////////////////////////////
-/// DataVector
+/// DataPoint
 ////////////////////////////////////////////////////////////////////////////////
 
-DataVector::DataVector(int newD, float x)
+DataPoint::DataPoint(int newD, float x)
 {
     D = newD;
     data = new float[D];
@@ -28,7 +28,7 @@ DataVector::DataVector(int newD, float x)
     }
 }
 
-DataVector::DataVector(const DataVector & other)
+DataPoint::DataPoint(const DataPoint & other)
 {
     D = other.D;
     data = new float[D];
@@ -38,14 +38,14 @@ DataVector::DataVector(const DataVector & other)
     }
 }
 
-void DataVector::resize(int newD)
+void DataPoint::resize(int newD)
 {
     freeData();
     D = newD;
     data = new float[D];
 }
 
-DataVector & DataVector::operator=(const DataVector & other)
+DataPoint & DataPoint::operator=(const DataPoint & other)
 {
     // Do nothing at self assignments. 
     if (this != &other)
@@ -61,7 +61,7 @@ DataVector & DataVector::operator=(const DataVector & other)
     return *this;
 }
 
-void DataVector::freeData()
+void DataPoint::freeData()
 {
     if (data != 0)
     {
@@ -70,7 +70,7 @@ void DataVector::freeData()
     }
 }
 
-void DataVector::read(std::istream& stream)
+void DataPoint::read(std::istream& stream)
 {
     // Read the dimensionality
     readBinary(stream, D);
@@ -85,7 +85,7 @@ void DataVector::read(std::istream& stream)
     }
 }
 
-void DataVector::write(std::ostream& stream) const
+void DataPoint::write(std::ostream& stream) const
 {
     // Write the dimensionality
     writeBinary(stream, D);
@@ -357,7 +357,7 @@ void CSVDataProvider::read(std::istream & stream, DataStorage* dataStorage)
         if (row.size() == 0) continue;
         
         // Load the data point
-        DataVector* dataPoint = new DataVector(static_cast<int>(row.size() - 1));
+        DataPoint* dataPoint = new DataPoint(static_cast<int>(row.size() - 1));
         int  label = 0;
         const int isize = static_cast<int>(row.size());
         for (int  i = 0; i < isize; i++)
@@ -410,7 +410,7 @@ void LibforestDataProvider::read(std::istream& stream, DataStorage* dataStorage)
         int label;
         readBinary(stream, label);
         // Set up the data point
-        DataVector* v = new DataVector(D);
+        DataPoint* v = new DataPoint(D);
         
         for (int d = 0; d < D; d++)
         {

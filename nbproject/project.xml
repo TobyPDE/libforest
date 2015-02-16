@@ -10,7 +10,8 @@
             <sourceEncoding>UTF-8</sourceEncoding>
             <make-dep-projects/>
             <sourceRootList>
-                <sourceRootElem>.</sourceRootElem>
+                <sourceRootElem>include</sourceRootElem>
+                <sourceRootElem>src</sourceRootElem>
             </sourceRootList>
             <confList>
                 <confElem>
