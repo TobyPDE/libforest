@@ -443,7 +443,7 @@ namespace libf {
      */
     class BoostedRandomForestLearnerState {
     public:
-        BoostedRandomForestLearnerState() : action(0), learner(0), forest(0), tree(0), startTime(std::chrono::high_resolution_clock::now()) {}
+        BoostedRandomForestLearnerState() : action(0), learner(0), forest(0), tree(0), error(0), alpha(0), startTime(std::chrono::high_resolution_clock::now()) {}
         
         /**
          * The current action
@@ -461,6 +461,14 @@ namespace libf {
          * The current tree
          */
         int tree;
+        /**
+         * The error value
+         */
+        float error;
+        /**
+         * The tree weight
+         */
+        float alpha;
         /**
          * The start time
          */

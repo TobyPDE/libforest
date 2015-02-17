@@ -86,20 +86,20 @@ int main(int c, const char** v)
     DataStorage storageT;
     
     LibforestDataProvider reader;
-    reader.read("/Users/Toby/Projects/libforest/example/build/mnist_train.dat", &storage);
-    reader.read("/Users/Toby/Projects/libforest/example/build/mnist_test.dat", &storageT);
+    reader.read("/Users/Toby/Projects/libforest/example/build/mnist_train.dat", &storageT);
+    reader.read("/Users/Toby/Projects/libforest/example/build/mnist_test.dat", &storage);
     
     DecisionTreeLearner treeLearner;
     
     treeLearner.autoconf(&storage);
     treeLearner.setUseBootstrap(false);
-    treeLearner.setMaxDepth(5);
+    treeLearner.setMaxDepth(1);
     
     BoostedRandomForestLearner forestLearner;
     forestLearner.addCallback(BoostedRandomForestLearner::defaultCallback, 1);
     
     forestLearner.setTreeLearner(&treeLearner);
-    forestLearner.setNumTrees(50);
+    forestLearner.setNumTrees(100);
     
     BoostedRandomForest* forest = forestLearner.learn(&storage);
     

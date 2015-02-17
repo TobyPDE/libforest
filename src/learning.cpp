@@ -767,7 +767,7 @@ BoostedRandomForest* BoostedRandomForestLearner::learn(const DataStorage* storag
         {
             const float u = U(g);
             int index = 0;
-            while (u > cumsum[index])
+            while (u > cumsum[index] && index < N-1)
             {
                 index++;
             }
@@ -796,8 +796,6 @@ BoostedRandomForest* BoostedRandomForestLearner::learn(const DataStorage* storag
         // Compute the classifier weight
         const float alpha = std::log((1-error)/error) + std::log(C - 1);
         
-        std::cout << "error = " << error << ", alpha = " << alpha << "\n";
-        
         // Update the weights
         float total = 0;
         for (int n = 0; n < N; n++)
@@ -822,6 +820,8 @@ BoostedRandomForest* BoostedRandomForestLearner::learn(const DataStorage* storag
         // --------------
         // Add it to the forest
         state.tree = ++treeFinishCounter;
+        state.error = error;
+        state.alpha = alpha;
         state.action = ACTION_FINISH_TREE;
         evokeCallback(forest, treeFinishCounter - 1, &state);
     }
@@ -860,7 +860,9 @@ int BoostedRandomForestLearner::defaultCallback(BoostedRandomForest* forest, Boo
             std::cout   << std::setw(15) << std::left << "Finish tree " 
                         << std::setw(4) << std::right << state->tree 
                         << " out of " 
-                        << std::setw(4) << state->learner->getNumTrees() << "\n";
+                        << std::setw(4) << state->learner->getNumTrees() 
+                        << " error = " << state->error 
+                        << ", alpha = " << state->alpha << "\n";
             break;
         case BoostedRandomForestLearner::ACTION_FINISH_FOREST:
             std::cout << "Finished boosted forest in " << state->getPassedTime().count()/1000000. << "s\n";
