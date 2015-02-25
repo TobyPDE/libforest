@@ -35,12 +35,11 @@ namespace libf {
     class BoostedRandomForestLearner;
     
     /**
-     * This is the base class for all learners. It allows you to set a callback
-     * function that is called very n iterations of the respective training
-     * algorithm.
+     * AbstractLearner: Combines all common functionality of offline and online
+     * learners.
      */
-    template <class T, class S>
-    class Learner {
+    template<class T, class S>
+    class AbstractLearner {
     public:
         /**
          * Registers a callback function that is called every cycle iterations. 
@@ -50,11 +49,6 @@ namespace libf {
             callbacks.push_back(callback);
             callbackCycles.push_back(cycle);
         }
-        
-        /**
-         * Learns a classifier.
-         */
-        virtual T* learn(const DataStorage* storage) const = 0;
         
         /**
          * The autoconf function should set up the learner such that without
@@ -97,6 +91,22 @@ namespace libf {
          * The learning cycle. The callback is called very cycle iterations
          */
         std::vector<int> callbackCycles;
+    };
+    
+    /**
+     * This is the base class for all offline learners. It allows you to set a callback
+     * function that is called very n iterations of the respective training
+     * algorithm.
+     */
+    template <class T, class S>
+    class Learner : public AbstractLearner<T, S> {
+    public:
+        
+        /**
+         * Learns a classifier.
+         */
+        virtual T* learn(const DataStorage* storage) const = 0;
+
     };
     
     /**
