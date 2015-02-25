@@ -278,8 +278,8 @@ namespace libf {
         int getDimensionality() const;
         
         /**
-         * Returns the number of classes. You have to call computeIntClassLabels()
-         * first. 
+         * Returns the number of classes. You have to call 
+         * getCLassLabelMap.computeIntClassLabels() first. 
          */
         int getClasscount() const
         {
@@ -341,6 +341,11 @@ namespace libf {
         {
             classcount = _classcount;
         }
+        
+        /**
+         * Dumps information about the data storage
+         */
+        virtual void dumpInformation(std::ostream & stream = std::cout);
         
     private:
         /**

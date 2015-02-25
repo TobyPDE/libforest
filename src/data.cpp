@@ -7,7 +7,7 @@
 #include <cstdlib>
 #include <random>
 #include <iostream>
-
+#include <iomanip>
 
 using namespace libf;
 
@@ -303,6 +303,16 @@ void DataStorage::bootstrap(int N, DataStorage* dataStorage, std::vector<bool> &
         sampled[point] = true;
     }
     dataStorage->classLabelMap = classLabelMap;
+}
+
+void DataStorage::dumpInformation(std::ostream & stream)
+{
+    std::vector<int> intLabelMap;
+    getClassLabelMap().computeIntClassLabels(intLabelMap);
+    
+    stream << std::setw(30) << "Size" << ": " << getSize() << "\n";
+    stream << std::setw(30) << "Dimensionality" << ": " << getDimensionality() << "\n";
+    stream << std::setw(30) << "Classes" << ": " << getClasscount() << "\n";
 }
 
 ////////////////////////////////////////////////////////////////////////////////
