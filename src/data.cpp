@@ -356,22 +356,36 @@ void CSVDataProvider::read(std::istream & stream, DataStorage* dataStorage)
     // Tokenize the stream
     typedef boost::tokenizer< boost::escaped_list_separator<char> > Tokenizer;
 
+    // @see http://www.boost.org/doc/libs/1_36_0/libs/tokenizer/escaped_list_separator.htm
+    std::string escape("\\");
+    std::string separator(columnSeparator);
+    std::string quote("\"");
+
+    boost::escaped_list_separator<char> els(escape, separator, quote);
+    
     std::vector< std::string > row;
     std::string line;
 
     while (std::getline(stream,line))
     {
         // Tokenize the line
-        Tokenizer tok(line);
-        row.assign(tok.begin(),tok.end());
+        Tokenizer tok(line, els);
+        row.assign(tok.begin(), tok.end());
 
         // Do not consider blank line
         if (row.size() == 0) continue;
         
+        // TODO: more elegant solution
+        int isize = static_cast<int>(row.size());
+        if (row[row.size() - 1].empty()) 
+        {
+            // We have an empty trailing column ...
+            isize--;
+        }
+        
         // Load the data point
-        DataPoint* dataPoint = new DataPoint(static_cast<int>(row.size() - 1));
+        DataPoint* dataPoint = new DataPoint(isize - 1);
         int  label = 0;
-        const int isize = static_cast<int>(row.size());
         for (int  i = 0; i < isize; i++)
         {
             if (i == classColumnIndex)

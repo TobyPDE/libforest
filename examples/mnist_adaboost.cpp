@@ -12,6 +12,8 @@ using namespace libf;
  * 
  *  [1] http://yann.lecun.com/exdb/mnist/
  * 
+ * **The original MNIST file format is currently not supported.**
+ * 
  * Usage:
  * 
  * $ ./lib_forest/example/cli_mnist_adaboost --help
@@ -50,14 +52,14 @@ int main(int argc, const char** argv)
     boost::filesystem::path mnistTrainDat(parameters["mnist-train"].as<std::string>());
     if (!boost::filesystem::is_regular_file(mnistTrainDat))
     {
-        std::cout << "mnist_train.dat does nt exist at the specified location." << std::endl;
+        std::cout << "mnist_train.dat does not exist at the specified location." << std::endl;
         return 1;
     }
     
     boost::filesystem::path mnistTestDat(parameters["mnist-test"].as<std::string>());
     if (!boost::filesystem::is_regular_file(mnistTestDat))
     {
-        std::cout << "mnist_test.dat does nt exist at the specified location." << std::endl;
+        std::cout << "mnist_test.dat does not exist at the specified location." << std::endl;
         return 1;
     }
     
