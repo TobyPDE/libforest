@@ -12,6 +12,9 @@ target_link_libraries(cli_mnist_rf libforest ${Boost_LIBRARIES})
 add_executable(cli_mnist_adaboost mnist_adaboost.cpp)
 target_link_libraries(cli_mnist_adaboost libforest ${Boost_LIBRARIES})
 
+add_executable(cli_usps_rf usps_rf.cpp)
+target_link_libraries(cli_usps_rf libforest ${Boost_LIBRARIES})
+
 find_package(OpenMP)
 set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
 set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")

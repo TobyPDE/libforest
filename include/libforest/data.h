@@ -400,7 +400,8 @@ namespace libf {
      */
     class CSVDataProvider : public DataProvider{
     public:
-        CSVDataProvider(int classColumnIndex) : classColumnIndex(classColumnIndex) {}
+        CSVDataProvider(int classColumnIndex) : classColumnIndex(classColumnIndex), columnSeparator(",") {}
+        CSVDataProvider(int classColumnIndex, std::string columnSeperator) : classColumnIndex(classColumnIndex), columnSeparator(columnSeperator) {}
         virtual ~CSVDataProvider() {}
         
         /**
@@ -420,6 +421,10 @@ namespace libf {
          * The index of the column that contains the class label
          */
         int classColumnIndex;
+        /**
+         * Separator used between columns; default usually is ','
+         */
+        std::string columnSeparator;
     };
     
     /**
