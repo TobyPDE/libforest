@@ -12,6 +12,7 @@ namespace libf {
     class DataStorage;
     class Classifier;
     class RandomForest;
+    class RandomForestLearner;
     
     /**
      * Computes the accuracy on the data set.
@@ -75,6 +76,28 @@ namespace libf {
          * Prints and measures the correlation. 
          */
         void measureAndPrint(const RandomForest* classifier, const DataStorage* storage) const;
+    };
+    
+    /**
+     * Reports the variable importance computed during training.
+     */
+    class VariableImportanceTool {
+    public:
+        /**
+         * Returns the variable importance (simple wrapper around 
+         * getMDIImportance).
+         */
+        void measure(RandomForestLearner* learner, std::vector<float> & result) const;
+        
+        /**
+         * Prints the variable importance
+         */
+        void print(const std::vector<float> & result) const;
+        
+        /**
+         * Retrieves (measures) and prints the variable importance
+         */
+        void measureAndPrint(RandomForestLearner*) const;
     };
 }
 

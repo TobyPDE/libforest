@@ -16,30 +16,35 @@ using namespace libf;
  * 
  * Usage:
  * 
- * $ ./lib_forest/example/cli_mnist_rf --help
+ * $ ./examples/cli_rf --help
  * Allowed options:
- *   --help                 produce help message
- *   --mnist-train arg      path to mnist_train.dat
- *   --mnist-test arg       path to mnist_test.dat
- *   --num-trees arg (=100) number of trees in forest
- *   --max-depth arg (=100) maximum depth of trees
- *   --num-threads arg (=1) number of threads for learning
+ *   --help                   produce help message
+ *   --file-train arg         path to train DAT file
+ *   --file-test arg          path to test DAT file
+ *   --num-features arg (=10) number of features to use (set to dimensionality of 
+ *                            data to learn deterministically)
+ *   --use-bootstrap          use bootstrapping for training
+ *   --num-trees arg (=100)   number of trees in forest
+ *   --max-depth arg (=100)   maximum depth of trees
+ *   --num-threads arg (=1)   number of threads for learning
+ * 
  */
 int main(int argc, const char** argv)
 {
     boost::program_options::options_description desc("Allowed options");
     desc.add_options()
         ("help", "produce help message")
-        ("mnist-train", boost::program_options::value<std::string>(), "path to mnist_train.dat")
-        ("mnist-test", boost::program_options::value<std::string>(), "path to mnist_test.dat")
+        ("file-train", boost::program_options::value<std::string>(), "path to train DAT file")
+        ("file-test", boost::program_options::value<std::string>(), "path to test DAT file")
         ("num-features", boost::program_options::value<int>()->default_value(10), "number of features to use (set to dimensionality of data to learn deterministically)")
+        ("use-bootstrap", "use bootstrapping for training")
         ("num-trees", boost::program_options::value<int>()->default_value(100), "number of trees in forest")
         ("max-depth", boost::program_options::value<int>()->default_value(100), "maximum depth of trees")
         ("num-threads", boost::program_options::value<int>()->default_value(1), "number of threads for learning");
 
     boost::program_options::positional_options_description positionals;
-    positionals.add("mnist-train", 1);
-    positionals.add("mnist-test", 1);
+    positionals.add("file-train", 1);
+    positionals.add("file-test", 1);
     
     boost::program_options::variables_map parameters;
     boost::program_options::store(boost::program_options::command_line_parser(argc, argv).options(desc).positional(positionals).run(), parameters);
@@ -51,19 +56,22 @@ int main(int argc, const char** argv)
         return 1;
     }
     
-    boost::filesystem::path mnistTrainDat(parameters["mnist-train"].as<std::string>());
+    boost::filesystem::path mnistTrainDat(parameters["file-train"].as<std::string>());
     if (!boost::filesystem::is_regular_file(mnistTrainDat))
     {
-        std::cout << "mnist_train.dat does not exist at the specified location." << std::endl;
+        std::cout << "Train DAT file does not exist at the specified location." << std::endl;
         return 1;
     }
     
-    boost::filesystem::path mnistTestDat(parameters["mnist-test"].as<std::string>());
+    boost::filesystem::path mnistTestDat(parameters["file-test"].as<std::string>());
     if (!boost::filesystem::is_regular_file(mnistTestDat))
     {
-        std::cout << "mnist_test.dat does not exist at the specified location." << std::endl;
+        std::cout << "Test DAT file does not exist at the specified location." << std::endl;
         return 1;
     }
+    
+    bool useBootstrap = parameters.find("use-bootstrap") != parameters.end();
+    bool computeMDI = parameters.find("compute-mdi") != parameters.end();
     
     DataStorage storage;
     DataStorage storageT;
@@ -78,7 +86,7 @@ int main(int argc, const char** argv)
     DecisionTreeLearner treeLearner;
     
     treeLearner.autoconf(&storage);
-    treeLearner.setUseBootstrap(false);
+    treeLearner.setUseBootstrap(useBootstrap);
     treeLearner.setMaxDepth(parameters["max-depth"].as<int>());
     treeLearner.setNumFeatures(parameters["num-features"].as<int>());
     
@@ -96,6 +104,9 @@ int main(int argc, const char** argv)
     
     ConfusionMatrixTool confusionMatrixTool;
     confusionMatrixTool.measureAndPrint(forest, &storageT);
+    
+    VariableImportanceTool viTool;
+    viTool.measureAndPrint(&forestLearner);
     
     delete forest;
     return 0;

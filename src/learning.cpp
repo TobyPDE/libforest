@@ -328,7 +328,7 @@ inline void updateLeafNodeHistogram(std::vector<float> & leafNodeHistograms, con
     }
 }
 
-DecisionTree* DecisionTreeLearner::learn(const DataStorage* dataStorage) const
+DecisionTree* DecisionTreeLearner::learn(const DataStorage* dataStorage)
 {
     DataStorage* storage;
     // If we use bootstrap sampling, then this array contains the results of 
@@ -365,6 +365,10 @@ DecisionTree* DecisionTreeLearner::learn(const DataStorage* dataStorage) const
     trainingExamples.reserve(LIBF_GRAPH_BUFFER_SIZE);
     trainingExamplesSizes.reserve(LIBF_GRAPH_BUFFER_SIZE);
     
+    // Counts the number of cases each feature is selected
+    std::vector<int> featureSupport(D, 0.f);
+    impurityDecrease = std::vector<float>(D, 0.f);
+    
     // Add all training example to the root node
     trainingExamplesSizes.push_back(storage->getSize());
     trainingExamples.push_back(new int[trainingExamplesSizes[0]]);
@@ -376,7 +380,6 @@ DecisionTree* DecisionTreeLearner::learn(const DataStorage* dataStorage) const
     // We use these arrays during training for the left and right histograms
     EfficientEntropyHistogram leftHistogram(C);
     EfficientEntropyHistogram rightHistogram(C);
-    
     
     // We keep track on the depth of each node in this array
     // This allows us to stop splitting after a certain depth is reached
@@ -434,6 +437,7 @@ DecisionTree* DecisionTreeLearner::learn(const DataStorage* dataStorage) const
         }
         
         hist.initEntropies();
+        const float parentEntropy = hist.entropy();
         
         // These are the parameters we optimize
         float bestThreshold = 0;
@@ -501,6 +505,7 @@ DecisionTree* DecisionTreeLearner::learn(const DataStorage* dataStorage) const
                 leftClass = storage->getClassLabel(n);
             }
         }
+        
         // We spare the additional multiplication at each iteration.
         bestThreshold *= 0.5f;
         
@@ -544,6 +549,10 @@ DecisionTree* DecisionTreeLearner::learn(const DataStorage* dataStorage) const
         tree->setSplitFeature(node, bestFeature);
         const int leftChild = tree->splitNode(node);
         
+        // Save the impurity reduction for this feature if requested
+        ++featureSupport[bestFeature];
+        impurityDecrease[bestFeature] += parentEntropy - bestObjective;
+        
         // Update the depth
         depths.push_back(depths[node] + 1);
         depths.push_back(depths[node] + 1);
@@ -565,6 +574,11 @@ DecisionTree* DecisionTreeLearner::learn(const DataStorage* dataStorage) const
         updateHistograms(tree, dataStorage);
     }
 
+    for (int f = 0; f < numFeatures; ++f)
+    {
+        impurityDecrease[f] /= featureSupport[f];
+    }
+    
     return tree;
 }
 
@@ -628,10 +642,14 @@ void DecisionTreeLearner::dumpSetting(std::ostream & stream) const
 /// RandomForestLearner
 ////////////////////////////////////////////////////////////////////////////////
 
-RandomForest* RandomForestLearner::learn(const DataStorage* storage) const
+RandomForest* RandomForestLearner::learn(const DataStorage* storage)
 {
     // Set up the empty random forest
     RandomForest* forest = new RandomForest();
+    const int D = storage->getDimensionality();
+    
+    // Initialize variable importance values.
+    impurityDecrease = std::vector<float>(D, 0);
     
     // Set up the state for the call backs
     RandomForestLearnerState state;
@@ -662,6 +680,12 @@ RandomForest* RandomForestLearner::learn(const DataStorage* storage) const
             state.action = ACTION_FINISH_TREE;
             evokeCallback(forest, treeFinishCounter - 1, &state);
             forest->addTree(tree);
+
+            // Update variable importance.
+            for (int f = 0; f < D; ++f)
+            {
+                impurityDecrease[f] += treeLearner->getMDIImportance(f)/this->numTrees;
+            }
         }
     }
     
@@ -717,7 +741,7 @@ int RandomForestLearner::defaultCallback(RandomForest* forest, RandomForestLearn
 /// BoostedRandomForestLearner
 ////////////////////////////////////////////////////////////////////////////////
 
-BoostedRandomForest* BoostedRandomForestLearner::learn(const DataStorage* storage) const
+BoostedRandomForest* BoostedRandomForestLearner::learn(const DataStorage* storage)
 {
     // Set up the empty random forest
     BoostedRandomForest* forest = new BoostedRandomForest();
