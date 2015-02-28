@@ -105,7 +105,7 @@ namespace libf {
         /**
          * Learns a classifier.
          */
-        virtual T* learn(const DataStorage* storage) const = 0;
+        virtual T* learn(const DataStorage* storage) = 0;
 
     };
     
@@ -229,6 +229,25 @@ namespace libf {
         }
         
         /**
+         * Get the Mean Decrease Impurity importance.
+         * 
+         * @see http://orbi.ulg.ac.be/bitstream/2268/170309/1/thesis.pdf
+         */
+        float getMDIImportance(int feature) const
+        {
+            return impurityDecrease[feature];
+        }
+        
+        /**
+         * Get the Mean Impurity Decrease variable importance for all features, 
+         * see above.
+         */
+        std::vector<float> & getMDIImportance()
+        {
+            return impurityDecrease;
+        }
+        
+        /**
          * Configures the learning automatically depending on a certain data
          * set. 
          */
@@ -238,7 +257,7 @@ namespace libf {
          * Learns a decision tree on a data set. If you want to make learning
          * easier, just use the autoconf option before learning. 
          */
-        virtual DecisionTree* learn(const DataStorage* storage) const;
+        virtual DecisionTree* learn(const DataStorage* storage);
         
         /**
          * Dumps the settings
@@ -304,6 +323,10 @@ namespace libf {
          * The smoothing parameter for the histograms
          */
         float smoothingParameter;
+        /**
+         * The sum of impurity decrease per feature
+         */
+        std::vector<float> impurityDecrease;
     };
     
     /**
@@ -416,9 +439,28 @@ namespace libf {
         }
         
         /**
+         * Get the Mean Impurity Decrease variable importance.
+         * 
+         * @see http://orbi.ulg.ac.be/bitstream/2268/170309/1/thesis.pdf
+         */
+        float getMDIImportance(int feature) const
+        {
+            return impurityDecrease[feature];
+        }
+        
+        /**
+         * Get the Mean Impurity Decrease variable importance for all features, 
+         * see above.
+         */
+        std::vector<float> & getMDIImportance()
+        {
+            return impurityDecrease;
+        }
+        
+        /**
          * Learns a forests. 
          */
-        virtual RandomForest* learn(const DataStorage* storage) const;
+        virtual RandomForest* learn(const DataStorage* storage);
         
         /**
          * The autoconf function should set up the learner such that without
@@ -444,6 +486,11 @@ namespace libf {
          * The number of threads that shall be used to learn the forest
          */
         int numThreads;
+        /**
+         * Used to compute the Mean Decrease Importance variable importance
+         * if requested through the tree learner.
+         */
+        std::vector<float> impurityDecrease;
     };
     
     
@@ -551,7 +598,7 @@ namespace libf {
         /**
          * Learns a forests. 
          */
-        virtual BoostedRandomForest* learn(const DataStorage* storage) const;
+        virtual BoostedRandomForest* learn(const DataStorage* storage);
         
         /**
          * The autoconf function should set up the learner such that without

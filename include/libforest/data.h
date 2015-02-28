@@ -489,7 +489,7 @@ namespace libf {
     /**
      * This data provider write data to a local LIBSVM file. 
      */
-    class LIBSVMDataPWriter : public DataWriter {
+    class LIBSVMDataWriter : public DataWriter {
     public:
         /**
          * Writes the data to a stream. 

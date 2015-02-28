@@ -1,6 +1,7 @@
 #include "libforest/tools.h"
 #include "libforest/data.h"
 #include "libforest/classifiers.h"
+#include "libforest/learning.h"
 #include "libforest/io.h"
 #include "libforest/util.h"
 
@@ -267,4 +268,27 @@ void CorrelationTool::measureAndPrint(const RandomForest* classifier, const Data
     std::vector< std::vector<float> > result;
     measure(classifier, storage, result);
     print(result);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+/// VariableImaportanceTool
+////////////////////////////////////////////////////////////////////////////////
+
+void VariableImportanceTool::measure(RandomForestLearner* learner, std::vector<float> & result) const
+{
+    std::vector<float> importance = learner->getMDIImportance();
+    result = std::vector<float>(importance.begin(), importance.end());
+}
+
+void VariableImportanceTool::print(const std::vector<float> & result) const
+{
+    for (int f = 0; f < result.size(); ++f)
+    {
+        printf(" %6d | %2.6f \n", f, result[f]);
+    }
+}
+
+void VariableImportanceTool::measureAndPrint(RandomForestLearner* learner) const
+{
+    print(learner->getMDIImportance());
 }

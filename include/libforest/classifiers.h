@@ -176,7 +176,7 @@ namespace libf {
          */
         std::vector<float> thresholds;
         /**
-         * The left child node of each node. If the left child not is 0, then 
+         * The left child node of each node. If the left child node is 0, then 
          * this is a leaf node. The right child node is left + 1. 
          */
         std::vector<int> leftChild;
