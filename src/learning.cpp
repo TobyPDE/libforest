@@ -366,7 +366,6 @@ DecisionTree* DecisionTreeLearner::learn(const DataStorage* dataStorage)
     trainingExamplesSizes.reserve(LIBF_GRAPH_BUFFER_SIZE);
     
     // Counts the number of cases each feature is selected
-    std::vector<int> featureSupport(D, 0.f);
     impurityDecrease = std::vector<float>(D, 0.f);
     
     // Add all training example to the root node
@@ -550,8 +549,7 @@ DecisionTree* DecisionTreeLearner::learn(const DataStorage* dataStorage)
         const int leftChild = tree->splitNode(node);
         
         // Save the impurity reduction for this feature if requested
-        ++featureSupport[bestFeature];
-        impurityDecrease[bestFeature] += parentEntropy - bestObjective;
+        impurityDecrease[bestFeature] += N/storage->getSize()*(parentEntropy - bestObjective);
         
         // Update the depth
         depths.push_back(depths[node] + 1);
@@ -572,11 +570,6 @@ DecisionTree* DecisionTreeLearner::learn(const DataStorage* dataStorage)
     if (useBootstrap)
     {
         updateHistograms(tree, dataStorage);
-    }
-
-    for (int f = 0; f < numFeatures; ++f)
-    {
-        impurityDecrease[f] /= featureSupport[f];
     }
     
     return tree;
@@ -649,7 +642,7 @@ RandomForest* RandomForestLearner::learn(const DataStorage* storage)
     const int D = storage->getDimensionality();
     
     // Initialize variable importance values.
-    impurityDecrease = std::vector<float>(D, 0);
+    impurityDecrease = std::vector<float>(D, 0.f);
     
     // Set up the state for the call backs
     RandomForestLearnerState state;

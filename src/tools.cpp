@@ -8,6 +8,7 @@
 #include <iostream>
 #include <iomanip>
 #include <cstdio>
+#include <opencv2/opencv.hpp>
 
 using namespace libf;
 
@@ -282,13 +283,61 @@ void VariableImportanceTool::measure(RandomForestLearner* learner, std::vector<f
 
 void VariableImportanceTool::print(const std::vector<float> & result) const
 {
+    float max = 0;
+    for (int f = 0; f < result.size(); f++)
+    {
+        if (result[f] > max)
+        {
+            max = result[f];
+        }
+    }
+    
     for (int f = 0; f < result.size(); ++f)
     {
-        printf(" %6d | %2.6f \n", f, result[f]);
+        if (result[f] > 0)
+        {
+            printf(" %6d | %s%2.6f%s \n", f, colorCodeHighToLow(result[f], 0.1*max, 0.5*max), result[f], LIBF_COLOR_RESET);
+        }
+        else
+        {
+            printf(" %6d | %2.6f \n", f, result[f]);
+        }
     }
 }
 
 void VariableImportanceTool::measureAndPrint(RandomForestLearner* learner) const
 {
     print(learner->getMDIImportance());
+}
+
+////////////////////////////////////////////////////////////////////////////////
+/// PixelImportanceTool
+////////////////////////////////////////////////////////////////////////////////
+
+void PixelImportanceTool::measureAndSave(RandomForestLearner* learner, boost::filesystem::path file, int rows) const
+{
+    cv::Mat image(rows, rows, CV_8UC3, cv::Scalar(255, 255, 255));
+    const std::vector<float> result = learner->getMDIImportance();
+    
+    float max = 0;
+    for (int i = 0; i < result.size(); i++)
+    {
+        if (result[i] > max)
+        {
+            max = result[i];
+        }
+    }
+    
+    for (int i = 0; i < rows; i++)
+    {
+        for (int j = 0; j < rows; j++)
+        {
+            if (result[j + rows*i] > 0) 
+            {
+                image.at<cv::Vec3b>(i, j) = cv::Vec3b(0, (unsigned char) (result[j + rows*i]/max*255), 255);
+            }
+        }
+    }
+    
+    cv::imwrite(file.string(), image);
 }
