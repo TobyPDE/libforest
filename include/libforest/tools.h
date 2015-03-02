@@ -2,6 +2,7 @@
 #define LIBF_TOOLS_H
 
 #include <vector>
+#include <boost/filesystem.hpp>
 
 /**
  * This file contains some function that can evaluate the performance of a
@@ -87,17 +88,31 @@ namespace libf {
          * Returns the variable importance (simple wrapper around 
          * getMDIImportance).
          */
-        void measure(RandomForestLearner* learner, std::vector<float> & result) const;
+        virtual void measure(RandomForestLearner* learner, std::vector<float> & result) const;
         
         /**
          * Prints the variable importance
          */
-        void print(const std::vector<float> & result) const;
+        virtual void print(const std::vector<float> & result) const;
         
         /**
          * Retrieves (measures) and prints the variable importance
          */
-        void measureAndPrint(RandomForestLearner*) const;
+        virtual void measureAndPrint(RandomForestLearner* learner) const;
+    };
+    
+    /**
+     * Backprojects the variable importance onto a square image with the given
+     * given width/height.
+     */
+    class PixelImportanceTool : public VariableImportanceTool {
+    public:
+        
+        /**
+         * Retrieves variable importance and stores an image visualizing variable
+         * importance where the image has size rows x rows.
+         */
+        void measureAndSave(RandomForestLearner* learner, boost::filesystem::path file, int rows) const;
     };
 }
 

@@ -11,3 +11,6 @@ target_link_libraries(cli_rf libforest ${Boost_LIBRARIES})
 
 add_executable(cli_adaboost adaboost.cpp)
 target_link_libraries(cli_adaboost libforest ${Boost_LIBRARIES})
+
+add_executable(cli_pixel_importance pixel_importance.cpp)
+target_link_libraries(cli_pixel_importance libforest ${Boost_LIBRARIES})
