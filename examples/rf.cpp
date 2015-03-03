@@ -56,29 +56,28 @@ int main(int argc, const char** argv)
         return 1;
     }
     
-    boost::filesystem::path mnistTrainDat(parameters["file-train"].as<std::string>());
-    if (!boost::filesystem::is_regular_file(mnistTrainDat))
+    boost::filesystem::path trainDat(parameters["file-train"].as<std::string>());
+    if (!boost::filesystem::is_regular_file(trainDat))
     {
         std::cout << "Train DAT file does not exist at the specified location." << std::endl;
         return 1;
     }
     
-    boost::filesystem::path mnistTestDat(parameters["file-test"].as<std::string>());
-    if (!boost::filesystem::is_regular_file(mnistTestDat))
+    boost::filesystem::path testDat(parameters["file-test"].as<std::string>());
+    if (!boost::filesystem::is_regular_file(testDat))
     {
         std::cout << "Test DAT file does not exist at the specified location." << std::endl;
         return 1;
     }
     
     bool useBootstrap = parameters.find("use-bootstrap") != parameters.end();
-    bool computeMDI = parameters.find("compute-mdi") != parameters.end();
     
     DataStorage storage;
     DataStorage storageT;
     
     LibforestDataProvider reader;
-    reader.read(mnistTrainDat.string(), &storageT);
-    reader.read(mnistTestDat.string(), &storage);
+    reader.read(trainDat.string(), &storageT);
+    reader.read(testDat.string(), &storage);
     
     std::cout << "Training Data" << std::endl;
     storage.dumpInformation();
