@@ -2,12 +2,15 @@
 #include "libforest/data.h"
 #include "libforest/io.h"
 #include "libforest/util.h"
+#include "fastlog.h"
 #include <ios>
 #include <iostream>
 #include <string>
 #include <cmath>
 
 using namespace libf;
+
+#define ENTROPY(p) (-(p)*fastlog2(p))
 
 ////////////////////////////////////////////////////////////////////////////////
 /// Classifier
@@ -51,40 +54,119 @@ int Classifier::classify(const DataPoint* x) const
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+/// EfficientEntropyHistogram
+////////////////////////////////////////////////////////////////////////////////
+
+void EfficientEntropyHistogram::addOne(const int i)
+{
+    totalEntropy += ENTROPY(mass);
+    mass += 1;
+    totalEntropy -= ENTROPY(mass);
+    histogram[i]++;
+    totalEntropy -= entropies[i];
+    entropies[i] = ENTROPY(histogram[i]); 
+    totalEntropy += entropies[i];
+}
+
+void EfficientEntropyHistogram::subOne(const int i)
+{ 
+    totalEntropy += ENTROPY(mass);
+    mass -= 1;
+    totalEntropy -= ENTROPY(mass);
+
+    histogram[i]--;
+    totalEntropy -= entropies[i];
+    if (histogram[i] < 1)
+    {
+        entropies[i] = 0;
+    }
+    else
+    {
+        entropies[i] = ENTROPY(histogram[i]); 
+        totalEntropy += entropies[i];
+    }
+}
+
+void EfficientEntropyHistogram::initEntropies()
+{
+    if (getMass() > 1)
+    {
+        totalEntropy = -ENTROPY(getMass());
+        for (int i = 0; i < bins; i++)
+        {
+            if (at(i) == 0) continue;
+
+            entropies[i] = ENTROPY(histogram[i]);
+
+            totalEntropy += entropies[i];
+        }
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////
 /// DecisionTree
 ////////////////////////////////////////////////////////////////////////////////
 
 DecisionTree::DecisionTree()
 {
+    // Indicates that we do not need to maintain statistics.
+    statistics = false;
+    
     splitFeatures.reserve(LIBF_GRAPH_BUFFER_SIZE);
     thresholds.reserve(LIBF_GRAPH_BUFFER_SIZE);
     leftChild.reserve(LIBF_GRAPH_BUFFER_SIZE);
     histograms.reserve(LIBF_GRAPH_BUFFER_SIZE);
     // Add at least the root node with index 0
-    addNode();
+    addNode(0);
 }
 
-void DecisionTree::addNode()
+
+DecisionTree::DecisionTree(bool _statistics) : DecisionTree()
 {
+    statistics = _statistics;
+    
+    if (statistics)
+    {
+        nodeStatistics.reserve(LIBF_GRAPH_BUFFER_SIZE);
+        leftChildStatistics.reserve(LIBF_GRAPH_BUFFER_SIZE);
+        rightChildStatistics.reserve(LIBF_GRAPH_BUFFER_SIZE);
+        nodeThresholds.reserve(LIBF_GRAPH_BUFFER_SIZE);
+        nodeFeatures.reserve(LIBF_GRAPH_BUFFER_SIZE);
+    }
+}
+
+void DecisionTree::addNode(int depth)
+{
+    depths.push_back(depth);
     splitFeatures.push_back(0);
     thresholds.push_back(0);
     leftChild.push_back(0);
     histograms.push_back(std::vector<float>());
+    
+    if (statistics)
+    {
+        nodeStatistics.push_back(EfficientEntropyHistogram());
+        leftChildStatistics.push_back(std::vector<EfficientEntropyHistogram>());
+        rightChildStatistics.push_back(std::vector<EfficientEntropyHistogram>());
+        nodeThresholds.push_back(std::vector< std::vector<float> >());
+        nodeFeatures.push_back(std::vector<int>());
+    }
 }
 
 int DecisionTree::splitNode(int node)
 {
     // Make sure this is a valid node ID
     assert(0 <= node && node < static_cast<int>(splitFeatures.size()));
-    // Make sure this is a former child node
+    // Make sure this is a former leaf node
     assert(leftChild[node] == 0);
     
     // Determine the index of the new left child
     const int leftNode = static_cast<int>(splitFeatures.size());
     
     // Add the child nodes
-    addNode();
-    addNode();
+    const int depth = depths[node] + 1;
+    addNode(depth);
+    addNode(depth);
     
     // Set the child relation
     leftChild[node] = leftNode;

@@ -244,7 +244,7 @@ namespace libf {
         /**
          * Returns the i-th class label. 
          */
-        int getClassLabel(int i ) const
+        int getClassLabel(int i) const
         {
             return classLabels[i];
         }
@@ -252,7 +252,7 @@ namespace libf {
         /**
          * Returns the i-th class label. 
          */
-        int & getClassLabel(int i ) 
+        int & getClassLabel(int i) 
         {
             return classLabels[i];
         }

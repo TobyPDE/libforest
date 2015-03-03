@@ -14,8 +14,7 @@ find_package(OpenMP)
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
 
-file(GLOB LIBF_SOURCES "src/*.cpp")
-add_library(libforest STATIC ${LIBF_SOURCES})
+add_library(libforest STATIC src/data.cpp src/classifiers.cpp src/learning.cpp src/online_learning.cpp src/tools.cpp)
 target_link_libraries(libforest ${Boost_LIBRARIES} ${OpenCV_LIBRARIES})
 
 add_subdirectory(examples)

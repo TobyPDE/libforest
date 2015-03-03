@@ -55,6 +55,268 @@ namespace libf {
     };
 
     /**
+     * A histogram over the class labels. We use this for training.
+     */
+    class EfficientEntropyHistogram {
+    public:
+        /**
+         * Default constructor
+         */
+        EfficientEntropyHistogram() : 
+                bins(0), 
+                histogram(0), 
+                mass(0), 
+                entropies(0), 
+                totalEntropy(0) {}
+
+        /**
+         * Construct a entropy histogram of the given size.
+         */
+        EfficientEntropyHistogram(int _classCount) : 
+            bins(_classCount), 
+            histogram(0), 
+            mass(0), 
+            entropies(0), 
+            totalEntropy(0) { resize(_classCount); }
+
+        /**
+         * Copy constructor
+         */
+        EfficientEntropyHistogram(const EfficientEntropyHistogram & other) 
+        {
+            resize (other.bins);
+            for (int i = 0; i < bins; i++)
+            {
+                set(i, other.at(i));
+            }
+            mass = other.mass;
+        }
+
+        /**
+         * Assignment operator
+         */
+        EfficientEntropyHistogram & operator= (const EfficientEntropyHistogram &other)
+        {
+            // Prevent self assignment
+            if (this != &other)
+            {
+                if (other.bins != bins)
+                {
+                    resize (other.bins);
+                }
+                for (int i = 0; i < bins; i++)
+                {
+                    set(i, other.at(i));
+                    entropies[i] = other.entropies[i];
+                }
+                mass = other.mass;
+                totalEntropy = other.totalEntropy;
+            }
+            return *this;
+        }
+
+        /**
+         * Destructor
+         */
+        ~EfficientEntropyHistogram()
+        {
+            if (histogram != 0)
+            {
+                delete[] histogram;
+            }
+            if (entropies != 0)
+            {
+                delete[] entropies;
+            }
+        }
+
+        /**
+         * Resizes the histogram to a certain size
+         */
+        void resize(int _classCount)
+        {
+            // Release the current histogram
+            if (histogram != 0)
+            {
+                delete[] histogram;
+                histogram = 0;
+            }
+            if (entropies != 0)
+            {
+                delete[] entropies;
+                entropies = 0;
+            }
+
+            // Only allocate a new histogram, if there is more than one class
+            if (_classCount > 0)
+            {
+                histogram = new int[_classCount];
+                entropies = new float[_classCount];
+                bins = _classCount;
+
+                // Initialize the histogram
+                for (int i = 0; i < bins; i++)
+                {
+                    histogram[i] = 0;
+                    entropies[i] = 0;
+                }
+            }
+        }
+
+        /**
+         * Returns the size of the histogram (= class count)
+         */
+        int size() const { return bins; }
+
+        /**
+         * Get the histogram value for class i.
+         */
+        int at(const int i) const { return histogram[i]; }
+        
+        /**
+         * Add v instances to class i.
+         */
+        void add(const int i, const int v) { mass += v; histogram[i] += v; }
+        
+        /**
+         * Remove v instances from class i.
+         */
+        void sub(const int i, const int v) { mass -= v; histogram[i] -= v; }
+        
+        /**
+         * Add one instance to class i.
+         */
+        void add1(const int i) { mass += 1; histogram[i]++; }
+        
+        /**
+         * Remove one instance from class i.
+         */
+        void sub1(const int i) { mass -= 1; histogram[i]--; }
+        
+        /**
+         * Add one instance of class i while updating entropy information.
+         */
+        void addOne(const int i);
+        
+        /**
+         * Remove one instance of class i while updating the entropy information.
+         */
+        void subOne(const int i);
+
+        /**
+         * Returns the mass
+         */
+        float getMass() const
+        {
+            return mass;
+        }
+
+        /**
+         * Calculates the entropy of a histogram
+         * 
+         * @return The calculated entropy
+         */
+        float entropy() const
+        {
+            return totalEntropy;
+        }
+
+        /**
+         * Initializes all entropies
+         */
+        void initEntropies();
+
+        /**
+         * Sets all entries in the histogram to 0
+         */
+        void reset()
+        {
+            for (int i = 0; i < bins; i++)
+            {
+                histogram[i] = 0;
+                entropies[i] = 0;
+            }
+            totalEntropy = 0;
+            mass = 0;
+        }
+
+        /**
+         * Returns the greatest bin
+         */
+        int argMax() const
+        {
+            int maxBin = 0;
+            int maxCount = histogram[0];
+            for (int i = 1; i < bins; i++)
+            {
+                if (histogram[i] > maxCount)
+                {
+                    maxCount = at(i);
+                    maxBin = i;
+                }
+            }
+
+            return maxBin;
+        }
+
+        /**
+         * Returns true if the histogram is pure
+         */
+        bool isPure() const
+        {
+            bool nonPure = false;
+            for (int i = 0; i < bins; i++)
+            {
+                if (histogram[i] > 0)
+                {
+                    if (nonPure)
+                    {
+                        return false;
+                    }
+                    else
+                    {
+                        nonPure = true; 
+                    }
+                }
+            }
+            return true;
+        }
+
+    private:
+        // int get(const int i) const { return histogram[i]; }
+        /**
+         * Set the value of class i to v.
+         */
+        void set(const int i, const int v) { mass -= histogram[i]; mass += v; histogram[i] = v; }
+        
+        /**
+         * The number of classes in this histogram
+         */
+        unsigned char bins;
+
+        /**
+         * The actual histogram
+         */
+        int* histogram;
+
+        /**
+         * The integral over the entire histogram
+         */
+        float mass;
+
+        /**
+         * The entropies for the single bins
+         */
+        float* entropies;
+
+        /**
+         * The total entropy
+         */
+        float totalEntropy;
+
+    };
+    
+    /**
      * This class represents a decision tree.
      */
     class DecisionTree : public Classifier {
@@ -63,7 +325,11 @@ namespace libf {
          * Creates a new decision tree
          */
         DecisionTree();
-        
+        /**
+         * Creates a decision tree which maintains a set of statistics
+         * for each leaf node.
+         */
+        DecisionTree(bool _statistics);
         /**
          * Sets the split feature for a node
          */
@@ -161,12 +427,61 @@ namespace libf {
             return leftChild[node];
         }
         
+        /**
+         * Get node statistics (i.e. an entropy histogram).
+         * 
+         */
+        EfficientEntropyHistogram & getNodeStatistics(int node)
+        {
+            return nodeStatistics[node];
+        }
+        
+        /**
+         * Get node thresholds (a threshold for each sampled feature).
+         */
+        std::vector< std::vector<float> > & getNodeThresholds(int node)
+        {
+            return nodeThresholds[node];
+        }
+        
+        /**
+         * Get node features.
+         */
+        std::vector<int> & getNodeFeatures(int node)
+        {
+            return nodeFeatures[node];
+        }
+        
+        /**
+         * Get left child statistics for each combination of feature and threshold.
+         * @param node
+         * @return 
+         */
+        std::vector<EfficientEntropyHistogram> & getLeftChildStatistics(int node)
+        {
+            return leftChildStatistics[node];
+        }
+        
+        /**
+         * Get right child statistics for each combination of feature and threshold.
+         * @param node
+         * @return 
+         */
+        std::vector<EfficientEntropyHistogram> & getRightChildStatistics(int node)
+        {
+            return rightChildStatistics[node];
+        }
+        
     private:
         /**
          * Adds a plain new node.
          */
-        void addNode();
+        void addNode(int depth);
         
+        /**
+         * The depth of each node.
+         */
+        std::vector<int> depths;
         /**
          * The split feature at each node. 
          */
@@ -185,6 +500,23 @@ namespace libf {
          * leaf nodes. 
          */
         std::vector< std::vector<float> > histograms;
+        /**
+         * NOTE ON THE FOLLOWING ATTRIBUTES: It is not clear whether these 
+         * statistics (mainly used for online learning) should reside in the 
+         * decision tree or the learner. We decided to put them in the decision
+         * tree such that a model can be updated/learned independent of the
+         * learner.
+         * 
+         * These statistics are saved as entropy histograms.
+         * 
+         * @see http://lrs.icg.tugraz.at/pubs/saffari_olcv_09.pdf
+         */
+        bool statistics;
+        std::vector<EfficientEntropyHistogram> nodeStatistics;
+        std::vector< std::vector<EfficientEntropyHistogram> > leftChildStatistics;
+        std::vector< std::vector<EfficientEntropyHistogram> > rightChildStatistics;
+        std::vector< std::vector< std::vector<float> > > nodeThresholds; // TODO: This is really messy!
+        std::vector< std::vector<int> > nodeFeatures;
     };
     
     /**

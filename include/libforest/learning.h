@@ -226,6 +226,17 @@ namespace libf {
             return smoothingParameter;
         }
         
+        /**
+         * Configures the learning automatically depending on a certain data
+         * set. 
+         */
+        virtual void autoconf(const DataStorage* storage);
+        
+        /**
+         * Dumps the settings
+         */
+        virtual void dumpSetting(std::ostream & stream = std::cout) const;
+        
     protected:
         
         /**

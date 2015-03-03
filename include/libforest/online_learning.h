@@ -21,21 +21,21 @@ namespace libf {
     /**
      * This is the base class for all online learners.
      */
-    template <class T, class S>
-    class Learner : public AbstractLearner<T, S> {
+    template <class T>
+    class OnlineLearner {
     public:
         
         /**
          * Learns a classifier online (updates a given classifier).
          */
-        virtual T* learn(const DataStorage* storage, T* model = NULL) = 0;
+        virtual T* learn(const DataStorage* storage, T* model = 0) = 0;
 
     };
     
     class OnlineDecisionTreeLearner : public AbstractDecisionTreeLearner,
-            public OnlineLearner<DecisionTree, void> {
+            public OnlineLearner<DecisionTree> {
     public:
-        OnlineDecisionTreeLearner() : AbstractDecisionTreeLearner, 
+        OnlineDecisionTreeLearner() : AbstractDecisionTreeLearner(), 
                 numThresholds(25),
                 minSplitObjective(0.1f) {};
         
@@ -50,7 +50,7 @@ namespace libf {
         /**
          * Returns the minimum objective required for a split.
          */
-        float getMinSplitObjective()
+        float getMinSplitObjective() const
         {
             return minSplitObjective;
         }
@@ -66,7 +66,7 @@ namespace libf {
         /**
          * Returns the number of thresholds randomly sampled for each node.
          */
-        int getNumThresholds()
+        int getNumThresholds() const
         {
             return numThresholds;
         }
@@ -88,6 +88,15 @@ namespace libf {
         virtual void dumpSetting(std::ostream & stream = std::cout) const;
         
     protected:
+        /**
+         * For all splits, update left and right child statistics.
+         */
+        void updateSplitStatistics(std::vector<EfficientEntropyHistogram> leftChildStatistics, 
+                std::vector<EfficientEntropyHistogram> rightChildStatistics, 
+                const std::vector<int> & features,
+                const std::vector< std::vector<float> > & thresholds, 
+                const std::pair<DataPoint*, int> & x);
+        
         /**
          * Minimum objective required for a node to split.
          */
