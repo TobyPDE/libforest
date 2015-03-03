@@ -49,17 +49,17 @@ int main(int argc, const char** argv)
         return 1;
     }
     
-    boost::filesystem::path mnistTrainDat(parameters["file-train"].as<std::string>());
-    if (!boost::filesystem::is_regular_file(mnistTrainDat))
+    boost::filesystem::path trainDat(parameters["file-train"].as<std::string>());
+    if (!boost::filesystem::is_regular_file(trainDat))
     {
-        std::cout << "mnist_train.dat does not exist at the specified location." << std::endl;
+        std::cout << "Train DAT file does not exist at the specified location." << std::endl;
         return 1;
     }
     
-    boost::filesystem::path mnistTestDat(parameters["file-test"].as<std::string>());
-    if (!boost::filesystem::is_regular_file(mnistTestDat))
+    boost::filesystem::path testDat(parameters["file-test"].as<std::string>());
+    if (!boost::filesystem::is_regular_file(testDat))
     {
-        std::cout << "mnist_test.dat does not exist at the specified location." << std::endl;
+        std::cout << "Test DAT file does not exist at the specified location." << std::endl;
         return 1;
     }
     
@@ -67,8 +67,8 @@ int main(int argc, const char** argv)
     DataStorage storageT;
     
     LibforestDataProvider reader;
-    reader.read(mnistTrainDat.string(), &storageT);
-    reader.read(mnistTestDat.string(), &storage);
+    reader.read(trainDat.string(), &storageT);
+    reader.read(testDat.string(), &storage);
     
     std::cout << "Training Data" << std::endl;
     storage.dumpInformation();

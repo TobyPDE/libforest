@@ -325,11 +325,13 @@ namespace libf {
          * Creates a new decision tree
          */
         DecisionTree();
+        
         /**
          * Creates a decision tree which maintains a set of statistics
          * for each leaf node.
          */
         DecisionTree(bool _statistics);
+        
         /**
          * Sets the split feature for a node
          */
@@ -425,6 +427,14 @@ namespace libf {
         int getLeftChild(int node) const
         {
             return leftChild[node];
+        }
+        
+        /**
+         * Get depth of a node.
+         */
+        int getDepth(int node)
+        {
+            return depths[node];
         }
         
         /**

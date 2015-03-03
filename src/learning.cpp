@@ -136,13 +136,6 @@ DecisionTree* DecisionTreeLearner::learn(const DataStorage* dataStorage)
     EfficientEntropyHistogram leftHistogram(C);
     EfficientEntropyHistogram rightHistogram(C);
     
-    // We keep track on the depth of each node in this array
-    // This allows us to stop splitting after a certain depth is reached
-    std::vector<int> depths;
-    depths.reserve(LIBF_GRAPH_BUFFER_SIZE);
-    // The root node has depth 0
-    depths.push_back(0);
-    
     // We use this in order to sort the data points
     FeatureComparator cp;
     cp.storage = storage;
@@ -183,7 +176,7 @@ DecisionTree* DecisionTreeLearner::learn(const DataStorage* dataStorage)
         //  If the number of examples is too small
         //  If the training examples are all of the same class
         //  If the maximum depth is reached
-        if (hist.getMass() < minSplitExamples || hist.isPure() || depths[node] > maxDepth)
+        if (hist.getMass() < minSplitExamples || hist.isPure() || tree->getDepth(node) > maxDepth)
         {
             delete[] trainingExampleList;
             // Resize and initialize the leaf node histogram
@@ -306,10 +299,6 @@ DecisionTree* DecisionTreeLearner::learn(const DataStorage* dataStorage)
         
         // Save the impurity reduction for this feature if requested
         impurityDecrease[bestFeature] += N/storage->getSize()*(parentEntropy - bestObjective);
-        
-        // Update the depth
-        depths.push_back(depths[node] + 1);
-        depths.push_back(depths[node] + 1);
         
         // Prepare to split the child nodes
         splitStack.push_back(leftChild);
