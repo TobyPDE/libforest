@@ -18,12 +18,14 @@ static std::random_device rd;
 /// AbstractDecisionTreeLearner
 ////////////////////////////////////////////////////////////////////////////////
 
-void AbstractDecisionTreeLearner::autoconf(const DataStorage* dataStorage)
+template<class T>
+void AbstractDecisionTreeLearner<T>::autoconf(const DataStorage* dataStorage)
 {
     setNumFeatures(std::ceil(std::sqrt(dataStorage->getDimensionality())));
 }
 
-void AbstractDecisionTreeLearner::dumpSetting(std::ostream & stream) const
+template<class T>
+void AbstractDecisionTreeLearner<T>::dumpSetting(std::ostream & stream) const
 {
     stream << std::setw(30) << "Learner" << ": " << typeid(*this).name() << "\n";
     stream << std::setw(30) << "Feature evaluations" << ": " << getNumFeatures() << "\n";
@@ -107,6 +109,14 @@ DecisionTree* DecisionTreeLearner::learn(const DataStorage* dataStorage)
     
     // Set up a new tree. 
     DecisionTree* tree = new DecisionTree();
+    
+    // Set up the state for the call backs
+    DecisionTreeLearnerState state;
+    state.learner = this;
+    state.tree = tree;
+    state.action = ACTION_START_TREE;
+    
+    evokeCallback(tree, 0, &state);
     
     // This is the list of nodes that still have to be split
     std::vector<int> splitStack;
@@ -297,6 +307,12 @@ DecisionTree* DecisionTreeLearner::learn(const DataStorage* dataStorage)
         tree->setSplitFeature(node, bestFeature);
         const int leftChild = tree->splitNode(node);
         
+        state.action = ACTION_SPLIT_NODE;
+        state.depth = tree->getDepth(node);
+        state.objective = bestObjective;
+        
+        evokeCallback(tree, 0, &state);
+        
         // Save the impurity reduction for this feature if requested
         impurityDecrease[bestFeature] += N/storage->getSize()*(parentEntropy - bestObjective);
         
@@ -369,6 +385,28 @@ void DecisionTreeLearner::dumpSetting(std::ostream & stream) const
     AbstractDecisionTreeLearner::dumpSetting(stream);
     stream << std::setw(30) << "Bootstrap Sampling" << ": " << getUseBootstrap() << "\n";
     stream << std::setw(30) << "Bootstrap Samples" << ": " << getNumBootstrapExamples() << "\n";
+}
+
+int DecisionTreeLearner::defaultCallback(DecisionTree* forest, DecisionTreeLearnerState* state)
+{
+    switch (state->action) {
+        case DecisionTreeLearner::ACTION_START_TREE:
+            std::cout << "Start decision tree training\n";
+            state->learner->dumpSetting();
+            std::cout << "\n";
+            break;
+        case DecisionTreeLearner::ACTION_SPLIT_NODE:
+            std::cout << std::setw(15) << std::left << "Split node:"
+                    << "depth = " << std::setw(3) << std::right << state->depth
+                    << ", objective = " << std::setw(6) << std::left
+                    << std::setprecision(4) << state->objective << "\n";
+            break;
+        default:
+            std::cout << "UNKNOWN ACTION CODE " << state->action << "\n";
+            break;
+    }
+    return 0;
+
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -465,8 +503,8 @@ int RandomForestLearner::defaultCallback(RandomForest* forest, RandomForestLearn
             std::cout << "UNKNOWN ACTION CODE " << state->action << "\n";
             break;
     }
+    
     return 0;
-
 }
 
 
@@ -628,5 +666,6 @@ int BoostedRandomForestLearner::defaultCallback(BoostedRandomForest* forest, Boo
             std::cout << "UNKNOWN ACTION CODE " << state->action << "\n";
             break;
     }
+    
     return 0;
 }

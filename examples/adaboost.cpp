@@ -8,11 +8,8 @@
 using namespace libf;
 
 /**
- * Example of Boosted Random Forest learning on the MNIST datase [1].
- * 
- *  [1] http://yann.lecun.com/exdb/mnist/
- * 
- * **The original MNIST file format is currently not supported.**
+ * Example of Random Forest learning. Use for example MNIST of USPS datasets,
+ * however, make sure to convert to DAT files first (see cli_convert --help).
  * 
  * Usage:
  * 
