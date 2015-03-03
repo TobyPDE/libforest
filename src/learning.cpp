@@ -12,280 +12,36 @@
 
 using namespace libf;
 
-#define ENTROPY(p) (-(p)*fastlog2(p))
-#define SIGMOID(x) (1.0f/(1.0f + std::exp(x)))
-
 static std::random_device rd;
+
+////////////////////////////////////////////////////////////////////////////////
+/// AbstractDecisionTreeLearner
+////////////////////////////////////////////////////////////////////////////////
+
+void AbstractDecisionTreeLearner::autoconf(const DataStorage* dataStorage)
+{
+    setNumFeatures(std::ceil(std::sqrt(dataStorage->getDimensionality())));
+}
+
+void AbstractDecisionTreeLearner::dumpSetting(std::ostream & stream) const
+{
+    stream << std::setw(30) << "Learner" << ": " << typeid(*this).name() << "\n";
+    stream << std::setw(30) << "Feature evaluations" << ": " << getNumFeatures() << "\n";
+    stream << std::setw(30) << "Max depth" << ": " << getMaxDepth() << "\n";
+    stream << std::setw(30) << "Minimum Split Examples" << ": " << getMinSplitExamples() << "\n";
+    stream << std::setw(30) << "Minimum Child Split Examples" << ": " << getMinChildSplitExamples() << "\n";
+    stream << std::setw(30) << "Smoothing Parameter" << ": " << getSmoothingParameter() << "\n";
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 /// DecisionTreeLearner
 ////////////////////////////////////////////////////////////////////////////////
 
-/**
- * A histogram over the class labels. We use this for training
- */
-class EfficientEntropyHistogram {
-private:
-    /**
-     * The number of classes in this histogram
-     */
-    unsigned char bins;
-
-    /**
-     * The actual histogram
-     */
-    int* histogram;
-
-    /**
-     * The integral over the entire histogram
-     */
-    float mass;
-
-    /**
-     * The entropies for the single bins
-     */
-    float* entropies;
-
-    /**
-     * The total entropy
-     */
-    float totalEntropy;
-
-public:
-    /**
-     * Default constructor
-     */
-    EfficientEntropyHistogram() : bins(0), histogram(0), mass(0), entropies(0), totalEntropy(0) { }
-    EfficientEntropyHistogram(int _classCount) : bins(_classCount), histogram(0), mass(0), entropies(0), totalEntropy(0) { resize(_classCount); }
-
-    /**
-     * Copy constructor
-     */
-    EfficientEntropyHistogram(const EfficientEntropyHistogram & other) 
-    {
-        resize (other.bins);
-        for (int i = 0; i < bins; i++)
-        {
-            set(i, other.at(i));
-        }
-        mass = other.mass;
-    }
-
-    /**
-     * Assignment operator
-     */
-    EfficientEntropyHistogram & operator= (const EfficientEntropyHistogram &other)
-    {
-        // Prevent self assignment
-        if (this != &other)
-        {
-            if (other.bins != bins)
-            {
-                resize (other.bins);
-            }
-            for (int i = 0; i < bins; i++)
-            {
-                set(i, other.at(i));
-                entropies[i] = other.entropies[i];
-            }
-            mass = other.mass;
-            totalEntropy = other.totalEntropy;
-        }
-        return *this;
-    }
-
-    /**
-     * Destructor
-     */
-    ~EfficientEntropyHistogram()
-    {
-        if (histogram != 0)
-        {
-            delete[] histogram;
-        }
-        if (entropies != 0)
-        {
-            delete[] entropies;
-        }
-    }
-
-    /**
-     * Resizes the histogram to a certain size
-     */
-    void resize(int _classCount)
-    {
-        // Release the current histogram
-        if (histogram != 0)
-        {
-            delete[] histogram;
-            histogram = 0;
-        }
-        if (entropies != 0)
-        {
-            delete[] entropies;
-            entropies = 0;
-        }
-
-        // Only allocate a new histogram, if there is more than one class
-        if (_classCount > 0)
-        {
-            histogram = new int[_classCount];
-            entropies = new float[_classCount];
-            bins = _classCount;
-
-            // Initialize the histogram
-            for (int i = 0; i < bins; i++)
-            {
-                histogram[i] = 0;
-                entropies[i] = 0;
-            }
-        }
-    }
-
-    /**
-     * Returns the size of the histogram (= class count)
-     */
-    int size() const { return bins; }
-
-    /**
-     * Returns the value of the histogram at a certain position. Caution: For performance reasons, we don't
-     * perform any parameter check!
-     */
-    int at(const int i) const { return histogram[i]; }
-    int get(const int i) const { return histogram[i]; }
-    void set(const int i, const int v) { mass -= histogram[i]; mass += v; histogram[i] = v; }
-    void add(const int i, const int v) { mass += v; histogram[i] += v; }
-    void sub(const int i, const int v) { mass -= v; histogram[i] -= v; }
-    void add1(const int i) { mass += 1; histogram[i]++; }
-    void sub1(const int i) { mass -= 1; histogram[i]--; }
-    void addOne(const int i)
-    {
-        totalEntropy += ENTROPY(mass);
-        mass += 1;
-        totalEntropy -= ENTROPY(mass);
-        histogram[i]++;
-        totalEntropy -= entropies[i];
-        entropies[i] = ENTROPY(histogram[i]); 
-        totalEntropy += entropies[i];
-    }
-    void subOne(const int i)
-    { 
-        totalEntropy += ENTROPY(mass);
-        mass -= 1;
-        totalEntropy -= ENTROPY(mass);
-
-        histogram[i]--;
-        totalEntropy -= entropies[i];
-        if (histogram[i] < 1)
-        {
-            entropies[i] = 0;
-        }
-        else
-        {
-            entropies[i] = ENTROPY(histogram[i]); 
-            totalEntropy += entropies[i];
-        }
-    }
-
-    /**
-     * Returns the mass
-     */
-    float getMass() const
-    {
-        return mass;
-    }
-
-    /**
-     * Calculates the entropy of a histogram
-     * 
-     * @return The calculated entropy
-     */
-    float entropy() const
-    {
-        return totalEntropy;
-    }
-
-    /**
-     * Initializes all entropies
-     */
-    void initEntropies()
-    {
-        if (getMass() > 1)
-        {
-            totalEntropy = -ENTROPY(getMass());
-            for (int i = 0; i < bins; i++)
-            {
-                if (at(i) == 0) continue;
-
-                entropies[i] = ENTROPY(histogram[i]);
-
-                totalEntropy += entropies[i];
-            }
-        }
-    }
-
-    /**
-     * Sets all entries in the histogram to 0
-     */
-    void reset()
-    {
-        for (int i = 0; i < bins; i++)
-        {
-            histogram[i] = 0;
-            entropies[i] = 0;
-        }
-        totalEntropy = 0;
-        mass = 0;
-    }
-    
-    /**
-     * Returns the greatest bin
-     */
-    int argMax() const
-    {
-        int maxBin = 0;
-        int maxCount = histogram[0];
-        for (int i = 1; i < bins; i++)
-        {
-            if (histogram[i] > maxCount)
-            {
-                maxCount = at(i);
-                maxBin = i;
-            }
-        }
-        
-        return maxBin;
-    }
-    
-    /**
-     * Returns true if the histogram is pure
-     */
-    bool isPure() const
-    {
-        bool nonPure = false;
-        for (int i = 0; i < bins; i++)
-        {
-            if (histogram[i] > 0)
-            {
-                if (nonPure)
-                {
-                    return false;
-                }
-                else
-                {
-                    nonPure = true; 
-                }
-            }
-        }
-        return true;
-    }
-};
-
 void DecisionTreeLearner::autoconf(const DataStorage* dataStorage)
 {
+    AbstractDecisionTreeLearner::autoconf(dataStorage);
     setUseBootstrap(true);
     setNumBootstrapExamples(dataStorage->getSize());
-    setNumFeatures(std::ceil(std::sqrt(dataStorage->getDimensionality())));
 }
 
 /**
@@ -365,7 +121,7 @@ DecisionTree* DecisionTreeLearner::learn(const DataStorage* dataStorage)
     trainingExamples.reserve(LIBF_GRAPH_BUFFER_SIZE);
     trainingExamplesSizes.reserve(LIBF_GRAPH_BUFFER_SIZE);
     
-    // Counts the number of cases each feature is selected
+    // Saves the sum of impurity decrease achieved by each feature
     impurityDecrease = std::vector<float>(D, 0.f);
     
     // Add all training example to the root node
@@ -621,14 +377,9 @@ void DecisionTreeLearner::updateHistograms(DecisionTree* tree, const DataStorage
 
 void DecisionTreeLearner::dumpSetting(std::ostream & stream) const
 {
-    stream << std::setw(30) << "Learner" << ": DecisionTreeLearner" << "\n";
+    AbstractDecisionTreeLearner::dumpSetting(stream);
     stream << std::setw(30) << "Bootstrap Sampling" << ": " << getUseBootstrap() << "\n";
     stream << std::setw(30) << "Bootstrap Samples" << ": " << getNumBootstrapExamples() << "\n";
-    stream << std::setw(30) << "Feature evaluations" << ": " << getNumFeatures() << "\n";
-    stream << std::setw(30) << "Max depth" << ": " << getMaxDepth() << "\n";
-    stream << std::setw(30) << "Minimum Split Examples" << ": " << getMinSplitExamples() << "\n";
-    stream << std::setw(30) << "Minimum Child Split Examples" << ": " << getMinChildSplitExamples() << "\n";
-    stream << std::setw(30) << "Smoothing Parameter" << ": " << getSmoothingParameter() << "\n";
 }
 
 ////////////////////////////////////////////////////////////////////////////////
