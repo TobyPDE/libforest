@@ -31,6 +31,7 @@ namespace libf {
     class DecisionTree;
     class RandomForest;
     class BoostedRandomForest;
+    class DecisionTreeLearner;
     class RandomForestLearner;
     class BoostedRandomForestLearner;
     
@@ -112,7 +113,8 @@ namespace libf {
      * This is an abstract decision tree learning providing functionality
      * needed for all decision tree learners (online or offline.
      */
-    class AbstractDecisionTreeLearner : public AbstractLearner<DecisionTree, void> {
+    template<class S>
+    class AbstractDecisionTreeLearner : public AbstractLearner<DecisionTree, S> {
     public:
         AbstractDecisionTreeLearner() : 
                 numFeatures(10), 
@@ -120,7 +122,7 @@ namespace libf {
                 minSplitExamples(3),
                 minChildSplitExamples(1), 
                 smoothingParameter(1) {}
-
+                
         /**
          * Sets the number of features that are required to perform a split
          */
@@ -273,18 +275,74 @@ namespace libf {
         std::vector<float> impurityDecrease;
     };
     
+    class DecisionTreeLearnerState {
+    public:
+        DecisionTreeLearnerState() : 
+                action(0), 
+                learner(0), 
+                tree(0), 
+                objective(0), 
+                depth(0),
+                startTime(std::chrono::high_resolution_clock::now()) {}
+        
+        /**
+         * The current action
+         */
+        int action;
+        /**
+         * The learner object
+         */
+        const DecisionTreeLearner* learner;
+        /**
+         * The learned object
+         */
+        const DecisionTree* tree;
+        /**
+         * Objective of splitted node.
+         */
+        float objective;
+        /**
+         * Depth of spitted node.
+         */
+        int depth;
+        /**
+         * The start time
+         */
+        std::chrono::high_resolution_clock::time_point startTime;
+        
+        /**
+         * Returns the passed time in microseconds
+         */
+        std::chrono::microseconds getPassedTime()
+        {
+            std::chrono::high_resolution_clock::time_point now = std::chrono::high_resolution_clock::now();
+            return std::chrono::duration_cast<std::chrono::microseconds>( now - startTime );
+        }
+    };
+    
     /**
      * This is an ordinary offline decision tree learning algorithm. It learns the
      * tree using the information gain criterion. In order to make learning easier, 
      * simply use the autoconf option. 
      */
-    class DecisionTreeLearner : public AbstractDecisionTreeLearner, 
+    class DecisionTreeLearner : public AbstractDecisionTreeLearner<DecisionTreeLearnerState>, 
             public Learner<DecisionTree> {
     public:
         DecisionTreeLearner() : AbstractDecisionTreeLearner(),
                 useBootstrap(true), 
                 numBootstrapExamples(10000) {}
                 
+        /**
+         * The default callback for this learner.
+         */
+        static int defaultCallback(DecisionTree* forest, DecisionTreeLearnerState* state);
+                
+        /**
+         * Actions for the callback function.
+         */
+        const static int ACTION_START_TREE = 1;
+        const static int ACTION_SPLIT_NODE = 2;
+        
         /**
          * Sets the number of samples to use for bootstrapping.
          */
@@ -402,14 +460,6 @@ namespace libf {
     template<class S>
     class AbstractRandomForestLearner : public AbstractLearner<RandomForest, S> {
     public:
-        /**
-         * These are the actions of the learning algorithm that are passed
-         * to the callback functions.
-         */
-        const static int ACTION_START_TREE = 1;
-        const static int ACTION_FINISH_TREE = 2;
-        const static int ACTION_START_FOREST = 3;
-        const static int ACTION_FINISH_FOREST = 4;
         
         AbstractRandomForestLearner() : numTrees(8), numThreads(1) {}
         
@@ -492,6 +542,15 @@ namespace libf {
          * The default callback for this learner.
          */
         static int defaultCallback(RandomForest* forest, RandomForestLearnerState* state);
+        
+        /**
+         * These are the actions of the learning algorithm that are passed
+         * to the callback functions.
+         */
+        const static int ACTION_START_TREE = 1;
+        const static int ACTION_FINISH_TREE = 2;
+        const static int ACTION_START_FOREST = 3;
+        const static int ACTION_FINISH_FOREST = 4;
         
         RandomForestLearner() : AbstractRandomForestLearner(),
                 treeLearner(0) {}
@@ -594,14 +653,6 @@ namespace libf {
     template<class S>
     class AbstractBoostedRandomForestLearner : public AbstractLearner<BoostedRandomForest, S> {
     public:
-        /**
-         * These are the actions of the learning algorithm that are passed
-         * to the callback functions.
-         */
-        const static int ACTION_START_TREE = 1;
-        const static int ACTION_FINISH_TREE = 2;
-        const static int ACTION_START_FOREST = 3;
-        const static int ACTION_FINISH_FOREST = 4;
         
         AbstractBoostedRandomForestLearner() : numTrees(8) {}
         
@@ -645,6 +696,15 @@ namespace libf {
          * The default callback for this learner.
          */
         static int defaultCallback(BoostedRandomForest* forest, BoostedRandomForestLearnerState* state);
+        
+        /**
+         * These are the actions of the learning algorithm that are passed
+         * to the callback functions.
+         */
+        const static int ACTION_START_TREE = 1;
+        const static int ACTION_FINISH_TREE = 2;
+        const static int ACTION_START_FOREST = 3;
+        const static int ACTION_FINISH_FOREST = 4;
         
         BoostedRandomForestLearner() : AbstractBoostedRandomForestLearner(),
                 treeLearner(0) {}

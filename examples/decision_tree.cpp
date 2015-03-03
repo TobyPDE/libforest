@@ -8,24 +8,11 @@
 using namespace libf;
 
 /**
- * Example of Random Forest learning. Use for example MNIST of USPS datasets,
- * however, make sure to convert to DAT files first (see cli_convert --help).
- * 
- * **The original MNIST file format is currently not supported.**
+ * Example of Decision tree learning.
  * 
  * Usage:
  * 
- * $ ./examples/cli_rf --help
- * Allowed options:
- *   --help                   produce help message
- *   --file-train arg         path to train DAT file
- *   --file-test arg          path to test DAT file
- *   --num-features arg (=10) number of features to use (set to dimensionality of 
- *                            data to learn deterministically)
- *   --use-bootstrap          use bootstrapping for training
- *   --num-trees arg (=100)   number of trees in forest
- *   --max-depth arg (=100)   maximum depth of trees
- *   --num-threads arg (=1)   number of threads for learning
+ * 
  * 
  */
 int main(int argc, const char** argv)
@@ -37,9 +24,7 @@ int main(int argc, const char** argv)
         ("file-test", boost::program_options::value<std::string>(), "path to test DAT file")
         ("num-features", boost::program_options::value<int>()->default_value(10), "number of features to use (set to dimensionality of data to learn deterministically)")
         ("use-bootstrap", "use bootstrapping for training")
-        ("num-trees", boost::program_options::value<int>()->default_value(100), "number of trees in forest")
-        ("max-depth", boost::program_options::value<int>()->default_value(100), "maximum depth of trees")
-        ("num-threads", boost::program_options::value<int>()->default_value(1), "number of threads for learning");
+        ("max-depth", boost::program_options::value<int>()->default_value(100), "maximum depth of trees");
 
     boost::program_options::positional_options_description positionals;
     positionals.add("file-train", 1);
@@ -87,25 +72,16 @@ int main(int argc, const char** argv)
     treeLearner.setUseBootstrap(useBootstrap);
     treeLearner.setMaxDepth(parameters["max-depth"].as<int>());
     treeLearner.setNumFeatures(parameters["num-features"].as<int>());
+    treeLearner.addCallback(DecisionTreeLearner::defaultCallback, 1);
     
-    RandomForestLearner forestLearner;
-    forestLearner.addCallback(RandomForestLearner::defaultCallback, 1);
-    
-    forestLearner.setTreeLearner(&treeLearner);
-    forestLearner.setNumTrees(parameters["num-trees"].as<int>());
-    forestLearner.setNumThreads(parameters["num-threads"].as<int>());
-    
-    RandomForest* forest = forestLearner.learn(&storage);
+    DecisionTree* tree = treeLearner.learn(&storage);
     
     AccuracyTool accuracyTool;
-    accuracyTool.measureAndPrint(forest, &storageT);
+    accuracyTool.measureAndPrint(tree, &storageT);
     
     ConfusionMatrixTool confusionMatrixTool;
-    confusionMatrixTool.measureAndPrint(forest, &storageT);
+    confusionMatrixTool.measureAndPrint(tree, &storageT);
     
-    VariableImportanceTool viTool;
-    viTool.measureAndPrint(&forestLearner);
-    
-    delete forest;
+    delete tree;
     return 0;
 }

@@ -32,7 +32,7 @@ namespace libf {
 
     };
     
-    class OnlineDecisionTreeLearner : public AbstractDecisionTreeLearner,
+    class OnlineDecisionTreeLearner : public AbstractDecisionTreeLearner<DecisionTreeLearnerState>,
             public OnlineLearner<DecisionTree> {
     public:
         OnlineDecisionTreeLearner() : AbstractDecisionTreeLearner(), 
