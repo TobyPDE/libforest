@@ -36,7 +36,8 @@ namespace libf {
     
     /**
      * AbstractLearner: Combines all common functionality of offline and online
-     * learners.
+     * learners. It allows you to set a callback function that is called very n
+     * iterations of the respective training algorithm.
      */
     template<class T, class S>
     class AbstractLearner {
@@ -94,12 +95,10 @@ namespace libf {
     };
     
     /**
-     * This is the base class for all offline learners. It allows you to set a callback
-     * function that is called very n iterations of the respective training
-     * algorithm.
+     * This is the base class for all offline learners.
      */
-    template <class T, class S>
-    class Learner : public AbstractLearner<T, S> {
+    template<class T>
+    class Learner {
     public:
         
         /**
@@ -110,36 +109,17 @@ namespace libf {
     };
     
     /**
-     * This is an ordinary decision tree learning algorithm. It learns the tree
-     * using the information gain criterion. In order to make learning easier, 
-     * simply use the autoconf option. 
+     * This is an abstract decision tree learning providing functionality
+     * needed for all decision tree learners (online or offline.
      */
-    class DecisionTreeLearner : public Learner<DecisionTree, void> {
+    class AbstractDecisionTreeLearner : public AbstractLearner<DecisionTree, void> {
     public:
-        DecisionTreeLearner() : 
-                useBootstrap(true), 
-                numBootstrapExamples(10000), 
+        AbstractDecisionTreeLearner() : 
                 numFeatures(10), 
                 maxDepth(100), 
                 minSplitExamples(3),
                 minChildSplitExamples(1), 
                 smoothingParameter(1) {}
-                
-        /**
-         * Sets whether or not bootstrapping shall be used
-         */
-        void setUseBootstrap(bool _useBootstrap)
-        {
-            useBootstrap = _useBootstrap;
-        }
-
-        /**
-         * Returns whether or not bootstrapping is used
-         */
-        bool getUseBootstrap() const
-        {
-            return useBootstrap;
-        }
 
         /**
          * Sets the number of features that are required to perform a split
@@ -191,23 +171,6 @@ namespace libf {
         {
             return numFeatures;
         }
-
-        /**
-         * Sets the number of bootstrap examples.
-         */
-        void setNumBootstrapExamples(int numBootstrapExamples) 
-        {
-            assert(numBootstrapExamples >= 1);
-            this->numBootstrapExamples = numBootstrapExamples;
-        }
-
-        /**
-         * Returns the number of bootstrap examples.
-         */
-        int getNumBootstrapExamples() const 
-        {
-            return numBootstrapExamples;
-        }
         
         /**
          * Sets the minimum number of examples that need to be in both child nodes
@@ -248,23 +211,6 @@ namespace libf {
         }
         
         /**
-         * Configures the learning automatically depending on a certain data
-         * set. 
-         */
-        virtual void autoconf(const DataStorage* storage);
-        
-        /**
-         * Learns a decision tree on a data set. If you want to make learning
-         * easier, just use the autoconf option before learning. 
-         */
-        virtual DecisionTree* learn(const DataStorage* storage);
-        
-        /**
-         * Dumps the settings
-         */
-        virtual void dumpSetting(std::ostream & stream = std::cout) const;
-        
-        /**
          * Sets the smoothing parameter
          */
         void setSmoothingParameter(float _smoothingParameter)
@@ -280,26 +226,13 @@ namespace libf {
             return smoothingParameter;
         }
         
-        /**
-         * Updates the histograms
-         */
-        void updateHistograms(DecisionTree* tree, const DataStorage* storage) const;
-        
-    private:
+    protected:
         
         /**
          * Splits a node
          */
         void splitNode(DecisionTree* tree, int node) const;
         
-        /**
-         * Whether or not bootstrapping shall be used
-         */
-        bool useBootstrap;
-        /**
-         * The number of bootstrap examples that shall be used.
-         */
-        int numBootstrapExamples;
         /**
          * The number of random features that shall be evaluated for each 
          * split.
@@ -330,12 +263,95 @@ namespace libf {
     };
     
     /**
+     * This is an ordinary offline decision tree learning algorithm. It learns the
+     * tree using the information gain criterion. In order to make learning easier, 
+     * simply use the autoconf option. 
+     */
+    class DecisionTreeLearner : public AbstractDecisionTreeLearner, 
+            public Learner<DecisionTree> {
+    public:
+        DecisionTreeLearner() : AbstractDecisionTreeLearner(),
+                useBootstrap(true), 
+                numBootstrapExamples(10000) {}
+                
+        /**
+         * Sets the number of samples to use for bootstrapping.
+         */
+        void setNumBootstrapExamples(int _numBootstrapExamples)
+        {
+            numBootstrapExamples = _numBootstrapExamples;
+        }
+        
+        /**
+         * Returns the number of samples used for bootstrapping.
+         */
+        int getNumBootstrapExamples() const
+        {
+            return numBootstrapExamples;
+        }
+        
+        /**
+         * Sets whether or not bootstrapping shall be used
+         */
+        void setUseBootstrap(bool _useBootstrap)
+        {
+            useBootstrap = _useBootstrap;
+        }
+
+        /**
+         * Returns whether or not bootstrapping is used
+         */
+        bool getUseBootstrap() const
+        {
+            return useBootstrap;
+        }
+        
+        /**
+         * Configures the learning automatically depending on a certain data
+         * set. 
+         */
+        virtual void autoconf(const DataStorage* storage);
+        
+        /**
+         * Learns a decision tree on a data set. If you want to make learning
+         * easier, just use the autoconf option before learning. 
+         */
+        virtual DecisionTree* learn(const DataStorage* storage);
+        
+        /**
+         * Dumps the settings
+         */
+        virtual void dumpSetting(std::ostream & stream = std::cout) const;
+        
+        /**
+         * Updates the histograms
+         */
+        void updateHistograms(DecisionTree* tree, const DataStorage* storage) const;
+        
+    protected:
+        
+        /**
+         * Whether or not bootstrapping shall be used
+         */
+        bool useBootstrap;
+        /**
+         * The number of bootstrap examples that shall be used.
+         */
+        int numBootstrapExamples;
+    };
+    
+    /**
      * This class holds the current state of the random forest learning
      * algorithm.
      */
     class RandomForestLearnerState {
     public:
-        RandomForestLearnerState() : action(0), learner(0), forest(0), tree(0), startTime(std::chrono::high_resolution_clock::now()) {}
+        RandomForestLearnerState() : 
+                action(0), 
+                learner(0), 
+                forest(0), 
+                tree(0), 
+                startTime(std::chrono::high_resolution_clock::now()) {}
         
         /**
          * The current action
@@ -369,9 +385,11 @@ namespace libf {
     };
     
     /**
-     * This is a random forest learner. 
+     * This is a an abstract random forest learner providing functionality for
+     * online and offline learning.
      */
-    class RandomForestLearner : public Learner<RandomForest, RandomForestLearnerState> {
+    template<class S>
+    class AbstractRandomForestLearner : public AbstractLearner<RandomForest, S> {
     public:
         /**
          * These are the actions of the learning algorithm that are passed
@@ -382,12 +400,7 @@ namespace libf {
         const static int ACTION_START_FOREST = 3;
         const static int ACTION_FINISH_FOREST = 4;
         
-        /**
-         * The default callback for this learner.
-         */
-        static int defaultCallback(RandomForest* forest, RandomForestLearnerState* state);
-        
-        RandomForestLearner() : numTrees(8), treeLearner(0), numThreads(1) {}
+        AbstractRandomForestLearner() : numTrees(8), numThreads(1) {}
         
         /**
          * Sets the number of trees. 
@@ -404,22 +417,6 @@ namespace libf {
         int getNumTrees() const
         {
             return numTrees;
-        }
-        
-        /**
-         * Sets the decision tree learner
-         */
-        void setTreeLearner(DecisionTreeLearner* _treeLearner)
-        {
-            treeLearner = _treeLearner;
-        }
-        
-        /**
-         * Returns the decision tree learner
-         */
-        DecisionTreeLearner* getTreeLearner() const
-        {
-            return treeLearner;
         }
         
         /**
@@ -457,6 +454,53 @@ namespace libf {
             return impurityDecrease;
         }
         
+    protected:
+        /**
+         * The number of trees that we shall learn
+         */
+        int numTrees;
+        /**
+         * The number of threads that shall be used to learn the forest
+         */
+        int numThreads;
+        /**
+         * Used to compute the Mean Decrease Importance variable importance
+         * if requested through the tree learner.
+         */
+        std::vector<float> impurityDecrease;
+    };
+    
+    /**
+     * This is an offline random forest learner. 
+     */
+    class RandomForestLearner : public AbstractRandomForestLearner<RandomForestLearnerState>,
+            public Learner<RandomForest> {
+    public:
+        
+        /**
+         * The default callback for this learner.
+         */
+        static int defaultCallback(RandomForest* forest, RandomForestLearnerState* state);
+        
+        RandomForestLearner() : AbstractRandomForestLearner(),
+                treeLearner(0) {}
+        
+        /**
+         * Sets the decision tree learner
+         */
+        void setTreeLearner(DecisionTreeLearner* _treeLearner)
+        {
+            treeLearner = _treeLearner;
+        }
+        
+        /**
+         * Returns the decision tree learner
+         */
+        DecisionTreeLearner* getTreeLearner() const
+        {
+            return treeLearner;
+        }
+        
         /**
          * Learns a forests. 
          */
@@ -472,27 +516,13 @@ namespace libf {
          * Dumps the settings
          */
         virtual void dumpSetting(std::ostream & stream = std::cout) const;
-        
-    private:
-        /**
-         * The number of trees that we shall learn
-         */
-        int numTrees;
+
+    protected:
         /**
          * The tree learner
          */
         DecisionTreeLearner* treeLearner;
-        /**
-         * The number of threads that shall be used to learn the forest
-         */
-        int numThreads;
-        /**
-         * Used to compute the Mean Decrease Importance variable importance
-         * if requested through the tree learner.
-         */
-        std::vector<float> impurityDecrease;
     };
-    
     
     /**
      * This class holds the current state of the boosted random forest learning
@@ -500,7 +530,13 @@ namespace libf {
      */
     class BoostedRandomForestLearnerState {
     public:
-        BoostedRandomForestLearnerState() : action(0), learner(0), forest(0), tree(0), error(0), alpha(0), startTime(std::chrono::high_resolution_clock::now()) {}
+        BoostedRandomForestLearnerState() : 
+                action(0), 
+                learner(0), 
+                forest(0), 
+                tree(0), error(0), 
+                alpha(0), 
+                startTime(std::chrono::high_resolution_clock::now()) {}
         
         /**
          * The current action
@@ -544,7 +580,8 @@ namespace libf {
     /**
      * This is a random forest learner. 
      */
-    class BoostedRandomForestLearner : public Learner<BoostedRandomForest, BoostedRandomForestLearnerState> {
+    template<class S>
+    class AbstractBoostedRandomForestLearner : public AbstractLearner<BoostedRandomForest, S> {
     public:
         /**
          * These are the actions of the learning algorithm that are passed
@@ -555,12 +592,7 @@ namespace libf {
         const static int ACTION_START_FOREST = 3;
         const static int ACTION_FINISH_FOREST = 4;
         
-        /**
-         * The default callback for this learner.
-         */
-        static int defaultCallback(BoostedRandomForest* forest, BoostedRandomForestLearnerState* state);
-        
-        BoostedRandomForestLearner() : numTrees(8), treeLearner(0) {}
+        AbstractBoostedRandomForestLearner() : numTrees(8) {}
         
         /**
          * Sets the number of trees. 
@@ -578,6 +610,33 @@ namespace libf {
         {
             return numTrees;
         }
+        
+    protected:
+        /**
+         * The number of trees that we shall learn
+         */
+        int numTrees;
+        /**
+         * The tree learner
+         */
+        DecisionTreeLearner* treeLearner;
+    };
+    
+    /**
+     * This is a random forest learner. 
+     */
+    class BoostedRandomForestLearner :
+            public AbstractBoostedRandomForestLearner<BoostedRandomForestLearnerState>,
+            public Learner<BoostedRandomForest> {
+    public:
+        
+        /**
+         * The default callback for this learner.
+         */
+        static int defaultCallback(BoostedRandomForest* forest, BoostedRandomForestLearnerState* state);
+        
+        BoostedRandomForestLearner() : AbstractBoostedRandomForestLearner(),
+                treeLearner(0) {}
         
         /**
          * Sets the decision tree learner
@@ -611,11 +670,7 @@ namespace libf {
          */
         virtual void dumpSetting(std::ostream & stream = std::cout) const;
         
-    private:
-        /**
-         * The number of trees that we shall learn
-         */
-        int numTrees;
+    protected:
         /**
          * The tree learner
          */
