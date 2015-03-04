@@ -23,8 +23,11 @@ int main(int argc, const char** argv)
         ("file-train", boost::program_options::value<std::string>(), "path to train DAT file")
         ("file-test", boost::program_options::value<std::string>(), "path to test DAT file")
         ("batch-size", boost::program_options::value<int>()->default_value(1), "number of incoming samples per timestep")
+        ("min-split-objective", boost::program_options::value<float>()->default_value(5.f), "minimum objective for splitting")
+        ("min-split-examples", boost::program_options::value<int>()->default_value(20), "minimum number of samples for splitting")
+        ("min-child-split-examples", boost::program_options::value<int>()->default_value(10), "minimum number of child sampels to split")
         ("num-features", boost::program_options::value<int>()->default_value(10), "number of features to use (set to dimensionality of data to learn deterministically)")
-        ("use-bootstrap", "use bootstrapping for training")
+        ("num-thresholds", boost::program_options::value<int>()->default_value(10), "number of thresholds to use")
         ("max-depth", boost::program_options::value<int>()->default_value(100), "maximum depth of trees");
 
     boost::program_options::positional_options_description positionals;
@@ -67,21 +70,26 @@ int main(int argc, const char** argv)
     
     OnlineDecisionTreeLearner treeLearner;
     
+    treeLearner.setThresholdGenerator(RandomThresholdGenerator(storageT));
+    treeLearner.setMinSplitObjective(parameters["min-split-objective"].as<float>());
+    treeLearner.setMinSplitExamples(parameters["min-split-examples"].as<int>());
+    treeLearner.setMinChildSplitExamples(parameters["min-child-split-examples"].as<int>());
     treeLearner.setMaxDepth(parameters["max-depth"].as<int>());
     treeLearner.setNumFeatures(parameters["num-features"].as<int>());
+    treeLearner.setNumThresholds(parameters["num-thresholds"].as<int>());
     treeLearner.addCallback(OnlineDecisionTreeLearner::defaultCallback, 1);
     
     const int batchSize = parameters["batch-size"].as<int>();
     
-    //DecisionTree* tree;std::cout << 1 << std::endl;
-    //tree = treeLearner.learn(&storageT, tree);std::cout << 2 << std::endl;
+    DecisionTree* tree = 0;
+    tree = treeLearner.learn(&storageT, tree);
     
-    //AccuracyTool accuracyTool;
-    //accuracyTool.measureAndPrint(tree, &storageT);
+    AccuracyTool accuracyTool;
+    accuracyTool.measureAndPrint(tree, &storageT);
     
-    //ConfusionMatrixTool confusionMatrixTool;
-    //confusionMatrixTool.measureAndPrint(tree, &storageT);
+    ConfusionMatrixTool confusionMatrixTool;
+    confusionMatrixTool.measureAndPrint(tree, &storageT);
     
-    //delete tree;
+    delete tree;
     return 0;
 }

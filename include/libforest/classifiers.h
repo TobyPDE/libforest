@@ -75,21 +75,25 @@ namespace libf {
         EfficientEntropyHistogram(int _classCount) : 
             bins(_classCount), 
             histogram(0), 
-            mass(0), 
             entropies(0), 
+            mass(0), 
             totalEntropy(0) { resize(_classCount); }
 
         /**
          * Copy constructor
          */
-        EfficientEntropyHistogram(const EfficientEntropyHistogram & other) 
+        EfficientEntropyHistogram(const EfficientEntropyHistogram & other) : EfficientEntropyHistogram()
         {
-            resize (other.bins);
-            for (int i = 0; i < bins; i++)
+            // Prevent assignment of empty histogram.
+            if (other.bins > 0)
             {
-                set(i, other.at(i));
+                resize(other.bins);
+                for (int i = 0; i < bins; i++)
+                {
+                    set(i, other.at(i));
+                }
+                mass = other.mass;
             }
-            mass = other.mass;
         }
 
         /**
@@ -112,6 +116,7 @@ namespace libf {
                 mass = other.mass;
                 totalEntropy = other.totalEntropy;
             }
+            
             return *this;
         }
 
@@ -171,27 +176,47 @@ namespace libf {
         /**
          * Get the histogram value for class i.
          */
-        int at(const int i) const { return histogram[i]; }
+        int at(const int i) const
+        {
+            assert(i >= 0 && i < bins);
+            return histogram[i];
+        }
         
         /**
          * Add v instances to class i.
          */
-        void add(const int i, const int v) { mass += v; histogram[i] += v; }
+        void add(const int i, const int v)
+        {
+            assert(i >= 0 && i < bins);
+            mass += v; histogram[i] += v;
+        }
         
         /**
          * Remove v instances from class i.
          */
-        void sub(const int i, const int v) { mass -= v; histogram[i] -= v; }
+        void sub(const int i, const int v)
+        {
+            assert(i >= 0 && i < bins);
+            mass -= v; histogram[i] -= v;
+        }
         
         /**
          * Add one instance to class i.
          */
-        void add1(const int i) { mass += 1; histogram[i]++; }
+        void add1(const int i)
+        {
+            assert(i >= 0 && i < bins);
+            mass += 1; histogram[i]++;
+        }
         
         /**
          * Remove one instance from class i.
          */
-        void sub1(const int i) { mass -= 1; histogram[i]--; }
+        void sub1(const int i)
+        {
+            assert(i >= 0 && i < bins);
+            mass -= 1; histogram[i]--;
+        }
         
         /**
          * Add one instance of class i while updating entropy information.
@@ -287,12 +312,16 @@ namespace libf {
         /**
          * Set the value of class i to v.
          */
-        void set(const int i, const int v) { mass -= histogram[i]; mass += v; histogram[i] = v; }
+        void set(const int i, const int v)
+        {
+            assert(i >= 0 && i < bins);
+            mass -= histogram[i]; mass += v; histogram[i] = v;
+        }
         
         /**
          * The number of classes in this histogram
          */
-        unsigned char bins;
+        int bins;
 
         /**
          * The actual histogram
@@ -521,11 +550,29 @@ namespace libf {
          * 
          * @see http://lrs.icg.tugraz.at/pubs/saffari_olcv_09.pdf
          */
+        /**
+         * Whether to save statistics or not.
+         */
         bool statistics;
+        /**
+         * The node's statistics saved as entropy histogram.
+         */
         std::vector<EfficientEntropyHistogram> nodeStatistics;
+        /**
+         * Left child statistics for all splits.
+         */
         std::vector< std::vector<EfficientEntropyHistogram> > leftChildStatistics;
+        /**
+         * Right child statistics for all splits.
+         */
         std::vector< std::vector<EfficientEntropyHistogram> > rightChildStatistics;
+        /**
+         * Thresholds for each node.
+         */
         std::vector< std::vector< std::vector<float> > > nodeThresholds; // TODO: This is really messy!
+        /**
+         * Features for all nodes.
+         */
         std::vector< std::vector<int> > nodeFeatures;
     };
     

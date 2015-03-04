@@ -59,6 +59,8 @@ int Classifier::classify(const DataPoint* x) const
 
 void EfficientEntropyHistogram::addOne(const int i)
 {
+    assert(i >= 0 && i < bins);
+    
     totalEntropy += ENTROPY(mass);
     mass += 1;
     totalEntropy -= ENTROPY(mass);
@@ -69,7 +71,9 @@ void EfficientEntropyHistogram::addOne(const int i)
 }
 
 void EfficientEntropyHistogram::subOne(const int i)
-{ 
+{
+    assert(i >= 0 && i < bins);
+    
     totalEntropy += ENTROPY(mass);
     mass -= 1;
     totalEntropy -= ENTROPY(mass);
@@ -94,10 +98,12 @@ void EfficientEntropyHistogram::initEntropies()
         totalEntropy = -ENTROPY(getMass());
         for (int i = 0; i < bins; i++)
         {
-            if (at(i) == 0) continue;
-
+            if (at(i) == 0)
+            {
+                continue;
+            }
+            
             entropies[i] = ENTROPY(histogram[i]);
-
             totalEntropy += entropies[i];
         }
     }
@@ -116,14 +122,21 @@ DecisionTree::DecisionTree()
     thresholds.reserve(LIBF_GRAPH_BUFFER_SIZE);
     leftChild.reserve(LIBF_GRAPH_BUFFER_SIZE);
     histograms.reserve(LIBF_GRAPH_BUFFER_SIZE);
+    depths.reserve(LIBF_GRAPH_BUFFER_SIZE);
+    
     // Add at least the root node with index 0
     addNode(0);
 }
 
-
-DecisionTree::DecisionTree(bool _statistics) : DecisionTree()
+DecisionTree::DecisionTree(bool _statistics)
 {
     statistics = _statistics;
+    
+    splitFeatures.reserve(LIBF_GRAPH_BUFFER_SIZE);
+    thresholds.reserve(LIBF_GRAPH_BUFFER_SIZE);
+    leftChild.reserve(LIBF_GRAPH_BUFFER_SIZE);
+    histograms.reserve(LIBF_GRAPH_BUFFER_SIZE);
+    depths.reserve(LIBF_GRAPH_BUFFER_SIZE);
     
     if (statistics)
     {
@@ -133,15 +146,18 @@ DecisionTree::DecisionTree(bool _statistics) : DecisionTree()
         nodeThresholds.reserve(LIBF_GRAPH_BUFFER_SIZE);
         nodeFeatures.reserve(LIBF_GRAPH_BUFFER_SIZE);
     }
+    
+    // Important to add the first node after enabling statistics!
+    addNode(0);
 }
 
 void DecisionTree::addNode(int depth)
 {
-    depths.push_back(depth);
     splitFeatures.push_back(0);
     thresholds.push_back(0);
     leftChild.push_back(0);
     histograms.push_back(std::vector<float>());
+    depths.push_back(depth);
     
     if (statistics)
     {
@@ -178,6 +194,7 @@ int DecisionTree::findLeafNode(const DataPoint* x) const
 {
     // Select the root node as current node
     int node = 0;
+    
     // Follow the tree until we hit a leaf node
     while (leftChild[node] != 0)
     {
@@ -193,6 +210,7 @@ int DecisionTree::findLeafNode(const DataPoint* x) const
             node = leftChild[node] + 1;
         }
     }
+    
     return node;
 }
 

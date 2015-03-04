@@ -13,6 +13,48 @@ using namespace libf;
 
 static std::random_device rd;
 
+
+////////////////////////////////////////////////////////////////////////////////
+/// RandomThresholdGenerator
+////////////////////////////////////////////////////////////////////////////////
+
+RandomThresholdGenerator::RandomThresholdGenerator(const DataStorage & storage)
+{
+    const int D = storage.getDimensionality();
+    const int N = storage.getSize();
+    
+    min = std::vector<float>(D, 1e35f);
+    max = std::vector<float>(D, -1e35f);
+    
+    for (int n = 0; n < N; ++n)
+    {
+        // Retrieve the datapoint to check all features.
+        std::pair<DataPoint*, int> x_n = storage[n];
+        
+        for (int d = 0; d < D; d++)
+        {
+            if (x_n.first->at(d) < min[d])
+            {
+                min[d] = x_n.first->at(d);
+            }
+            if (x_n.first->at(d) > max[d])
+            {
+                max[d] = x_n.first->at(d);
+            }
+        }
+    }
+}
+
+float RandomThresholdGenerator::sample(int feature)
+{
+    assert(feature >= 0 && feature < getSize());
+    
+    std::mt19937 g(rd());
+    std::uniform_real_distribution<float> dist(min[feature], max[feature]);
+    
+    return dist(g);
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 /// OnlineDecisionTreeLearner
 ////////////////////////////////////////////////////////////////////////////////
@@ -27,8 +69,8 @@ inline void updateLeafNodeHistogram(std::vector<float> & leafNodeHistograms, con
     }
 }
 
-void OnlineDecisionTreeLearner::updateSplitStatistics(std::vector<EfficientEntropyHistogram> leftChildStatistics, 
-        std::vector<EfficientEntropyHistogram> rightChildStatistics, 
+void OnlineDecisionTreeLearner::updateSplitStatistics(std::vector<EfficientEntropyHistogram> & leftChildStatistics, 
+        std::vector<EfficientEntropyHistogram> & rightChildStatistics, 
         const std::vector<int> & features,
         const std::vector< std::vector<float> > & thresholds, 
         const std::pair<DataPoint*, int> & x)
@@ -59,13 +101,15 @@ DecisionTree* OnlineDecisionTreeLearner::learn(const DataStorage* storage, Decis
     const int C = storage->getClasscount();
     const int N = storage->getSize();
     
+    assert(thresholdGenerator.getSize() == D);
+    
     // Set up probability distribution for features.
     std::mt19937 g(rd());
     
     OnlineDecisionTreeLearnerState state;
     state.learner = this;
     state.tree = tree;
-    state.action = ACTION_UPDATE_TREE;
+    state.action = ACTION_START_TREE;
         
     // Set up a new tree if no existing tree is given.
     if (!tree)
@@ -87,60 +131,52 @@ DecisionTree* OnlineDecisionTreeLearner::learn(const DataStorage* storage, Decis
     {
         const std::pair<DataPoint*, int> x_n = (*storage)[n];
         const int leaf = tree->findLeafNode(x_n.first);
+        const int depth = tree->getDepth(leaf);
         
-        EfficientEntropyHistogram nodeStatistics = tree->getNodeStatistics(leaf);
-        std::vector<int> nodeFeatures = tree->getNodeFeatures(leaf);
-        std::vector< std::vector<float> > nodeThresholds = tree->getNodeThresholds(leaf);
-        std::vector<EfficientEntropyHistogram> leftChildStatistics = tree->getLeftChildStatistics(leaf);
-        std::vector<EfficientEntropyHistogram> rightChildStatistics = tree->getRightChildStatistics(leaf);
+        state.node = leaf;
+        state.depth = depth;
+        
+        EfficientEntropyHistogram & nodeStatistics = tree->getNodeStatistics(leaf);
+        std::vector<int> & nodeFeatures = tree->getNodeFeatures(leaf);
+        std::vector< std::vector<float> > & nodeThresholds = tree->getNodeThresholds(leaf);
+        std::vector<EfficientEntropyHistogram> & leftChildStatistics = tree->getLeftChildStatistics(leaf);
+        std::vector<EfficientEntropyHistogram> & rightChildStatistics = tree->getRightChildStatistics(leaf);
         
         // This leaf node may be a fresh one.
-        if (nodeStatistics.size() == 0)
+        if (nodeStatistics.size() <= 0)
         {
             nodeStatistics.resize(C);
+            
+            leftChildStatistics.resize(numFeatures*numThresholds);
+            rightChildStatistics.resize(numFeatures*numThresholds);
+            
+            nodeFeatures.resize(numFeatures, 0);
+            nodeThresholds.resize(numFeatures);
             
             // Sample thresholds and features.
             std::shuffle(features.begin(), features.end(), std::default_random_engine(rd()));
             for (int f = 0; f < numFeatures; f++)
             {
-                nodeFeatures.push_back(features[f]);
-            }
-            
-            // If this is a fresh leaf, then, this is the first sample, so
-            // currently there is only one possible threshold.
-            nodeThresholds = std::vector< std::vector<float> >(numFeatures);
-            for (int f = 0; f < numFeatures; f++)
-            {
-                nodeThresholds[f].push_back(x_n.first->at(f));
+                nodeFeatures[f] = features[f];
+                nodeThresholds[f].resize(numThresholds);
+                
+                for (int t = 0; t < numThresholds; t++)
+                {
+                    nodeThresholds[f][t] = thresholdGenerator.sample(f);
+                    
+                    // Initialize left and right child statistic histograms.
+                    leftChildStatistics[t + numThresholds*f].resize(C);
+                    rightChildStatistics[t + numThresholds*f].resize(C);
+                    
+                    leftChildStatistics[t + numThresholds*f].reset();
+                    rightChildStatistics[t + numThresholds*f].reset();
+                    
+                    assert(leftChildStatistics[t + numThresholds*f].getMass() == 0);
+                    assert(rightChildStatistics[t + numThresholds*f].getMass() == 0);
+                }
             }
             
             state.action = ACTION_INIT_NODE;
-            state.node = leaf;
-            state.depth = tree->getDepth(leaf);
-            
-            evokeCallback(tree, 0, &state);
-        }
-        else {
-            // This is not a fresh node, so add another threshold if not all
-            // slots are used.
-            // If all slots are used, replace a threshold at random.
-            for (int f = 0; f < numFeatures; f++)
-            {
-                if (nodeThresholds[f].size() < numThresholds)
-                {
-                    nodeThresholds[f].push_back(x_n.first->at(f));
-                }
-                else
-                {
-                    const int t = std::rand() % numThresholds;
-                    nodeThresholds[f][t] = x_n.first->at(f);
-                }
-            }
-            
-            state.action = ACTION_UPDATE_NODE;
-            state.node = leaf;
-            state.depth = tree->getDepth(leaf);
-            
             evokeCallback(tree, 0, &state);
         }
         
@@ -149,78 +185,152 @@ DecisionTree* OnlineDecisionTreeLearner::learn(const DataStorage* storage, Decis
         // Update left and right node statistics for all splits.
         updateSplitStatistics(leftChildStatistics, rightChildStatistics, nodeFeatures, nodeThresholds, x_n);
         
+        state.samples = nodeStatistics.getMass();
+        
         // As in offline learning, do not split this node
         // - if the number of examples is too small
         // - if the maximum depth is reached
-        // TODO: the tree should take care of saving the depth of each node!
-        if (nodeStatistics.getMass() < minSplitExamples)
+        if (nodeStatistics.getMass() < minSplitExamples || depth > maxDepth)
         {
             // Do not split, update leaf histogram according to new sample.
             updateLeafNodeHistogram(tree->getHistogram(leaf), nodeStatistics, smoothingParameter);
+            
+            state.action = ACTION_NOT_SPLITTING_NODE;  
+            evokeCallback(tree, 0, &state);
+            
             continue;
         }
         
         // Get the best split.
-        float bestObjective = 1e35;
+        float bestObjective = 0;
         float bestThreshold = -1;
         float bestFeature = -1;
         
         for (int f = 0; f < numFeatures; f++)
         {
             // There may not be numThresholds thresholds yet!
-            for (int t = 0; t < nodeThresholds[f].size(); f++)
+            for (int t = 0; t < numThresholds; t++)
             {
-                const float localObjective = leftChildStatistics[t + numThresholds*f].entropy()
-                        + rightChildStatistics[t + numThresholds*f].entropy();
+                // Simple assertion to check consistency:
+                // At each timestep, both children together must have
+                // the same number of samples as their parent node.
+                const int leftMass = leftChildStatistics[t + numThresholds*f].getMass();
+                const int rightMass = rightChildStatistics[t + numThresholds*f].getMass();
+
+                assert(leftMass + rightMass == nodeStatistics.getMass());
                 
-                if (localObjective < bestObjective)
+                if (leftMass > minChildSplitExamples && rightMass > minChildSplitExamples)
                 {
-                    bestObjective = localObjective;
-                    bestThreshold = t;
-                    bestFeature = f;
+                    const float localObjective = nodeStatistics.entropy()
+                            - leftChildStatistics[t + numThresholds*f].entropy()
+                            - rightChildStatistics[t + numThresholds*f].entropy();
+                    
+                    if (localObjective > bestObjective)
+                    {
+                        bestObjective = localObjective;
+                        bestThreshold = t;
+                        bestFeature = f;
+                    }
                 }
             }
         }
         
-        // Split only if the minimum thresholds is obtained.
-        if (bestObjective <= minSplitObjective)
+        // Split only if the minimum objective is obtained.
+        if (bestObjective < minSplitObjective || bestThreshold < 0 || bestFeature < 0)
         {
             // Do not split, update leaf histogram according to new sample.
             updateLeafNodeHistogram(tree->getHistogram(leaf), nodeStatistics, smoothingParameter);
+            
+            state.action = ACTION_NOT_SPLITTING_OBJECTIVE_NODE;  
+            state.objective = bestObjective;
+            state.minObjective = minSplitObjective;
+            
+            evokeCallback(tree, 0, &state);
+            
             continue;
         }
+        
+        // Some assertions for the selected split.
+        assert(bestFeature < numFeatures
+                && bestThreshold < nodeThresholds[bestFeature].size());
         
         // We split this node!
         tree->setThreshold(leaf, nodeThresholds[bestFeature][bestThreshold]); // Save the actual threshold value.
         tree->setSplitFeature(leaf, nodeFeatures[bestFeature]); // Save the index of the feature.
-        tree->splitNode(leaf);
+        
+        const int leftChild = tree->splitNode(leaf);
+        const int rightChild = leftChild  + 1;
+        
+        // This may be the last sample! So initialize the leaf node histograms!
+        updateLeafNodeHistogram(tree->getHistogram(leftChild), 
+                leftChildStatistics[bestThreshold + numThresholds*bestFeature], 
+                smoothingParameter);
+        
+        updateLeafNodeHistogram(tree->getHistogram(rightChild), 
+                rightChildStatistics[bestThreshold + numThresholds*bestFeature], 
+                smoothingParameter);
+        
+        state.action = ACTION_SPLIT_NODE; 
+        state.objective = bestObjective;
+        
+        evokeCallback(tree, 0, &state);
     }
     
     return tree;
 }
 
-int OnlineDecisionTreeLearner::defaultCallback(DecisionTree* forest, OnlineDecisionTreeLearnerState* state)
+int OnlineDecisionTreeLearner::defaultCallback(DecisionTree* tree, OnlineDecisionTreeLearnerState* state)
 {
     switch (state->action) {
         case OnlineDecisionTreeLearner::ACTION_START_TREE:
-            std::cout << "Start decision tree training\n" << "\n";
+            std::cout << "Start decision tree training." << "\n";
             break;
-        case OnlineDecisionTreeLearner::ACTION_UPDATE_TREE:
-            std::cout << "Update decision tree\n" << "\n";
-            break;    
         case OnlineDecisionTreeLearner::ACTION_INIT_NODE:
-            std::cout << std::setw(15) << std::left << "Init node:"
-                    << "depth = " << std::setw(3) << "\n";
-            break;
-        case OnlineDecisionTreeLearner::ACTION_UPDATE_NODE:
-            std::cout << std::setw(15) << std::left << "Update node:"
-                    << "depth = " << std::setw(3) << "\n";
+            std::cout << std::setw(30) << std::left << "Init node: "
+                    << "depth = " << std::setw(6) << state->depth << "\n";
             break;
         case OnlineDecisionTreeLearner::ACTION_SPLIT_NODE:
-            std::cout << std::setw(15) << std::left << "Split node:"
-                    << "depth = " << std::setw(3) << std::right << state->depth
-                    << ", objective = " << std::setw(6) << std::left
-                    << std::setprecision(4) << state->objective << "\n";
+            std::cout << std::setw(30) << std::left << "Split node: "
+                    << "depth = " << std::setw(6) << state->depth
+                    << "samples = " << std::setw(6) << state->samples
+                    << "objective = " << std::setw(6)
+                    << std::setprecision(3) << state->objective << "\n";
+            break;
+    }
+    
+    return 0;
+}
+
+int OnlineDecisionTreeLearner::verboseCallback(DecisionTree* tree, OnlineDecisionTreeLearnerState* state)
+{
+    switch (state->action) {
+        case OnlineDecisionTreeLearner::ACTION_START_TREE:
+            std::cout << "Start decision tree training." << "\n";
+            break; 
+        case OnlineDecisionTreeLearner::ACTION_INIT_NODE:
+            std::cout << std::setw(30) << std::left << "Init node: "
+                    << "depth = " << std::setw(6) << state->depth << "\n";
+            break;
+        case OnlineDecisionTreeLearner::ACTION_NOT_SPLITTING_NODE:
+            std::cout << std::setw(30) << std::left << "Not splitting node: "
+                    << "depth = " << std::setw(6) << state->depth
+                    << "samples = " << std::setw(6) << state->samples << "\n";
+            break;
+        case OnlineDecisionTreeLearner::ACTION_NOT_SPLITTING_OBJECTIVE_NODE:
+            std::cout << std::setw(30) << std::left << "Not splitting node: "
+                    << "depth = " << std::setw(6) << state->depth
+                    << "samples = " << std::setw(6) << state->samples
+                    << "objective = " << std::setw(6)
+                    << std::setprecision(3) << state->objective
+                    << "min objective = " << std::setw(6)
+                    << std::setprecision(3) << state->minObjective << "\n";
+            break;
+        case OnlineDecisionTreeLearner::ACTION_SPLIT_NODE:
+            std::cout << std::setw(30) << std::left << "Split node: "
+                    << "depth = " << std::setw(6) << state->depth
+                    << "samples = " << std::setw(6) << state->samples
+                    << "objective = " << std::setw(6)
+                    << std::setprecision(3) << state->objective << "\n";
             break;
         default:
             std::cout << "UNKNOWN ACTION CODE " << state->action << "\n";
