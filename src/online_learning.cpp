@@ -17,13 +17,6 @@ static std::random_device rd;
 /// OnlineDecisionTreeLearner
 ////////////////////////////////////////////////////////////////////////////////
 
-void OnlineDecisionTreeLearner::autoconf()
-{
-    AbstractDecisionTreeLearner::autoconf();
-    setNumThresholds(25);
-    setMinSplitObjective(0.1);
-}
-
 inline void updateLeafNodeHistogram(std::vector<float> & leafNodeHistograms, const EfficientEntropyHistogram & hist, float smoothing)
 {
     leafNodeHistograms.resize(hist.size());
@@ -210,14 +203,10 @@ int OnlineDecisionTreeLearner::defaultCallback(DecisionTree* forest, OnlineDecis
 {
     switch (state->action) {
         case OnlineDecisionTreeLearner::ACTION_START_TREE:
-            std::cout << "Start decision tree training\n";
-            state->learner->dumpSetting();
-            std::cout << "\n";
+            std::cout << "Start decision tree training\n" << "\n";
             break;
         case OnlineDecisionTreeLearner::ACTION_UPDATE_TREE:
-            std::cout << "Update decision tree\n";
-            state->learner->dumpSetting();
-            std::cout << "\n";
+            std::cout << "Update decision tree\n" << "\n";
             break;    
         case OnlineDecisionTreeLearner::ACTION_INIT_NODE:
             std::cout << std::setw(15) << std::left << "Init node:"
@@ -237,13 +226,6 @@ int OnlineDecisionTreeLearner::defaultCallback(DecisionTree* forest, OnlineDecis
             std::cout << "UNKNOWN ACTION CODE " << state->action << "\n";
             break;
     }
+    
     return 0;
-
-}
-
-void OnlineDecisionTreeLearner::dumpSetting(std::ostream & stream) const
-{
-    AbstractDecisionTreeLearner::dumpSetting(stream);
-    stream << std::setw(30) << "Number Thresholds" << ": " << getNumThresholds() << "\n";
-    stream << std::setw(30) << "Minimum Objective" << ": " << getMinSplitObjective() << "\n";
 }
