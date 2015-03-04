@@ -17,11 +17,11 @@ static std::random_device rd;
 /// OnlineDecisionTreeLearner
 ////////////////////////////////////////////////////////////////////////////////
 
-void OnlineDecisionTreeLearner::autoconf(const DataStorage* dataStorage)
+void OnlineDecisionTreeLearner::autoconf()
 {
+    AbstractDecisionTreeLearner::autoconf();
     setNumThresholds(25);
     setMinSplitObjective(0.1);
-    
 }
 
 inline void updateLeafNodeHistogram(std::vector<float> & leafNodeHistograms, const EfficientEntropyHistogram & hist, float smoothing)
@@ -69,11 +69,19 @@ DecisionTree* OnlineDecisionTreeLearner::learn(const DataStorage* storage, Decis
     // Set up probability distribution for features.
     std::mt19937 g(rd());
     
+    OnlineDecisionTreeLearnerState state;
+    state.learner = this;
+    state.tree = tree;
+    state.action = ACTION_UPDATE_TREE;
+        
     // Set up a new tree if no existing tree is given.
     if (!tree)
     {
         tree = new DecisionTree(true);
+        state.tree = tree;
     }
+    
+    evokeCallback(tree, 0, &state);
     
     // Set up a list of all available features.
     std::vector<int> features(D);
@@ -112,6 +120,12 @@ DecisionTree* OnlineDecisionTreeLearner::learn(const DataStorage* storage, Decis
             {
                 nodeThresholds[f].push_back(x_n.first->at(f));
             }
+            
+            state.action = ACTION_INIT_NODE;
+            state.node = leaf;
+            state.depth = tree->getDepth(leaf);
+            
+            evokeCallback(tree, 0, &state);
         }
         else {
             // This is not a fresh node, so add another threshold if not all
@@ -129,6 +143,12 @@ DecisionTree* OnlineDecisionTreeLearner::learn(const DataStorage* storage, Decis
                     nodeThresholds[f][t] = x_n.first->at(f);
                 }
             }
+            
+            state.action = ACTION_UPDATE_NODE;
+            state.node = leaf;
+            state.depth = tree->getDepth(leaf);
+            
+            evokeCallback(tree, 0, &state);
         }
         
         // Update node statistics.
@@ -186,7 +206,40 @@ DecisionTree* OnlineDecisionTreeLearner::learn(const DataStorage* storage, Decis
     return tree;
 }
 
+int OnlineDecisionTreeLearner::defaultCallback(DecisionTree* forest, OnlineDecisionTreeLearnerState* state)
+{
+    switch (state->action) {
+        case OnlineDecisionTreeLearner::ACTION_START_TREE:
+            std::cout << "Start decision tree training\n";
+            state->learner->dumpSetting();
+            std::cout << "\n";
+            break;
+        case OnlineDecisionTreeLearner::ACTION_UPDATE_TREE:
+            std::cout << "Update decision tree\n";
+            state->learner->dumpSetting();
+            std::cout << "\n";
+            break;    
+        case OnlineDecisionTreeLearner::ACTION_INIT_NODE:
+            std::cout << std::setw(15) << std::left << "Init node:"
+                    << "depth = " << std::setw(3) << "\n";
+            break;
+        case OnlineDecisionTreeLearner::ACTION_UPDATE_NODE:
+            std::cout << std::setw(15) << std::left << "Update node:"
+                    << "depth = " << std::setw(3) << "\n";
+            break;
+        case OnlineDecisionTreeLearner::ACTION_SPLIT_NODE:
+            std::cout << std::setw(15) << std::left << "Split node:"
+                    << "depth = " << std::setw(3) << std::right << state->depth
+                    << ", objective = " << std::setw(6) << std::left
+                    << std::setprecision(4) << state->objective << "\n";
+            break;
+        default:
+            std::cout << "UNKNOWN ACTION CODE " << state->action << "\n";
+            break;
+    }
+    return 0;
 
+}
 
 void OnlineDecisionTreeLearner::dumpSetting(std::ostream & stream) const
 {

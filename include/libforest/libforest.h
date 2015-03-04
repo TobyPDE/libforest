@@ -4,6 +4,7 @@
 #include "data.h"
 #include "classifiers.h"
 #include "learning.h"
+#include "online_learning.h"
 #include "tools.h"
 
 #endif
