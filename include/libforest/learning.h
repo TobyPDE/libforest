@@ -52,17 +52,6 @@ namespace libf {
             callbackCycles.push_back(cycle);
         }
         
-        /**
-         * The autoconf function should set up the learner such that without
-         * any additional settings people can try a learner on a data set. 
-         */
-        virtual void autoconf() = 0;
-        
-        /**
-         * Dumps the current settings
-         */
-        virtual void dumpSetting(std::ostream & stream = std::cout) const = 0;
-        
     protected:
         /**
          * Calls the callbacks. The results of the callbacks are bitwise or'ed
@@ -106,7 +95,6 @@ namespace libf {
          * Learns a classifier.
          */
         virtual T* learn(const DataStorage* storage) = 0;
-
     };
     
     /**
@@ -228,17 +216,6 @@ namespace libf {
             return smoothingParameter;
         }
         
-        /**
-         * Configures the learning automatically depending on a certain data
-         * set. 
-         */
-        virtual void autoconf();
-        
-        /**
-         * Dumps the settings
-         */
-        virtual void dumpSetting(std::ostream & stream = std::cout) const;
-        
     protected:
         
         /**
@@ -322,8 +299,7 @@ namespace libf {
     
     /**
      * This is an ordinary offline decision tree learning algorithm. It learns the
-     * tree using the information gain criterion. In order to make learning easier, 
-     * simply use the autoconf option. 
+     * tree using the information gain criterion.
      */
     class DecisionTreeLearner : public AbstractDecisionTreeLearner<DecisionTreeLearnerState>, 
             public Learner<DecisionTree> {
@@ -376,21 +352,9 @@ namespace libf {
         }
         
         /**
-         * Configures the learning automatically depending on a certain data
-         * set. 
-         */
-        virtual void autoconf();
-        
-        /**
-         * Learns a decision tree on a data set. If you want to make learning
-         * easier, just use the autoconf option before learning. 
+         * Learns a decision tree on a data set.
          */
         virtual DecisionTree* learn(const DataStorage* storage);
-        
-        /**
-         * Dumps the settings
-         */
-        virtual void dumpSetting(std::ostream & stream = std::cout) const;
         
         /**
          * Updates the histograms
@@ -575,17 +539,6 @@ namespace libf {
          * Learns a forests. 
          */
         virtual RandomForest* learn(const DataStorage* storage);
-        
-        /**
-         * The autoconf function should set up the learner such that without
-         * any additional settings people can try a learner on a data set. 
-         */
-        virtual void autoconf() {}
-        
-        /**
-         * Dumps the settings
-         */
-        virtual void dumpSetting(std::ostream & stream = std::cout) const;
 
     protected:
         /**
@@ -729,17 +682,6 @@ namespace libf {
          * Learns a forests. 
          */
         virtual BoostedRandomForest* learn(const DataStorage* storage);
-        
-        /**
-         * The autoconf function should set up the learner such that without
-         * any additional settings people can try a learner on a data set. 
-         */
-        virtual void autoconf() {}
-        
-        /**
-         * Dumps the settings
-         */
-        virtual void dumpSetting(std::ostream & stream = std::cout) const;
         
     protected:
         /**

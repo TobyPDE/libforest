@@ -15,36 +15,8 @@ using namespace libf;
 static std::random_device rd;
 
 ////////////////////////////////////////////////////////////////////////////////
-/// AbstractDecisionTreeLearner
-////////////////////////////////////////////////////////////////////////////////
-
-template<class T>
-void AbstractDecisionTreeLearner<T>::autoconf()
-{
-    setNumFeatures(1);
-}
-
-template<class T>
-void AbstractDecisionTreeLearner<T>::dumpSetting(std::ostream & stream) const
-{
-    stream << std::setw(30) << "Learner" << ": " << typeid(*this).name() << "\n";
-    stream << std::setw(30) << "Feature evaluations" << ": " << getNumFeatures() << "\n";
-    stream << std::setw(30) << "Max depth" << ": " << getMaxDepth() << "\n";
-    stream << std::setw(30) << "Minimum Split Examples" << ": " << getMinSplitExamples() << "\n";
-    stream << std::setw(30) << "Minimum Child Split Examples" << ": " << getMinChildSplitExamples() << "\n";
-    stream << std::setw(30) << "Smoothing Parameter" << ": " << getSmoothingParameter() << "\n";
-}
-
-////////////////////////////////////////////////////////////////////////////////
 /// DecisionTreeLearner
 ////////////////////////////////////////////////////////////////////////////////
-
-void DecisionTreeLearner::autoconf()
-{
-    AbstractDecisionTreeLearner::autoconf();
-    setUseBootstrap(false);
-    setNumBootstrapExamples(0);
-}
 
 /**
  * This class can be used in order to sort the array of data point IDs by
@@ -380,20 +352,11 @@ void DecisionTreeLearner::updateHistograms(DecisionTree* tree, const DataStorage
     }
 }
 
-void DecisionTreeLearner::dumpSetting(std::ostream & stream) const
-{
-    AbstractDecisionTreeLearner::dumpSetting(stream);
-    stream << std::setw(30) << "Bootstrap Sampling" << ": " << getUseBootstrap() << "\n";
-    stream << std::setw(30) << "Bootstrap Samples" << ": " << getNumBootstrapExamples() << "\n";
-}
-
 int DecisionTreeLearner::defaultCallback(DecisionTree* forest, DecisionTreeLearnerState* state)
 {
     switch (state->action) {
         case DecisionTreeLearner::ACTION_START_TREE:
-            std::cout << "Start decision tree training\n";
-            state->learner->dumpSetting();
-            std::cout << "\n";
+            std::cout << "Start decision tree training\n" << "\n";
             break;
         case DecisionTreeLearner::ACTION_SPLIT_NODE:
             std::cout << std::setw(15) << std::left << "Split node:"
@@ -467,34 +430,23 @@ RandomForest* RandomForestLearner::learn(const DataStorage* storage)
     return forest;
 }
 
-void RandomForestLearner::dumpSetting(std::ostream& stream) const
-{
-    stream << std::setw(30) << "Learner" << ": RandomForestLearner" << "\n";
-    stream << std::setw(30) << "Number of trees" << ": " << getNumTrees() << "\n";
-    stream << std::setw(30) << "Number of threads" << ": " << getNumThreads() << "\n";
-    stream << "Tree learner settings" << "\n";
-    treeLearner->dumpSetting(stream);
-}
-
 int RandomForestLearner::defaultCallback(RandomForest* forest, RandomForestLearnerState* state)
 {
     switch (state->action) {
         case RandomForestLearner::ACTION_START_FOREST:
-            std::cout << "Start random forest training\n";
-            state->learner->dumpSetting();
-            std::cout << "\n";
+            std::cout << "Start random forest training\n" << "\n";
             break;
         case RandomForestLearner::ACTION_START_TREE:
-            std::cout   << std::setw(15) << std::left << "Start tree " 
-                        << std::setw(4) << std::right << state->tree 
-                        << " out of " 
-                        << std::setw(4) << state->learner->getNumTrees() << "\n";
+            std::cout << std::setw(15) << std::left << "Start tree " 
+                    << std::setw(4) << std::right << state->tree 
+                    << " out of " 
+                    << std::setw(4) << state->learner->getNumTrees() << "\n";
             break;
         case RandomForestLearner::ACTION_FINISH_TREE:
-            std::cout   << std::setw(15) << std::left << "Finish tree " 
-                        << std::setw(4) << std::right << state->tree 
-                        << " out of " 
-                        << std::setw(4) << state->learner->getNumTrees() << "\n";
+            std::cout << std::setw(15) << std::left << "Finish tree " 
+                    << std::setw(4) << std::right << state->tree 
+                    << " out of " 
+                    << std::setw(4) << state->learner->getNumTrees() << "\n";
             break;
         case RandomForestLearner::ACTION_FINISH_FOREST:
             std::cout << "Finished forest in " << state->getPassedTime().count()/1000000. << "s\n";
@@ -628,22 +580,11 @@ BoostedRandomForest* BoostedRandomForestLearner::learn(const DataStorage* storag
     return forest;
 }
 
-
-void BoostedRandomForestLearner::dumpSetting(std::ostream& stream) const
-{
-    stream << std::setw(30) << "Learner" << ": BoostedRandomForestLearner" << "\n";
-    stream << std::setw(30) << "Number of trees" << ": " << getNumTrees() << "\n";
-    stream << "Tree learner settings" << "\n";
-    treeLearner->dumpSetting(stream);
-}
-
 int BoostedRandomForestLearner::defaultCallback(BoostedRandomForest* forest, BoostedRandomForestLearnerState* state)
 {
     switch (state->action) {
         case BoostedRandomForestLearner::ACTION_START_FOREST:
-            std::cout << "Start boosted random forest training\n";
-            state->learner->dumpSetting();
-            std::cout << "\n";
+            std::cout << "Start boosted random forest training\n" << "\n";
             break;
         case BoostedRandomForestLearner::ACTION_START_TREE:
             std::cout   << std::setw(15) << std::left << "Start tree " 

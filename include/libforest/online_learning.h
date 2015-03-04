@@ -138,20 +138,9 @@ namespace libf {
         }
         
         /**
-         * Configures the learning automatically depending on a certain data
-         * set. 
-         */
-        virtual void autoconf();
-        
-        /**
          * Updates the given decision tree on the given data.
          */
         virtual DecisionTree* learn(const DataStorage* storage, DecisionTree* tree);
-        
-        /**
-         * Dumps the settings
-         */
-        virtual void dumpSetting(std::ostream & stream = std::cout) const;
         
     protected:
         /**

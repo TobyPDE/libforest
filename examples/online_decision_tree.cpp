@@ -66,22 +66,22 @@ int main(int argc, const char** argv)
     storage.dumpInformation();
     
     OnlineDecisionTreeLearner treeLearner;
-    treeLearner.autoconf();
+    
     treeLearner.setMaxDepth(parameters["max-depth"].as<int>());
     treeLearner.setNumFeatures(parameters["num-features"].as<int>());
     treeLearner.addCallback(OnlineDecisionTreeLearner::defaultCallback, 1);
     
     const int batchSize = parameters["batch-size"].as<int>();
     
-    DecisionTree* tree;std::cout << 1 << std::endl;
-    tree = treeLearner.learn(&storageT, tree);std::cout << 2 << std::endl;
+    //DecisionTree* tree;std::cout << 1 << std::endl;
+    //tree = treeLearner.learn(&storageT, tree);std::cout << 2 << std::endl;
     
-    AccuracyTool accuracyTool;
-    accuracyTool.measureAndPrint(tree, &storageT);
+    //AccuracyTool accuracyTool;
+    //accuracyTool.measureAndPrint(tree, &storageT);
     
-    ConfusionMatrixTool confusionMatrixTool;
-    confusionMatrixTool.measureAndPrint(tree, &storageT);
+    //ConfusionMatrixTool confusionMatrixTool;
+    //confusionMatrixTool.measureAndPrint(tree, &storageT);
     
-    delete tree;
+    //delete tree;
     return 0;
 }

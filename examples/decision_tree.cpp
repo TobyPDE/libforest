@@ -68,7 +68,6 @@ int main(int argc, const char** argv)
     
     DecisionTreeLearner treeLearner;
     
-    treeLearner.autoconf();
     treeLearner.setUseBootstrap(useBootstrap);
     treeLearner.setMaxDepth(parameters["max-depth"].as<int>());
     treeLearner.setNumFeatures(parameters["num-features"].as<int>());
