@@ -54,7 +54,7 @@ int main(int argc, const char** argv)
         return 1;
     }
     
-    bool useBootstrap = parameters.find("use-bootstrap") != parameters.end();
+    const bool useBootstrap = parameters.find("use-bootstrap") != parameters.end();
     
     DataStorage storage;
     DataStorage storageT;
@@ -68,7 +68,7 @@ int main(int argc, const char** argv)
     
     DecisionTreeLearner treeLearner;
     
-    treeLearner.autoconf(&storage);
+    treeLearner.autoconf();
     treeLearner.setUseBootstrap(useBootstrap);
     treeLearner.setMaxDepth(parameters["max-depth"].as<int>());
     treeLearner.setNumFeatures(parameters["num-features"].as<int>());

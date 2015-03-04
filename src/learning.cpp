@@ -19,9 +19,9 @@ static std::random_device rd;
 ////////////////////////////////////////////////////////////////////////////////
 
 template<class T>
-void AbstractDecisionTreeLearner<T>::autoconf(const DataStorage* dataStorage)
+void AbstractDecisionTreeLearner<T>::autoconf()
 {
-    setNumFeatures(std::ceil(std::sqrt(dataStorage->getDimensionality())));
+    setNumFeatures(1);
 }
 
 template<class T>
@@ -39,11 +39,11 @@ void AbstractDecisionTreeLearner<T>::dumpSetting(std::ostream & stream) const
 /// DecisionTreeLearner
 ////////////////////////////////////////////////////////////////////////////////
 
-void DecisionTreeLearner::autoconf(const DataStorage* dataStorage)
+void DecisionTreeLearner::autoconf()
 {
-    AbstractDecisionTreeLearner::autoconf(dataStorage);
-    setUseBootstrap(true);
-    setNumBootstrapExamples(dataStorage->getSize());
+    AbstractDecisionTreeLearner::autoconf();
+    setUseBootstrap(false);
+    setNumBootstrapExamples(0);
 }
 
 /**

@@ -56,7 +56,7 @@ namespace libf {
          * The autoconf function should set up the learner such that without
          * any additional settings people can try a learner on a data set. 
          */
-        virtual void autoconf(const DataStorage* storage) = 0;
+        virtual void autoconf() = 0;
         
         /**
          * Dumps the current settings
@@ -232,7 +232,7 @@ namespace libf {
          * Configures the learning automatically depending on a certain data
          * set. 
          */
-        virtual void autoconf(const DataStorage* storage);
+        virtual void autoconf();
         
         /**
          * Dumps the settings
@@ -335,7 +335,7 @@ namespace libf {
         /**
          * The default callback for this learner.
          */
-        static int defaultCallback(DecisionTree* forest, DecisionTreeLearnerState* state);
+        static int defaultCallback(DecisionTree* tree, DecisionTreeLearnerState* state);
                 
         /**
          * Actions for the callback function.
@@ -379,7 +379,7 @@ namespace libf {
          * Configures the learning automatically depending on a certain data
          * set. 
          */
-        virtual void autoconf(const DataStorage* storage);
+        virtual void autoconf();
         
         /**
          * Learns a decision tree on a data set. If you want to make learning
@@ -580,7 +580,7 @@ namespace libf {
          * The autoconf function should set up the learner such that without
          * any additional settings people can try a learner on a data set. 
          */
-        virtual void autoconf(const DataStorage* storage) {}
+        virtual void autoconf() {}
         
         /**
          * Dumps the settings
@@ -734,7 +734,7 @@ namespace libf {
          * The autoconf function should set up the learner such that without
          * any additional settings people can try a learner on a data set. 
          */
-        virtual void autoconf(const DataStorage* storage) {}
+        virtual void autoconf() {}
         
         /**
          * Dumps the settings

@@ -218,6 +218,11 @@ namespace libf {
         virtual ~DataStorage();
         
         /**
+         * Create a DataStorage for an excerpt of thisDataStorage.
+         */
+        DataStorage excerpt(int begin, int end);
+        
+        /**
          * Returns the number of data points. 
          */
         int getSize() const
@@ -341,6 +346,8 @@ namespace libf {
         {
             classcount = _classcount;
         }
+        
+        
         
         /**
          * Dumps information about the data storage

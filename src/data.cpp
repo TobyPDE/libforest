@@ -177,6 +177,30 @@ DataStorage::DataStorage(const DataStorage & other)
     
 }
 
+DataStorage DataStorage::excerpt(int begin, int end)
+{
+    assert(begin >= 0 && begin <= end);
+    assert(end >= begin && end < dataPoints.size());
+    
+    DataStorage excerpt;
+    
+    excerpt.dataPoints = std::vector<DataPoint*>(end - begin + 1);
+    excerpt.freeFlags = std::vector<bool>(end - begin + 1);
+    excerpt.classLabels = std::vector<int>(end - begin + 1);
+    
+    int m = 0;
+    for (int n = begin; n <= end; n++, m++)
+    {
+        // The points do not belong to the excerpt.
+        excerpt.freeFlags[m] = false;
+        excerpt.dataPoints[m] = dataPoints[n];
+        excerpt.classLabels[m] = classLabels[n];
+    }
+    
+    excerpt.classLabelMap = classLabelMap;
+    excerpt.classcount = classcount;
+}
+
 DataStorage & DataStorage::operator=(const DataStorage & other)
 {
     if (this != &other)
@@ -207,6 +231,7 @@ void DataStorage::free()
             dataPoints[i] = 0;
         }
     }
+    
     dataPoints.empty();
     classLabels.empty();
     freeFlags.empty();
