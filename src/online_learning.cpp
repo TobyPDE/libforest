@@ -42,7 +42,7 @@ RandomThresholdGenerator::RandomThresholdGenerator(const DataStorage & storage)
                 max[d] = x_n.first->at(d);
             }
         }
-    }
+    }    
 }
 
 float RandomThresholdGenerator::sample(int feature)
@@ -154,15 +154,32 @@ DecisionTree* OnlineDecisionTreeLearner::learn(const DataStorage* storage, Decis
             nodeThresholds.resize(numFeatures);
             
             // Sample thresholds and features.
-            std::shuffle(features.begin(), features.end(), std::default_random_engine(rd()));
             for (int f = 0; f < numFeatures; f++)
             {
-                nodeFeatures[f] = features[f];
+                // As the min and max ranges are generated based on data,
+                // we want to filter out irrelevant features.
+                do
+                {
+                    nodeFeatures[f] = features[std::rand()%D];
+                }
+                while(thresholdGenerator.getMin(nodeFeatures[f]) == thresholdGenerator.getMax(nodeFeatures[f]));
+                
+                // Check that we did not get a trivial feature.
+                assert(thresholdGenerator.getMin(nodeFeatures[f]) != thresholdGenerator.getMax(nodeFeatures[f]));
+                        
                 nodeThresholds[f].resize(numThresholds);
                 
                 for (int t = 0; t < numThresholds; t++)
                 {
-                    nodeThresholds[f][t] = thresholdGenerator.sample(f);
+                    nodeThresholds[f][t] = thresholdGenerator.sample(nodeFeatures[f]);
+                    
+                    if (t > 0)
+                    {
+                        while (std::abs(nodeThresholds[f][t] - nodeThresholds[f][t - 1]) < 1e-6f)
+                        {
+                            nodeThresholds[f][t] = thresholdGenerator.sample(nodeFeatures[f]);
+                        }
+                    }
                     
                     // Initialize left and right child statistic histograms.
                     leftChildStatistics[t + numThresholds*f].resize(C);
@@ -180,11 +197,39 @@ DecisionTree* OnlineDecisionTreeLearner::learn(const DataStorage* storage, Decis
             evokeCallback(tree, 0, &state);
         }
         
-        // Update node statistics.
-        nodeStatistics.addOne(x_n.second);
-        // Update left and right node statistics for all splits.
-        updateSplitStatistics(leftChildStatistics, rightChildStatistics, nodeFeatures, nodeThresholds, x_n);
+        int K = 1;
+        if (useBootstrap)
+        {
+            std::poisson_distribution<int> poisson(bootstrapLambda);
+            int K = std::max(1, poisson(g));
+        }
         
+        for (int k = 0; k < K; k++)
+        {
+            // Update node statistics.
+            nodeStatistics.addOne(x_n.second);
+            // Update left and right node statistics for all splits.
+            updateSplitStatistics(leftChildStatistics, rightChildStatistics, nodeFeatures, nodeThresholds, x_n);
+        }
+            
+        // Do not split, update leaf histogram according to new sample.
+        updateLeafNodeHistogram(tree->getHistogram(leaf), nodeStatistics, smoothingParameter);
+    }
+    
+    for (int n = 0; n < N; n++)
+    {
+        const std::pair<DataPoint*, int> x_n = (*storage)[n];
+        const int leaf = tree->findLeafNode(x_n.first);
+        const int depth = tree->getDepth(leaf);
+        
+        EfficientEntropyHistogram & nodeStatistics = tree->getNodeStatistics(leaf);
+        std::vector<int> & nodeFeatures = tree->getNodeFeatures(leaf);
+        std::vector< std::vector<float> > & nodeThresholds = tree->getNodeThresholds(leaf);
+        std::vector<EfficientEntropyHistogram> & leftChildStatistics = tree->getLeftChildStatistics(leaf);
+        std::vector<EfficientEntropyHistogram> & rightChildStatistics = tree->getRightChildStatistics(leaf);
+        
+        state.node = leaf;
+        state.depth = depth;
         state.samples = nodeStatistics.getMass();
         
         // As in offline learning, do not split this node
@@ -192,9 +237,6 @@ DecisionTree* OnlineDecisionTreeLearner::learn(const DataStorage* storage, Decis
         // - if the maximum depth is reached
         if (nodeStatistics.getMass() < minSplitExamples || depth > maxDepth)
         {
-            // Do not split, update leaf histogram according to new sample.
-            updateLeafNodeHistogram(tree->getHistogram(leaf), nodeStatistics, smoothingParameter);
-            
             state.action = ACTION_NOT_SPLITTING_NODE;  
             evokeCallback(tree, 0, &state);
             
@@ -219,7 +261,7 @@ DecisionTree* OnlineDecisionTreeLearner::learn(const DataStorage* storage, Decis
 
                 assert(leftMass + rightMass == nodeStatistics.getMass());
                 
-                if (leftMass > minChildSplitExamples && rightMass > minChildSplitExamples)
+                if (leftMass > minChildSplitExamples || rightMass > minChildSplitExamples)
                 {
                     const float localObjective = nodeStatistics.entropy()
                             - leftChildStatistics[t + numThresholds*f].entropy()
@@ -238,9 +280,6 @@ DecisionTree* OnlineDecisionTreeLearner::learn(const DataStorage* storage, Decis
         // Split only if the minimum objective is obtained.
         if (bestObjective < minSplitObjective || bestThreshold < 0 || bestFeature < 0)
         {
-            // Do not split, update leaf histogram according to new sample.
-            updateLeafNodeHistogram(tree->getHistogram(leaf), nodeStatistics, smoothingParameter);
-            
             state.action = ACTION_NOT_SPLITTING_OBJECTIVE_NODE;  
             state.objective = bestObjective;
             state.minObjective = minSplitObjective;
@@ -272,6 +311,17 @@ DecisionTree* OnlineDecisionTreeLearner::learn(const DataStorage* storage, Decis
         
         // Save best objective for variable importance.
         impurityDecrease[bestFeature] += bestObjective;
+        
+        // Clean up node at this is not a leaf anymore and statistics
+        // are not required anymore.
+        // nodeStatistics.clear();
+        leftChildStatistics.clear();
+        rightChildStatistics.clear();
+        nodeThresholds.clear();
+        nodeFeatures.clear();
+        
+        // Also clear the histogram as this node is not a leaf anymore!
+        tree->getHistogram(leaf).clear();
         
         state.action = ACTION_SPLIT_NODE; 
         state.objective = bestObjective;

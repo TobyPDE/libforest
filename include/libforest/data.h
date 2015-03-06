@@ -347,8 +347,6 @@ namespace libf {
             classcount = _classcount;
         }
         
-        
-        
         /**
          * Dumps information about the data storage
          */
@@ -407,8 +405,20 @@ namespace libf {
      */
     class CSVDataProvider : public DataProvider{
     public:
+        /**
+         * Constructor: read csv with the given columns as label column.
+         */
         CSVDataProvider(int classColumnIndex) : classColumnIndex(classColumnIndex), columnSeparator(",") {}
+        
+        /**
+         * Read CSV with the given columns as label column, separated by the
+         * given separator.
+         */
         CSVDataProvider(int classColumnIndex, std::string columnSeperator) : classColumnIndex(classColumnIndex), columnSeparator(columnSeperator) {}
+        
+        /**
+         * Destructor.
+         */
         virtual ~CSVDataProvider() {}
         
         /**

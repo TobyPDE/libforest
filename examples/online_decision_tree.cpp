@@ -39,8 +39,9 @@ int main(int argc, const char** argv)
         ("min-child-split-examples", boost::program_options::value<int>()->default_value(10), "minimum number of child sampels to split")
         ("num-features", boost::program_options::value<int>()->default_value(10), "number of features to use (set to dimensionality of data to learn deterministically)")
         ("num-thresholds", boost::program_options::value<int>()->default_value(10), "number of thresholds to use")
-        ("max-depth", boost::program_options::value<int>()->default_value(100), "maximum depth of trees");
-
+        ("max-depth", boost::program_options::value<int>()->default_value(100), "maximum depth of trees")
+        ("use-bootstrap", "use online bootstrapping");
+    
     boost::program_options::positional_options_description positionals;
     positionals.add("file-train", 1);
     positionals.add("file-test", 1);
@@ -76,12 +77,19 @@ int main(int argc, const char** argv)
     reader.read(trainDat.string(), &storageT);
     reader.read(testDat.string(), &storage);
     
+    // Important for sorted datasets!
+    storageT.randPermute();
+    
     std::cout << "Training Data" << std::endl;
     storageT.dumpInformation();
     
     OnlineDecisionTreeLearner treeLearner;
     
-    treeLearner.setThresholdGenerator(RandomThresholdGenerator(storageT));
+    bool useBootstrap = parameters.find("user-bootstrap") != parameters.end();
+    RandomThresholdGenerator randomGenerator(storageT);
+    // randomGenerator.addFeatureRanges(storageT.getDimensionality(), 0, 255);
+    
+    treeLearner.setThresholdGenerator(randomGenerator);
     treeLearner.setMinSplitObjective(parameters["min-split-objective"].as<float>());
     treeLearner.setMinSplitExamples(parameters["min-split-examples"].as<int>());
     treeLearner.setMinChildSplitExamples(parameters["min-child-split-examples"].as<int>());
@@ -89,6 +97,7 @@ int main(int argc, const char** argv)
     treeLearner.setNumFeatures(parameters["num-features"].as<int>());
     treeLearner.setNumThresholds(parameters["num-thresholds"].as<int>());
     treeLearner.addCallback(OnlineDecisionTreeLearner::defaultCallback, 1);
+    treeLearner.setUseBootstrap(useBootstrap);
     
     const int batchSize = parameters["batch-size"].as<int>();
     

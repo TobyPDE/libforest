@@ -228,6 +228,15 @@ void DecisionTree::read(std::istream& stream)
     readBinary(stream, thresholds);
     readBinary(stream, leftChild);
     readBinary(stream, histograms);
+    
+    readBinary(stream, statistics);
+    if (statistics) {
+        readBinary(stream, nodeStatistics);
+        readBinary(stream, leftChildStatistics);
+        readBinary(stream, rightChildStatistics);
+        readBinary(stream, nodeThresholds);
+        readBinary(stream, nodeFeatures);
+    }
 }
 
 void DecisionTree::write(std::ostream& stream) const
@@ -237,6 +246,15 @@ void DecisionTree::write(std::ostream& stream) const
     writeBinary(stream, thresholds);
     writeBinary(stream, leftChild);
     writeBinary(stream, histograms);
+    
+    writeBinary(stream, statistics);
+    if (statistics) {
+        writeBinary(stream, nodeStatistics);
+        writeBinary(stream, leftChildStatistics);
+        writeBinary(stream, rightChildStatistics);
+        writeBinary(stream, nodeThresholds);
+        writeBinary(stream, nodeFeatures);
+    }
 }
 
 ////////////////////////////////////////////////////////////////////////////////

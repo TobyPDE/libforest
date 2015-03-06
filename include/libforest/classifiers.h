@@ -10,6 +10,7 @@
 
 #include <iostream>
 #include <vector>
+#include <Eigen/Dense>
 
 #include "data.h"
 
@@ -511,7 +512,7 @@ namespace libf {
             return rightChildStatistics[node];
         }
         
-    private:
+    protected:
         /**
          * Adds a plain new node.
          */
@@ -534,6 +535,8 @@ namespace libf {
          * this is a leaf node. The right child node is left + 1. 
          */
         std::vector<int> leftChild;
+        
+    private:
         /**
          * The histograms for each node. We only store actual histograms at 
          * leaf nodes. 
@@ -574,6 +577,82 @@ namespace libf {
          * Features for all nodes.
          */
         std::vector< std::vector<int> > nodeFeatures;
+    };
+    
+    /**
+     * A simple Gaussian distribution represented by mean and covariance matrix.
+     */
+    class Gaussian {
+    public:
+        /**
+         * Default Gaussian with zero mean and identity covariance.
+         */
+        Gaussian();
+        
+        /**
+         * Gaussian with given mean and covariance.
+         */
+        Gaussian(Eigen::VectorXf _mean, Eigen::MatrixXf _covariance);
+        
+        /**
+         * Destructor.
+         */
+        ~Gaussian();
+        
+        /**
+         * Get probability of the given data point.
+         */
+        float evaluate(DataPoint* x);
+        
+        /**
+         * Sets the mean.
+         */
+        void setMean(Eigen::VectorXf _mean);
+        
+        /**
+         * Returns the mean.
+         */
+        Eigen::VectorXf getMean();
+        
+        /**
+         * Sets the covariance matrix.
+         */
+        void setCovariance(Eigen::MatrixXf _covariance);
+        
+        /**
+         * Returns the covariance matrix.
+         */
+        Eigen::MatrixXf getCovariance();
+        
+    private:
+        /**
+         * Mean of Gaussian.
+         */
+        Eigen::VectorXf mean;
+        /**
+         * Covariance of Gaussian.
+         */
+        Eigen::MatrixXf covariance;
+    };
+    
+    class EfficientCovarianceMatrix {
+        
+    };
+    
+    /**
+     * Density decision tree for unsupervised learning.
+     */
+    class DensityDecisionTree : public DecisionTree {
+    public:
+        DensityDecisionTree();
+        ~DensityDecisionTree();
+        
+    private:
+        /**
+         * The Gaussians at the leafs.
+         */
+        std::vector<Gaussian> gaussians;
+        
     };
     
     /**
