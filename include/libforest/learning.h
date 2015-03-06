@@ -85,6 +85,34 @@ namespace libf {
     };
     
     /**
+     * Abstract learner state for measuring time and defining actions.
+     */
+    class AbstractLearnerState {
+    public:
+        AbstractLearnerState() : 
+                action(0),
+                startTime(std::chrono::high_resolution_clock::now()) {}
+        
+        /**
+         * The current action
+         */
+        int action;
+        /**
+         * The start time
+         */
+        std::chrono::high_resolution_clock::time_point startTime;
+        
+        /**
+         * Returns the passed time in microseconds
+         */
+        std::chrono::microseconds getPassedTime()
+        {
+            std::chrono::high_resolution_clock::time_point now = std::chrono::high_resolution_clock::now();
+            return std::chrono::duration_cast<std::chrono::microseconds>( now - startTime );
+        }
+    };
+    
+    /**
      * This is the base class for all offline learners.
      */
     template<class T>
@@ -252,20 +280,14 @@ namespace libf {
         std::vector<float> impurityDecrease;
     };
     
-    class DecisionTreeLearnerState {
+    class DecisionTreeLearnerState : public AbstractLearnerState {
     public:
-        DecisionTreeLearnerState() : 
-                action(0), 
+        DecisionTreeLearnerState() : AbstractLearnerState(),
                 learner(0), 
                 tree(0), 
                 objective(0), 
-                depth(0),
-                startTime(std::chrono::high_resolution_clock::now()) {}
+                depth(0) {}
         
-        /**
-         * The current action
-         */
-        int action;
         /**
          * The learner object
          */
@@ -282,19 +304,6 @@ namespace libf {
          * Depth of spitted node.
          */
         int depth;
-        /**
-         * The start time
-         */
-        std::chrono::high_resolution_clock::time_point startTime;
-        
-        /**
-         * Returns the passed time in microseconds
-         */
-        std::chrono::microseconds getPassedTime()
-        {
-            std::chrono::high_resolution_clock::time_point now = std::chrono::high_resolution_clock::now();
-            return std::chrono::duration_cast<std::chrono::microseconds>( now - startTime );
-        }
     };
     
     /**
@@ -371,50 +380,6 @@ namespace libf {
          * The number of bootstrap examples that shall be used.
          */
         int numBootstrapExamples;
-    };
-    
-    /**
-     * This class holds the current state of the random forest learning
-     * algorithm.
-     */
-    class RandomForestLearnerState {
-    public:
-        RandomForestLearnerState() : 
-                action(0), 
-                learner(0), 
-                forest(0), 
-                tree(0), 
-                startTime(std::chrono::high_resolution_clock::now()) {}
-        
-        /**
-         * The current action
-         */
-        int action;
-        /**
-         * The learner object
-         */
-        const RandomForestLearner* learner;
-        /**
-         * The learned object
-         */
-        const RandomForest* forest;
-        /**
-         * The current tree
-         */
-        int tree;
-        /**
-         * The start time
-         */
-        std::chrono::high_resolution_clock::time_point startTime;
-        
-        /**
-         * Returns the passed time in microseconds
-         */
-        std::chrono::microseconds getPassedTime()
-        {
-            std::chrono::high_resolution_clock::time_point now = std::chrono::high_resolution_clock::now();
-            return std::chrono::duration_cast<std::chrono::microseconds>( now - startTime );
-        }
     };
     
     /**
@@ -496,6 +461,31 @@ namespace libf {
     };
     
     /**
+     * This class holds the current state of the random forest learning
+     * algorithm.
+     */
+    class RandomForestLearnerState : public AbstractLearnerState {
+    public:
+        RandomForestLearnerState() : AbstractLearnerState(),
+                learner(0), 
+                forest(0), 
+                tree(0) {}
+        
+        /**
+         * The learner object
+         */
+        const RandomForestLearner* learner;
+        /**
+         * The learned object
+         */
+        const RandomForest* forest;
+        /**
+         * The current tree
+         */
+        int tree;
+    };
+    
+    /**
      * This is an offline random forest learner. 
      */
     class RandomForestLearner : public AbstractRandomForestLearner<RandomForestLearnerState>,
@@ -548,59 +538,6 @@ namespace libf {
     };
     
     /**
-     * This class holds the current state of the boosted random forest learning
-     * algorithm.
-     */
-    class BoostedRandomForestLearnerState {
-    public:
-        BoostedRandomForestLearnerState() : 
-                action(0), 
-                learner(0), 
-                forest(0), 
-                tree(0), error(0), 
-                alpha(0), 
-                startTime(std::chrono::high_resolution_clock::now()) {}
-        
-        /**
-         * The current action
-         */
-        int action;
-        /**
-         * The learner object
-         */
-        const BoostedRandomForestLearner* learner;
-        /**
-         * The learned object
-         */
-        const BoostedRandomForest* forest;
-        /**
-         * The current tree
-         */
-        int tree;
-        /**
-         * The error value
-         */
-        float error;
-        /**
-         * The tree weight
-         */
-        float alpha;
-        /**
-         * The start time
-         */
-        std::chrono::high_resolution_clock::time_point startTime;
-        
-        /**
-         * Returns the passed time in microseconds
-         */
-        std::chrono::microseconds getPassedTime()
-        {
-            std::chrono::high_resolution_clock::time_point now = std::chrono::high_resolution_clock::now();
-            return std::chrono::duration_cast<std::chrono::microseconds>( now - startTime );
-        }
-    };
-    
-    /**
      * This is a random forest learner. 
      */
     template<class S>
@@ -635,6 +572,40 @@ namespace libf {
          * The tree learner
          */
         DecisionTreeLearner* treeLearner;
+    };
+    
+    /**
+     * This class holds the current state of the boosted random forest learning
+     * algorithm.
+     */
+    class BoostedRandomForestLearnerState : public AbstractLearnerState {
+    public:
+        BoostedRandomForestLearnerState() : AbstractLearnerState(),
+                learner(0), 
+                forest(0), 
+                tree(0), error(0), 
+                alpha(0) {}
+
+        /**
+         * The learner object
+         */
+        const BoostedRandomForestLearner* learner;
+        /**
+         * The learned object
+         */
+        const BoostedRandomForest* forest;
+        /**
+         * The current tree
+         */
+        int tree;
+        /**
+         * The error value
+         */
+        float error;
+        /**
+         * The tree weight
+         */
+        float alpha;
     };
     
     /**

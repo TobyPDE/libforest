@@ -32,21 +32,15 @@ namespace libf {
 
     };
     
-    class OnlineDecisionTreeLearnerState {
+    class OnlineDecisionTreeLearnerState : public AbstractLearnerState {
     public:
-        OnlineDecisionTreeLearnerState() : 
-                action(0), 
+        OnlineDecisionTreeLearnerState() : AbstractLearnerState(),
                 learner(0), 
                 tree(0),
                 node(0),
                 objective(0), 
-                depth(0),
-                startTime(std::chrono::high_resolution_clock::now()) {}
+                depth(0) {}
         
-        /**
-         * The current action
-         */
-        int action;
         /**
          * The learner object
          */
@@ -75,19 +69,6 @@ namespace libf {
          * Depth of spitted node.
          */
         int depth;
-        /**
-         * The start time
-         */
-        std::chrono::high_resolution_clock::time_point startTime;
-        
-        /**
-         * Returns the passed time in microseconds
-         */
-        std::chrono::microseconds getPassedTime()
-        {
-            std::chrono::high_resolution_clock::time_point now = std::chrono::high_resolution_clock::now();
-            return std::chrono::duration_cast<std::chrono::microseconds>( now - startTime );
-        }
     };
     
     /**
