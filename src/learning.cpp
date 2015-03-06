@@ -84,8 +84,6 @@ DecisionTree* DecisionTreeLearner::learn(const DataStorage* dataStorage)
     
     // Set up the state for the call backs
     DecisionTreeLearnerState state;
-    state.learner = this;
-    state.tree = tree;
     state.action = ACTION_START_TREE;
     
     evokeCallback(tree, 0, &state);
@@ -387,8 +385,8 @@ RandomForest* RandomForestLearner::learn(const DataStorage* storage)
     
     // Set up the state for the call backs
     RandomForestLearnerState state;
-    state.learner = this;
-    state.forest = forest;
+    state.numTrees = this->getNumTrees();
+    state.tree = 0;
     state.action = ACTION_START_FOREST;
     
     evokeCallback(forest, 0, &state);
@@ -440,13 +438,13 @@ int RandomForestLearner::defaultCallback(RandomForest* forest, RandomForestLearn
             std::cout << std::setw(15) << std::left << "Start tree " 
                     << std::setw(4) << std::right << state->tree 
                     << " out of " 
-                    << std::setw(4) << state->learner->getNumTrees() << "\n";
+                    << std::setw(4) << state->numTrees << "\n";
             break;
         case RandomForestLearner::ACTION_FINISH_TREE:
             std::cout << std::setw(15) << std::left << "Finish tree " 
                     << std::setw(4) << std::right << state->tree 
                     << " out of " 
-                    << std::setw(4) << state->learner->getNumTrees() << "\n";
+                    << std::setw(4) << state->numTrees << "\n";
             break;
         case RandomForestLearner::ACTION_FINISH_FOREST:
             std::cout << "Finished forest in " << state->getPassedTime().count()/1000000. << "s\n";
@@ -471,8 +469,8 @@ BoostedRandomForest* BoostedRandomForestLearner::learn(const DataStorage* storag
     
     // Set up the state for the call backs
     BoostedRandomForestLearnerState state;
-    state.learner = this;
-    state.forest = forest;
+    state.numTrees = this->getNumTrees();
+    state.tree = 0;
     state.action = ACTION_START_FOREST;
     
     evokeCallback(forest, 0, &state);
@@ -590,13 +588,13 @@ int BoostedRandomForestLearner::defaultCallback(BoostedRandomForest* forest, Boo
             std::cout   << std::setw(15) << std::left << "Start tree " 
                         << std::setw(4) << std::right << state->tree 
                         << " out of " 
-                        << std::setw(4) << state->learner->getNumTrees() << "\n";
+                        << std::setw(4) << state->numTrees << "\n";
             break;
         case BoostedRandomForestLearner::ACTION_FINISH_TREE:
             std::cout   << std::setw(15) << std::left << "Finish tree " 
                         << std::setw(4) << std::right << state->tree 
                         << " out of " 
-                        << std::setw(4) << state->learner->getNumTrees() 
+                        << std::setw(4) << state->numTrees
                         << " error = " << state->error 
                         << ", alpha = " << state->alpha << "\n";
             break;
