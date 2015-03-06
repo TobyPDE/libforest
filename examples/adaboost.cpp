@@ -68,7 +68,7 @@ int main(int argc, const char** argv)
     reader.read(testDat.string(), &storage);
     
     std::cout << "Training Data" << std::endl;
-    storage.dumpInformation();
+    storageT.dumpInformation();
     
     DecisionTreeLearner treeLearner;
     

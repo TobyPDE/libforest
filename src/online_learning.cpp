@@ -110,15 +110,12 @@ DecisionTree* OnlineDecisionTreeLearner::learn(const DataStorage* storage, Decis
     impurityDecrease = std::vector<float>(D, 0.f);
     
     OnlineDecisionTreeLearnerState state;
-    state.learner = this;
-    state.tree = tree;
     state.action = ACTION_START_TREE;
         
     // Set up a new tree if no existing tree is given.
     if (!tree)
     {
         tree = new DecisionTree(true);
-        state.tree = tree;
     }
     
     evokeCallback(tree, 0, &state);
@@ -361,8 +358,8 @@ RandomForest* OnlineRandomForestLearner::learn(const DataStorage* storage, Rando
     
     // Set up the state for the call backs
     OnlineRandomForestLearnerState state;
-    state.learner = this;
-    state.forest = forest;
+    state.tree = 0;
+    state.numTrees = this->getNumTrees();
     state.action = ACTION_START_FOREST;
     
     evokeCallback(forest, 0, &state);
@@ -437,13 +434,13 @@ int OnlineRandomForestLearner::verboseCallback(RandomForest* forest, OnlineRando
             std::cout << std::setw(15) << std::left << "Start tree " 
                     << std::setw(4) << std::right << state->tree 
                     << " out of " 
-                    << std::setw(4) << state->learner->getNumTrees() << "\n";
+                    << std::setw(4) << state->numTrees << "\n";
             break;
         case RandomForestLearner::ACTION_FINISH_TREE:
             std::cout << std::setw(15) << std::left << "Finish tree " 
                     << std::setw(4) << std::right << state->tree 
                     << " out of " 
-                    << std::setw(4) << state->learner->getNumTrees() << "\n";
+                    << std::setw(4) << state->numTrees << "\n";
             break;
         case RandomForestLearner::ACTION_FINISH_FOREST:
             std::cout << "Finished forest in " << state->getPassedTime().count()/1000000. << "s\n";

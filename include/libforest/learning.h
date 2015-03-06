@@ -283,19 +283,9 @@ namespace libf {
     class DecisionTreeLearnerState : public AbstractLearnerState {
     public:
         DecisionTreeLearnerState() : AbstractLearnerState(),
-                learner(0), 
-                tree(0), 
                 objective(0), 
                 depth(0) {}
         
-        /**
-         * The learner object
-         */
-        const DecisionTreeLearner* learner;
-        /**
-         * The learned object
-         */
-        const DecisionTree* tree;
         /**
          * Objective of splitted node.
          */
@@ -467,22 +457,17 @@ namespace libf {
     class RandomForestLearnerState : public AbstractLearnerState {
     public:
         RandomForestLearnerState() : AbstractLearnerState(),
-                learner(0), 
-                forest(0), 
-                tree(0) {}
+                tree(0),
+                numTrees(0) {}
         
-        /**
-         * The learner object
-         */
-        const RandomForestLearner* learner;
-        /**
-         * The learned object
-         */
-        const RandomForest* forest;
         /**
          * The current tree
          */
         int tree;
+        /**
+         * Total number of trees learned.
+         */
+        int numTrees;
     };
     
     /**
@@ -581,23 +566,19 @@ namespace libf {
     class BoostedRandomForestLearnerState : public AbstractLearnerState {
     public:
         BoostedRandomForestLearnerState() : AbstractLearnerState(),
-                learner(0), 
-                forest(0), 
-                tree(0), error(0), 
+                tree(0),
+                numTrees(0),
+                error(0), 
                 alpha(0) {}
-
-        /**
-         * The learner object
-         */
-        const BoostedRandomForestLearner* learner;
-        /**
-         * The learned object
-         */
-        const BoostedRandomForest* forest;
+        
         /**
          * The current tree
          */
         int tree;
+        /**
+         * Number of learned trees.
+         */
+        int numTrees;
         /**
          * The error value
          */

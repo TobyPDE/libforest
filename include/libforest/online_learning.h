@@ -36,20 +36,10 @@ namespace libf {
     class OnlineDecisionTreeLearnerState : public AbstractLearnerState {
     public:
         OnlineDecisionTreeLearnerState() : AbstractLearnerState(),
-                learner(0), 
-                tree(0),
                 node(0),
                 objective(0), 
                 depth(0) {}
         
-        /**
-         * The learner object
-         */
-        const OnlineDecisionTreeLearner* learner;
-        /**
-         * The learned object
-         */
-        const DecisionTree* tree;
         /**
          * Node id.
          */
@@ -283,22 +273,17 @@ namespace libf {
     class OnlineRandomForestLearnerState : public AbstractLearnerState {
     public:
         OnlineRandomForestLearnerState() : AbstractLearnerState(),
-                learner(0), 
-                forest(0), 
-                tree(0) {}
+                tree(0),
+                numTrees(0) {}
         
-        /**
-         * The learner object
-         */
-        const OnlineRandomForestLearner* learner;
-        /**
-         * The learned object
-         */
-        const RandomForest* forest;
         /**
          * The current tree
          */
         int tree;
+        /**
+         * Number of learned trees.
+         */
+        int numTrees;
     };
     
     /**
