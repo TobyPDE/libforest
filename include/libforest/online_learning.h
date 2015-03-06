@@ -154,7 +154,8 @@ namespace libf {
     class OnlineDecisionTreeLearner : public AbstractDecisionTreeLearner<OnlineDecisionTreeLearnerState>,
             public OnlineLearner<DecisionTree> {
     public:
-        OnlineDecisionTreeLearner() : AbstractDecisionTreeLearner(), 
+        OnlineDecisionTreeLearner() : AbstractDecisionTreeLearner(),
+                bootstrapLambda(1.f),
                 numThresholds(2*numFeatures),
                 minSplitObjective(1.f)
         {
@@ -248,6 +249,10 @@ namespace libf {
                 const std::vector< std::vector<float> > & thresholds, 
                 const std::pair<DataPoint*, int> & x);
         
+        /**
+         * Lambda used for poisson distribution for online bootstrapping.
+         */
+        float bootstrapLambda;
         /**
          * Minimum objective required for a node to split.
          */

@@ -102,9 +102,6 @@ int main(int argc, const char** argv)
     ConfusionMatrixTool confusionMatrixTool;
     confusionMatrixTool.measureAndPrint(forest, &storageT);
     
-    VariableImportanceTool viTool;
-    viTool.measureAndPrint(&forestLearner);
-    
     delete forest;
     return 0;
 }

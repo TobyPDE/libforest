@@ -137,7 +137,8 @@ namespace libf {
                 maxDepth(100), 
                 minSplitExamples(3),
                 minChildSplitExamples(1), 
-                smoothingParameter(1) {}
+                smoothingParameter(1),
+                useBootstrap(false) {}
                 
         /**
          * Sets the number of features that are required to perform a split
@@ -244,6 +245,22 @@ namespace libf {
             return smoothingParameter;
         }
         
+        /**
+         * Sets whether or not bootstrapping shall be used
+         */
+        void setUseBootstrap(bool _useBootstrap)
+        {
+            useBootstrap = _useBootstrap;
+        }
+
+        /**
+         * Returns whether or not bootstrapping is used
+         */
+        bool getUseBootstrap() const
+        {
+            return useBootstrap;
+        }
+        
     protected:
         
         /**
@@ -275,6 +292,10 @@ namespace libf {
          */
         float smoothingParameter;
         /**
+         * Whether or not bootstrapping shall be used
+         */
+        bool useBootstrap;
+        /**
          * The sum of impurity decrease per feature
          */
         std::vector<float> impurityDecrease;
@@ -304,7 +325,6 @@ namespace libf {
             public Learner<DecisionTree> {
     public:
         DecisionTreeLearner() : AbstractDecisionTreeLearner(),
-                useBootstrap(false), 
                 numBootstrapExamples(1) {}
                 
         /**
@@ -335,22 +355,6 @@ namespace libf {
         }
         
         /**
-         * Sets whether or not bootstrapping shall be used
-         */
-        void setUseBootstrap(bool _useBootstrap)
-        {
-            useBootstrap = _useBootstrap;
-        }
-
-        /**
-         * Returns whether or not bootstrapping is used
-         */
-        bool getUseBootstrap() const
-        {
-            return useBootstrap;
-        }
-        
-        /**
          * Learns a decision tree on a data set.
          */
         virtual DecisionTree* learn(const DataStorage* storage);
@@ -362,10 +366,6 @@ namespace libf {
         
     protected:
         
-        /**
-         * Whether or not bootstrapping shall be used
-         */
-        bool useBootstrap;
         /**
          * The number of bootstrap examples that shall be used.
          */
