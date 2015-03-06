@@ -663,7 +663,7 @@ namespace libf {
         /**
          * Adds a tree to the ensemble
          */
-        void addTree(Classifier* tree)
+        void addTree(DecisionTree* tree)
         {
             trees.push_back(tree);
         }
@@ -679,7 +679,7 @@ namespace libf {
         /**
          * Returns the i-th tree
          */
-        Classifier* getTree(int i)
+        DecisionTree* getTree(int i)
         {
             return trees[i];
         }
@@ -687,7 +687,7 @@ namespace libf {
         /**
          * Returns the i-th tree
          */
-        const Classifier* getTree(int i) const
+        const DecisionTree* getTree(int i) const
         {
             return trees[i];
         }
@@ -707,7 +707,7 @@ namespace libf {
         /**
          * The individual decision trees. 
          */
-        std::vector<Classifier*> trees;
+        std::vector<DecisionTree*> trees;
     };
     
     /**
@@ -736,7 +736,7 @@ namespace libf {
         /**
          * Adds a tree to the ensemble
          */
-        void addTree(Classifier* tree, float weight)
+        void addTree(DecisionTree* tree, float weight)
         {
             trees.push_back(tree);
             weights.push_back(weight);
@@ -753,7 +753,7 @@ namespace libf {
         /**
          * Returns the i-th tree
          */
-        Classifier* getTree(int i)
+        DecisionTree* getTree(int i)
         {
             return trees[i];
         }
@@ -761,7 +761,7 @@ namespace libf {
         /**
          * Returns the i-th tree
          */
-        const Classifier* getTree(int i) const
+        const DecisionTree* getTree(int i) const
         {
             return trees[i];
         }
@@ -782,7 +782,7 @@ namespace libf {
         /**
          * The individual decision trees. 
          */
-        std::vector<Classifier*> trees;
+        std::vector<DecisionTree*> trees;
         /**
          * The tree weights
          */

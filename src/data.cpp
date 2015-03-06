@@ -199,6 +199,8 @@ DataStorage DataStorage::excerpt(int begin, int end)
     
     excerpt.classLabelMap = classLabelMap;
     excerpt.classcount = classcount;
+    
+    return excerpt;
 }
 
 DataStorage & DataStorage::operator=(const DataStorage & other)

@@ -8,12 +8,18 @@
 using namespace libf;
 
 /**
- * Example of Decision tree learning.
+ * Example of cecision tree learning.
  * 
  * Usage:
- * 
- * 
- * 
+ * $ ./lib_forest/examples/cli_decision_tree --help
+ * Allowed options:
+ *   --help                   produce help message
+ *   --file-train arg         path to train DAT file
+ *   --file-test arg          path to test DAT file
+ *   --num-features arg (=10) number of features to use (set to dimensionality of 
+ *                            data to learn deterministically)
+ *   --use-bootstrap          use bootstrapping for training
+ *   --max-depth arg (=100)   maximum depth of trees
  */
 int main(int argc, const char** argv)
 {
