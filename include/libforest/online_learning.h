@@ -17,6 +17,7 @@ namespace libf {
     class DataStorage;
     class DecisionTree;
     class OnlineDecisionTreeLearner;
+    class OnlineRandomForestLearner;
     
     /**
      * This is the base class for all online learners.
@@ -273,6 +274,88 @@ namespace libf {
          * The generator to sample random thresholds.
          */
         RandomThresholdGenerator thresholdGenerator;
+    };
+    
+    /**
+     * This class holds the current state of the random forest learning
+     * algorithm.
+     */
+    class OnlineRandomForestLearnerState : public AbstractLearnerState {
+    public:
+        OnlineRandomForestLearnerState() : AbstractLearnerState(),
+                learner(0), 
+                forest(0), 
+                tree(0) {}
+        
+        /**
+         * The learner object
+         */
+        const OnlineRandomForestLearner* learner;
+        /**
+         * The learned object
+         */
+        const RandomForest* forest;
+        /**
+         * The current tree
+         */
+        int tree;
+    };
+    
+    /**
+     * This is an offline random forest learner. 
+     */
+    class OnlineRandomForestLearner : public AbstractRandomForestLearner<OnlineRandomForestLearnerState>,
+            public OnlineLearner<RandomForest> {
+    public:
+        
+        /**
+         * The default callback for this learner.
+         */
+        static int defaultCallback(RandomForest* forest, OnlineRandomForestLearnerState* state);
+        
+        /**
+         * Verbose callback for this learner.
+         */
+        static int verboseCallback(RandomForest* forest, OnlineRandomForestLearnerState* state);
+         
+        /**
+         * These are the actions of the learning algorithm that are passed
+         * to the callback functions.
+         */
+        const static int ACTION_START_TREE = 1;
+        const static int ACTION_FINISH_TREE = 2;
+        const static int ACTION_START_FOREST = 3;
+        const static int ACTION_FINISH_FOREST = 4;
+        
+        OnlineRandomForestLearner() : AbstractRandomForestLearner(),
+                treeLearner(0) {}
+        
+        /**
+         * Sets the decision tree learner
+         */
+        void setTreeLearner(OnlineDecisionTreeLearner* _treeLearner)
+        {
+            treeLearner = _treeLearner;
+        }
+        
+        /**
+         * Returns the decision tree learner
+         */
+        OnlineDecisionTreeLearner* getTreeLearner() const
+        {
+            return treeLearner;
+        }
+        
+        /**
+         * Learns a forests. 
+         */
+        virtual RandomForest* learn(const DataStorage* storage, RandomForest* forest = 0);
+
+    protected:
+        /**
+         * The tree learner
+         */
+        OnlineDecisionTreeLearner* treeLearner;
     };
 }
 

@@ -8,12 +8,23 @@
 using namespace libf;
 
 /**
- * Example of Decision tree learning.
+ * Example of online decision tree learning.
  * 
  * Usage:
- * 
- * 
- * 
+ * $ ./examples/cli_online_decision_tree --help
+ * Allowed options:
+ *   --help                               produce help message
+ *   --file-train arg                     path to train DAT file
+ *   --file-test arg                      path to test DAT file
+ *   --batch-size arg (=1)                number of incoming samples per timestep
+ *   --min-split-objective arg (=5)       minimum objective for splitting
+ *   --min-split-examples arg (=20)       minimum number of samples for splitting
+ *   --min-child-split-examples arg (=10) minimum number of child sampels to split
+ *   --num-features arg (=10)             number of features to use (set to 
+ *                                        dimensionality of data to learn 
+ *                                        deterministically)
+ *   --num-thresholds arg (=10)           number of thresholds to use
+ *   --max-depth arg (=100)               maximum depth of trees
  */
 int main(int argc, const char** argv)
 {
@@ -82,8 +93,11 @@ int main(int argc, const char** argv)
     const int batchSize = parameters["batch-size"].as<int>();
     
     DecisionTree* tree = 0;
-    tree = treeLearner.learn(&storageT, tree);
-    
+    for (int b = 0; b < storageT.getSize()/batchSize - 1; b++)
+    {
+        DataStorage batch = storageT.excerpt(b*batchSize, (b + 1)*batchSize - 1);
+        tree = treeLearner.learn(&batch, tree);
+    }
     AccuracyTool accuracyTool;
     accuracyTool.measureAndPrint(tree, &storageT);
     

@@ -434,7 +434,7 @@ int RandomForestLearner::defaultCallback(RandomForest* forest, RandomForestLearn
 {
     switch (state->action) {
         case RandomForestLearner::ACTION_START_FOREST:
-            std::cout << "Start random forest training\n" << "\n";
+            std::cout << "Start random forest training" << "\n";
             break;
         case RandomForestLearner::ACTION_START_TREE:
             std::cout << std::setw(15) << std::left << "Start tree " 

@@ -106,6 +106,9 @@ DecisionTree* OnlineDecisionTreeLearner::learn(const DataStorage* storage, Decis
     // Set up probability distribution for features.
     std::mt19937 g(rd());
     
+    // Saves the sum of impurity decrease achieved by each feature
+    impurityDecrease = std::vector<float>(D, 0.f);
+    
     OnlineDecisionTreeLearnerState state;
     state.learner = this;
     state.tree = tree;
@@ -270,6 +273,9 @@ DecisionTree* OnlineDecisionTreeLearner::learn(const DataStorage* storage, Decis
                 rightChildStatistics[bestThreshold + numThresholds*bestFeature], 
                 smoothingParameter);
         
+        // Save best objective for variable importance.
+        impurityDecrease[bestFeature] += bestObjective;
+        
         state.action = ACTION_SPLIT_NODE; 
         state.objective = bestObjective;
         
@@ -282,13 +288,10 @@ DecisionTree* OnlineDecisionTreeLearner::learn(const DataStorage* storage, Decis
 int OnlineDecisionTreeLearner::defaultCallback(DecisionTree* tree, OnlineDecisionTreeLearnerState* state)
 {
     switch (state->action) {
-        case OnlineDecisionTreeLearner::ACTION_START_TREE:
-            std::cout << "Start decision tree training." << "\n";
-            break;
-        case OnlineDecisionTreeLearner::ACTION_INIT_NODE:
-            std::cout << std::setw(30) << std::left << "Init node: "
-                    << "depth = " << std::setw(6) << state->depth << "\n";
-            break;
+//        case OnlineDecisionTreeLearner::ACTION_INIT_NODE:
+//            std::cout << std::setw(30) << std::left << "Init node: "
+//                    << "depth = " << std::setw(6) << state->depth << "\n";
+//            break;
         case OnlineDecisionTreeLearner::ACTION_SPLIT_NODE:
             std::cout << std::setw(30) << std::left << "Split node: "
                     << "depth = " << std::setw(6) << state->depth
@@ -331,6 +334,119 @@ int OnlineDecisionTreeLearner::verboseCallback(DecisionTree* tree, OnlineDecisio
                     << "samples = " << std::setw(6) << state->samples
                     << "objective = " << std::setw(6)
                     << std::setprecision(3) << state->objective << "\n";
+            break;
+        default:
+            std::cout << "UNKNOWN ACTION CODE " << state->action << "\n";
+            break;
+    }
+    
+    return 0;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+/// RandomForestLearner
+////////////////////////////////////////////////////////////////////////////////
+
+RandomForest* OnlineRandomForestLearner::learn(const DataStorage* storage, RandomForest* forest)
+{
+    const int D = storage->getDimensionality();
+    
+    if (!forest)
+    {
+        forest = new RandomForest();
+    }
+    
+    // Initialize variable importance values.
+    impurityDecrease = std::vector<float>(D, 0.f);
+    
+    // Set up the state for the call backs
+    OnlineRandomForestLearnerState state;
+    state.learner = this;
+    state.forest = forest;
+    state.action = ACTION_START_FOREST;
+    
+    evokeCallback(forest, 0, &state);
+    
+    int treeStartCounter = 0; 
+    int treeFinishCounter = 0; 
+    
+    DecisionTree* tree;
+    #pragma omp parallel for num_threads(numThreads)
+    for (int i = 0; i < numTrees; i++)
+    {
+        #pragma omp critical
+        {
+            if (i >= forest->getSize())
+            {
+                tree = new DecisionTree(true);
+                forest->addTree(tree);
+            }
+            else {
+                tree = forest->getTree(i);
+            }
+            
+            state.tree = ++treeStartCounter;
+            state.action = ACTION_START_TREE;
+            evokeCallback(forest, treeStartCounter - 1, &state);
+        }
+        
+        treeLearner->learn(storage, tree);
+        
+        #pragma omp critical
+        {
+            state.tree = ++treeFinishCounter;
+            state.action = ACTION_FINISH_TREE;
+            evokeCallback(forest, treeFinishCounter - 1, &state);
+
+            // Update variable importance.
+            for (int f = 0; f < D; ++f)
+            {
+                impurityDecrease[f] += treeLearner->getMDIImportance(f)/this->numTrees;
+            }
+        }
+    }
+    
+    state.tree = 0;
+    state.action = ACTION_FINISH_FOREST;
+    evokeCallback(forest, 0, &state);
+    
+    return forest;
+}
+
+int OnlineRandomForestLearner::defaultCallback(RandomForest* forest, OnlineRandomForestLearnerState* state)
+{
+    switch (state->action) {
+//        case RandomForestLearner::ACTION_START_FOREST:
+//            std::cout << "Start random forest training" << "\n";
+//            break;
+        case RandomForestLearner::ACTION_FINISH_FOREST:
+            std::cout << "Finished forest in " << state->getPassedTime().count()/1000000. << "s\n";
+            break;
+    }
+    
+    return 0;
+}
+
+int OnlineRandomForestLearner::verboseCallback(RandomForest* forest, OnlineRandomForestLearnerState* state)
+{
+    switch (state->action) {
+        case RandomForestLearner::ACTION_START_FOREST:
+            std::cout << "Start random forest training" << "\n";
+            break;
+        case RandomForestLearner::ACTION_START_TREE:
+            std::cout << std::setw(15) << std::left << "Start tree " 
+                    << std::setw(4) << std::right << state->tree 
+                    << " out of " 
+                    << std::setw(4) << state->learner->getNumTrees() << "\n";
+            break;
+        case RandomForestLearner::ACTION_FINISH_TREE:
+            std::cout << std::setw(15) << std::left << "Finish tree " 
+                    << std::setw(4) << std::right << state->tree 
+                    << " out of " 
+                    << std::setw(4) << state->learner->getNumTrees() << "\n";
+            break;
+        case RandomForestLearner::ACTION_FINISH_FOREST:
+            std::cout << "Finished forest in " << state->getPassedTime().count()/1000000. << "s\n";
             break;
         default:
             std::cout << "UNKNOWN ACTION CODE " << state->action << "\n";

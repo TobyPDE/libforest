@@ -314,8 +314,8 @@ namespace libf {
             public Learner<DecisionTree> {
     public:
         DecisionTreeLearner() : AbstractDecisionTreeLearner(),
-                useBootstrap(true), 
-                numBootstrapExamples(10000) {}
+                useBootstrap(false), 
+                numBootstrapExamples(1) {}
                 
         /**
          * The default callback for this learner.
