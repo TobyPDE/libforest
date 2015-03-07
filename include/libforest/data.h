@@ -286,7 +286,14 @@ namespace libf {
      */
     class UnlabeledDataStorage : public AbstractDataStorage {
     public:
-        
+        /**
+         * Add a single data point.
+         */
+        void addDataPoint(DataPoint* point, bool free = true)
+        {
+            dataPoints.push_back(point);
+            freeFlags.push_back(free);
+        }
     };
     
     /**

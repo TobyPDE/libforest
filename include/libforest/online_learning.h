@@ -2,9 +2,7 @@
 #define	LIBF_ONLINE_LEARNING_H
 
 #include <cassert>
-#include <functional>
 #include <iostream>
-#include <chrono>
 #include <cmath>
 #include <vector>
 #include "classifiers.h"
