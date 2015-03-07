@@ -340,22 +340,37 @@ void DataStorage::dumpInformation(std::ostream & stream)
 ////////////////////////////////////////////////////////////////////////////////
 /// DataProvider
 ////////////////////////////////////////////////////////////////////////////////
+
 void DataProvider::read(const std::string& filename, DataStorage* dataStorage)
 {
-    // Open the file
     std::ifstream stream(filename, std::ios::binary);
     if (!stream.is_open())
     {
         throw Exception("Could not open file.");
     }
+    
     read(stream, dataStorage);
+    
     stream.close();
 }
 
+void DataProvider::read(const std::string& filename, UnlabeledDataStorage* dataStorage)
+{
+    std::ifstream stream(filename, std::ios::binary);
+    if (!stream.is_open())
+    {
+        throw Exception("Could not open file.");
+    }
+    
+    read(stream, dataStorage);
+    
+    stream.close();
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 /// DataWriter
 ////////////////////////////////////////////////////////////////////////////////
+
 void DataWriter::write(const std::string& filename, DataStorage* dataStorage)
 {
     // Open the file
@@ -397,7 +412,6 @@ void CSVDataProvider::read(std::istream & stream, DataStorage* dataStorage)
         // Do not consider blank line
         if (row.size() == 0) continue;
         
-        // TODO: more elegant solution
         int isize = static_cast<int>(row.size());
         if (row[row.size() - 1].empty()) 
         {
@@ -438,6 +452,49 @@ void CSVDataProvider::read(std::istream & stream, DataStorage* dataStorage)
     }
 }
 
+void CSVDataProvider::read(std::istream & stream, UnlabeledDataStorage* dataStorage)
+{
+    // Tokenize the stream
+    typedef boost::tokenizer< boost::escaped_list_separator<char> > Tokenizer;
+
+    // @see http://www.boost.org/doc/libs/1_36_0/libs/tokenizer/escaped_list_separator.htm
+    std::string escape("\\");
+    std::string separator(columnSeparator);
+    std::string quote("\"");
+
+    boost::escaped_list_separator<char> els(escape, separator, quote);
+    
+    std::vector< std::string > row;
+    std::string line;
+
+    while (std::getline(stream,line))
+    {
+        // Tokenize the line
+        Tokenizer tok(line, els);
+        row.assign(tok.begin(), tok.end());
+
+        // Do not consider blank line
+        if (row.size() == 0) continue;
+        
+        int isize = static_cast<int>(row.size());
+        if (row[row.size() - 1].empty()) 
+        {
+            // We have an empty trailing column ...
+            isize--;
+        }
+        
+        // Load the data point
+        DataPoint* dataPoint = new DataPoint(isize - 1);
+        int  label = 0;
+        for (int  i = 0; i < isize; i++)
+        {
+            dataPoint->at(i) = atof(row[i].c_str());
+        }
+        
+        dataStorage->addDataPoint(dataPoint, true);
+    }
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 /// LibforestDataProvider
 ////////////////////////////////////////////////////////////////////////////////
@@ -458,6 +515,22 @@ void LibforestDataProvider::read(std::istream& stream, DataStorage* dataStorage)
         DataPoint* v = new DataPoint();
         v->read(stream);
         dataStorage->addDataPoint(v, label, true);
+    }
+}
+
+void LibforestDataProvider::read(std::istream& stream, UnlabeledDataStorage* dataStorage)
+{
+    // Read the number of data points
+    int N;
+    readBinary(stream, N);
+    
+    // Read the data set
+    for (int n = 0; n < N; n++)
+    {
+        // Set up the data point
+        DataPoint* v = new DataPoint();
+        v->read(stream);
+        dataStorage->addDataPoint(v, true);
     }
 }
 
