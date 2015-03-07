@@ -136,9 +136,7 @@ namespace libf {
                 numFeatures(10), 
                 maxDepth(100), 
                 minSplitExamples(3),
-                minChildSplitExamples(1), 
-                smoothingParameter(1),
-                useBootstrap(false) {}
+                minChildSplitExamples(1) {}
                 
         /**
          * Sets the number of features that are required to perform a split
@@ -215,19 +213,109 @@ namespace libf {
          * 
          * @see http://orbi.ulg.ac.be/bitstream/2268/170309/1/thesis.pdf
          */
-        float getMDIImportance(int feature) const
+        float getImportance(int feature) const
         {
-            return impurityDecrease[feature];
+            return importance[feature];
         }
         
         /**
          * Get the Mean Impurity Decrease variable importance for all features, 
          * see above.
          */
-        std::vector<float> & getMDIImportance()
+        std::vector<float> & getImportance()
         {
-            return impurityDecrease;
+            return importance;
         }
+        
+    protected:
+        
+        /**
+         * The number of random features that shall be evaluated for each 
+         * split.
+         */
+        int numFeatures;
+        /**
+         * Maximum depth of the tree
+         */
+        int maxDepth;
+        /**
+         * The minimum number of training examples in a node that are required
+         * in order to split the node further
+         */
+        int minSplitExamples;
+        /**
+         * The minimum number of examples that need to be in both child nodes
+         * in order to perform a split. 
+         */
+        int minChildSplitExamples;
+        /**
+         * The sum of impurity decrease per feature
+         */
+        std::vector<float> importance;
+    };
+    
+    class DecisionTreeLearnerState : public AbstractLearnerState {
+    public:
+        DecisionTreeLearnerState() : AbstractLearnerState(),
+                objective(0), 
+                depth(0) {}
+        
+        /**
+         * Objective of splitted node.
+         */
+        float objective;
+        /**
+         * Depth of spitted node.
+         */
+        int depth;
+    };
+    
+    /**
+     * This class can be used in order to sort the array of data point IDs by
+     * a certain dimension
+     */
+    class FeatureComparator {
+    public:
+        /**
+         * The feature dimension
+         */
+        int feature;
+        /**
+         * The data storage
+         */
+        const AbstractDataStorage* storage;
+
+        /**
+         * Compares two training examples
+         */
+        bool operator() (const int lhs, const int rhs) const
+        {
+            return storage->getDataPoint(lhs)->at(feature) < storage->getDataPoint(rhs)->at(feature);
+        }
+    };
+    
+    /**
+     * This is an ordinary offline decision tree learning algorithm. It learns the
+     * tree using the information gain criterion.
+     */
+    class DecisionTreeLearner : public AbstractDecisionTreeLearner<DecisionTreeLearnerState>, 
+            public Learner<DecisionTree> {
+    public:
+        DecisionTreeLearner() : AbstractDecisionTreeLearner(),
+                useBootstrap(false),
+                smoothingParameter(1),
+                numBootstrapExamples(1) {}
+                
+        /**
+         * The default callback for this learner.
+         */
+        static int defaultCallback(DecisionTree* tree, DecisionTreeLearnerState* state);
+                
+        /**
+         * Actions for the callback function.
+         */
+        const static int ACTION_START_TREE = 1;
+        const static int ACTION_SPLIT_NODE = 2;
         
         /**
          * Sets the smoothing parameter
@@ -261,78 +349,6 @@ namespace libf {
             return useBootstrap;
         }
         
-    protected:
-        
-        /**
-         * The number of random features that shall be evaluated for each 
-         * split.
-         */
-        int numFeatures;
-        /**
-         * Maximum depth of the tree
-         */
-        int maxDepth;
-        /**
-         * The minimum number of training examples in a node that are required
-         * in order to split the node further
-         */
-        int minSplitExamples;
-        /**
-         * The minimum number of examples that need to be in both child nodes
-         * in order to perform a split. 
-         */
-        int minChildSplitExamples;
-        /**
-         * The smoothing parameter for the histograms
-         */
-        float smoothingParameter;
-        /**
-         * Whether or not bootstrapping shall be used
-         */
-        bool useBootstrap;
-        /**
-         * The sum of impurity decrease per feature
-         */
-        std::vector<float> impurityDecrease;
-    };
-    
-    class DecisionTreeLearnerState : public AbstractLearnerState {
-    public:
-        DecisionTreeLearnerState() : AbstractLearnerState(),
-                objective(0), 
-                depth(0) {}
-        
-        /**
-         * Objective of splitted node.
-         */
-        float objective;
-        /**
-         * Depth of spitted node.
-         */
-        int depth;
-    };
-    
-    /**
-     * This is an ordinary offline decision tree learning algorithm. It learns the
-     * tree using the information gain criterion.
-     */
-    class DecisionTreeLearner : public AbstractDecisionTreeLearner<DecisionTreeLearnerState>, 
-            public Learner<DecisionTree> {
-    public:
-        DecisionTreeLearner() : AbstractDecisionTreeLearner(),
-                numBootstrapExamples(1) {}
-                
-        /**
-         * The default callback for this learner.
-         */
-        static int defaultCallback(DecisionTree* tree, DecisionTreeLearnerState* state);
-                
-        /**
-         * Actions for the callback function.
-         */
-        const static int ACTION_START_TREE = 1;
-        const static int ACTION_SPLIT_NODE = 2;
-        
         /**
          * Sets the number of samples to use for bootstrapping.
          */
@@ -360,7 +376,14 @@ namespace libf {
         void updateHistograms(DecisionTree* tree, const DataStorage* storage) const;
         
     protected:
-        
+        /**
+         * The smoothing parameter for the histograms
+         */
+        float smoothingParameter;
+        /**
+         * Whether or not bootstrapping shall be used
+         */
+        bool useBootstrap;
         /**
          * The number of bootstrap examples that shall be used.
          */
@@ -415,18 +438,18 @@ namespace libf {
          * 
          * @see http://orbi.ulg.ac.be/bitstream/2268/170309/1/thesis.pdf
          */
-        float getMDIImportance(int feature) const
+        float getImportance(int feature) const
         {
-            return impurityDecrease[feature];
+            return importance[feature];
         }
         
         /**
          * Get the Mean Impurity Decrease variable importance for all features, 
          * see above.
          */
-        std::vector<float> & getMDIImportance()
+        std::vector<float> & getImportance()
         {
-            return impurityDecrease;
+            return importance;
         }
         
     protected:
@@ -442,7 +465,7 @@ namespace libf {
          * Used to compute the Mean Decrease Importance variable importance
          * if requested through the tree learner.
          */
-        std::vector<float> impurityDecrease;
+        std::vector<float> importance;
     };
     
     /**

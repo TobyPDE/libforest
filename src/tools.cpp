@@ -277,7 +277,7 @@ void CorrelationTool::measureAndPrint(const RandomForest* classifier, const Data
 
 void VariableImportanceTool::measure(RandomForestLearner* learner, std::vector<float> & result) const
 {
-    std::vector<float> importance = learner->getMDIImportance();
+    std::vector<float> importance = learner->getImportance();
     result = std::vector<float>(importance.begin(), importance.end());
 }
 
@@ -307,7 +307,7 @@ void VariableImportanceTool::print(const std::vector<float> & result) const
 
 void VariableImportanceTool::measureAndPrint(RandomForestLearner* learner) const
 {
-    print(learner->getMDIImportance());
+    print(learner->getImportance());
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -317,7 +317,7 @@ void VariableImportanceTool::measureAndPrint(RandomForestLearner* learner) const
 void PixelImportanceTool::measureAndSave(RandomForestLearner* learner, boost::filesystem::path file, int rows) const
 {
     cv::Mat image(rows, rows, CV_8UC3, cv::Scalar(255, 255, 255));
-    const std::vector<float> result = learner->getMDIImportance();
+    const std::vector<float> result = learner->getImportance();
     
     float max = 0;
     for (int i = 0; i < result.size(); i++)

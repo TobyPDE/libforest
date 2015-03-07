@@ -86,7 +86,7 @@ namespace libf {
     public:
         /**
          * Returns the variable importance (simple wrapper around 
-         * getMDIImportance).
+         * getImportance).
          */
         virtual void measure(RandomForestLearner* learner, std::vector<float> & result) const;
         

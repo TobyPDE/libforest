@@ -219,6 +219,7 @@ void AbstractDataStorage::randPermute()
 void AbstractDataStorage::dumpInformation(std::ostream & stream)
 {
     stream << std::setw(30) << "Size" << ": " << getSize() << "\n";
+    stream << std::setw(30) << "Dimensionality" << ": " << getDimensionality() << "\n";
 }
 
 void AbstractDataStorage::free()
