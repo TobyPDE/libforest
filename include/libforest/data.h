@@ -282,6 +282,14 @@ namespace libf {
     };
     
     /**
+     * Storage for unlabeled data. 
+     */
+    class UnlabeledDataStorage : public AbstractDataStorage {
+    public:
+        
+    };
+    
+    /**
      * Basic labeled data storage.
      */
     class DataStorage : public AbstractDataStorage {
@@ -414,14 +422,24 @@ namespace libf {
         virtual ~DataProvider() {}
         
         /**
-         * Reads the data from a stream and add them to the data storage. 
+         * Reads a labeled dataset from a stream.
          */
         virtual void read(std::istream & stream, DataStorage* dataStorage) = 0;
         
         /**
-         * Reads the data from a file and add them to the data storage. 
+         * Reads an unlabeled dataset from a stream.
+         */
+        virtual void read(std::istream & stream, UnlabeledDataStorage* dataStorage) = 0;
+        
+        /**
+         * Reads a labeled dataset from a file.
          */
         virtual void read(const std::string & filename, DataStorage* dataStorage);
+        
+        /**
+         * Reads an unlabeled dataset from a file.. 
+         */
+        virtual void read(const std::string & filename, UnlabeledDataStorage* dataStorage);
     };
     
     /**
@@ -429,6 +447,8 @@ namespace libf {
      */
     class CSVDataProvider : public DataProvider{
     public:
+        using DataProvider::read;    
+
         /**
          * Constructor: read csv with the given columns as label column.
          */
@@ -446,17 +466,15 @@ namespace libf {
         virtual ~CSVDataProvider() {}
         
         /**
-         * Reads the data from a source and add them to the data storage. 
+         * Reads a labeled dataset from a stream.
          */
         virtual void read(std::istream & stream, DataStorage* dataStorage);
         
         /**
-         * Reads the data from a file and add them to the data storage. 
+         * Reads an unlabeled dataset from a stream.
          */
-        virtual void read(const std::string & filename, DataStorage* dataStorage)
-        {
-            DataProvider::read(filename, dataStorage);
-        }
+        virtual void read(std::istream & stream, UnlabeledDataStorage* dataStorage);
+        
     private:
         /**
          * The index of the column that contains the class label
@@ -473,8 +491,10 @@ namespace libf {
      */
     class LIBSVMDataProvider : public DataProvider {
     public:
+        using DataProvider::read;
+        
         /**
-         * Reads the data from a source and add them to the data storage. 
+         * Reads a labeled dataset from a stream.
          */
         virtual void read(std::istream & stream, DataStorage* dataStorage);
     };
@@ -485,18 +505,17 @@ namespace libf {
      */
     class LibforestDataProvider : public DataProvider {
     public:
+        using DataProvider::read;
+        
         /**
-         * Reads the data from a source and add them to the data storage. 
+         * Reads a labeled dataset from a stream.
          */
         virtual void read(std::istream & stream, DataStorage* dataStorage);
         
         /**
-         * Reads the data from a file and add them to the data storage. 
+         * Reads an unlabeled dataset from a stream.
          */
-        virtual void read(const std::string & filename, DataStorage* dataStorage)
-        {
-            DataProvider::read(filename, dataStorage);
-        }
+        virtual void read(std::istream & stream, UnlabeledDataStorage* dataStorage);        
     };
     
     /**
@@ -521,6 +540,8 @@ namespace libf {
      */
     class CSVDataWriter : public DataWriter {
     public:
+        using DataWriter::write;
+        
         /**
          * Writes the data to a stream. 
          */
@@ -532,6 +553,8 @@ namespace libf {
      */
     class LIBSVMDataWriter : public DataWriter {
     public:
+        using DataWriter::write;
+        
         /**
          * Writes the data to a stream. 
          */
@@ -544,18 +567,12 @@ namespace libf {
      */
     class LibforestDataWriter : public DataWriter {
     public:
+        using DataWriter::write;
+        
         /**
          * Writes the data to a stream. 
          */
         virtual void write(std::ostream & stream, DataStorage* dataStorage);
-        
-        /**
-         * Writes the data to a file and add them to the data storage. 
-         */
-        virtual void write(const std::string & filename, DataStorage* dataStorage)
-        {
-            DataWriter::write(filename, dataStorage);
-        }
     };
 }
 
