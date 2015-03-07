@@ -19,30 +19,6 @@ static std::random_device rd;
 ////////////////////////////////////////////////////////////////////////////////
 
 /**
- * This class can be used in order to sort the array of data point IDs by
- * a certain dimension
- */
-class FeatureComparator {
-public:
-    /**
-     * The feature dimension
-     */
-    int feature;
-    /**
-     * The data storage
-     */
-    const DataStorage* storage;
-    
-    /**
-     * Compares two training examples
-     */
-    bool operator() (const int lhs, const int rhs) const
-    {
-        return storage->getDataPoint(lhs)->at(feature) < storage->getDataPoint(rhs)->at(feature);
-    }
-};
-
-/**
  * Updates the leaf node histograms using a smoothing parameter
  */
 inline void updateLeafNodeHistogram(std::vector<float> & leafNodeHistograms, const EfficientEntropyHistogram & hist, float smoothing, bool useBootstrap)
@@ -102,7 +78,7 @@ DecisionTree* DecisionTreeLearner::learn(const DataStorage* dataStorage)
     trainingExamplesSizes.reserve(LIBF_GRAPH_BUFFER_SIZE);
     
     // Saves the sum of impurity decrease achieved by each feature
-    impurityDecrease = std::vector<float>(D, 0.f);
+    importance = std::vector<float>(D, 0.f);
     
     // Add all training example to the root node
     trainingExamplesSizes.push_back(storage->getSize());
@@ -284,7 +260,7 @@ DecisionTree* DecisionTreeLearner::learn(const DataStorage* dataStorage)
         evokeCallback(tree, 0, &state);
         
         // Save the impurity reduction for this feature if requested
-        impurityDecrease[bestFeature] += N/storage->getSize()*(parentEntropy - bestObjective);
+        importance[bestFeature] += N/storage->getSize()*(parentEntropy - bestObjective);
         
         // Prepare to split the child nodes
         splitStack.push_back(leftChild);
@@ -385,7 +361,7 @@ RandomForest* RandomForestLearner::learn(const DataStorage* storage)
     const int D = storage->getDimensionality();
     
     // Initialize variable importance values.
-    impurityDecrease = std::vector<float>(D, 0.f);
+    importance = std::vector<float>(D, 0.f);
     
     // Set up the state for the call backs
     RandomForestLearnerState state;
@@ -420,7 +396,7 @@ RandomForest* RandomForestLearner::learn(const DataStorage* storage)
             // Update variable importance.
             for (int f = 0; f < D; ++f)
             {
-                impurityDecrease[f] += treeLearner->getMDIImportance(f)/this->numTrees;
+                importance[f] += treeLearner->getImportance(f)/this->numTrees;
             }
         }
     }

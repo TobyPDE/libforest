@@ -102,7 +102,7 @@ DecisionTree* OnlineDecisionTreeLearner::learn(const DataStorage* storage, Decis
     assert(thresholdGenerator.getSize() == D);
     
     // Saves the sum of impurity decrease achieved by each feature
-    impurityDecrease = std::vector<float>(D, 0.f);
+    importance = std::vector<float>(D, 0.f);
     
     OnlineDecisionTreeLearnerState state;
     state.action = ACTION_START_TREE;
@@ -301,7 +301,7 @@ DecisionTree* OnlineDecisionTreeLearner::learn(const DataStorage* storage, Decis
                 smoothingParameter);
         
         // Save best objective for variable importance.
-        ++impurityDecrease[bestFeature];
+        ++importance[bestFeature];
         
         // Clean up node at this is not a leaf anymore and statistics
         // are not required anymore.
@@ -403,7 +403,7 @@ RandomForest* OnlineRandomForestLearner::learn(const DataStorage* storage, Rando
     }
     
     // Initialize variable importance values.
-    impurityDecrease = std::vector<float>(D, 0.f);
+    importance = std::vector<float>(D, 0.f);
     
     // Set up the state for the call backs
     OnlineRandomForestLearnerState state;
@@ -441,7 +441,7 @@ RandomForest* OnlineRandomForestLearner::learn(const DataStorage* storage, Rando
             // Update variable importance.
             for (int f = 0; f < D; ++f)
             {
-                impurityDecrease[f] += treeLearner->getMDIImportance(f);
+                importance[f] += treeLearner->getImportance(f);
             }
         }
     }

@@ -153,6 +153,8 @@ namespace libf {
             public OnlineLearner<DecisionTree> {
     public:
         OnlineDecisionTreeLearner() : AbstractDecisionTreeLearner(),
+                smoothingParameter(1),
+                useBootstrap(true),
                 bootstrapLambda(1.f),
                 numThresholds(2*numFeatures),
                 minSplitObjective(1.f)
@@ -181,6 +183,38 @@ namespace libf {
         const static int ACTION_NOT_SPLITTING_NODE = 4;
         const static int ACTION_NOT_SPLITTING_OBJECTIVE_NODE = 5;
         const static int ACTION_SPLIT_NODE = 6;
+        
+        /**
+         * Sets the smoothing parameter
+         */
+        void setSmoothingParameter(float _smoothingParameter)
+        {
+            smoothingParameter = _smoothingParameter;
+        }
+        
+        /**
+         * Returns the smoothing parameter
+         */
+        float getSmoothingParameter() const
+        {
+            return smoothingParameter;
+        }
+        
+        /**
+         * Sets whether or not bootstrapping shall be used
+         */
+        void setUseBootstrap(bool _useBootstrap)
+        {
+            useBootstrap = _useBootstrap;
+        }
+
+        /**
+         * Returns whether or not bootstrapping is used
+         */
+        bool getUseBootstrap() const
+        {
+            return useBootstrap;
+        }
         
         /**
          * Sets the minimum objective required for a split.
@@ -247,6 +281,14 @@ namespace libf {
                 const std::vector< std::vector<float> > & thresholds, 
                 const DataPoint* x, const int label);
         
+        /**
+         * The smoothing parameter for the histograms
+         */
+        float smoothingParameter;
+        /**
+         * Whether or not bootstrapping shall be used
+         */
+        bool useBootstrap;
         /**
          * Lambda used for poisson distribution for online bootstrapping.
          */
