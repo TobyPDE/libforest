@@ -192,15 +192,101 @@ namespace libf {
     };
     
     /**
-     * This class provides some baseline data storage properties. It is used 
-     * to load data sets. It can be used directly in order to learn and evaluate
-     * the performance of the classifiers. 
-     * 
-     * Important: All data points are freed by the storage object!
+     * Abstract data storage.
      */
-    class DataStorage {
+    class AbstractDataStorage {
     public:
-        explicit DataStorage() : classcount(0) {}
+        AbstractDataStorage() {};
+        
+        /**
+         * Copy constructor
+         */
+        AbstractDataStorage(const AbstractDataStorage & other);
+        
+        /**
+         * Destructor
+         */
+        virtual ~AbstractDataStorage()
+        {
+            free();
+        };
+        
+        /**
+         * Assignment operator
+         */
+        virtual AbstractDataStorage & operator=(const AbstractDataStorage & other);
+        
+        /**
+         * Permutes the data points according to some permutation. 
+         */
+        virtual void permute(const std::vector<int> & permutation);
+        
+        /**
+         * Permutes the data points randomly. 
+         */
+        void randPermute();
+        
+        /**
+         * Returns the number of data points. 
+         */
+        int getSize() const
+        {
+            return dataPoints.size();
+        }
+        
+        /**
+         * Returns a reference to the i-th data point
+         */
+        DataPoint* getDataPoint(int i) const
+        {
+            return dataPoints[i];
+        }
+        
+        /**
+         * Returns the dimensionality of the data storage. 
+         */
+        int getDimensionality() const
+        {
+            if (getSize() == 0)
+            {
+                // There are no data points
+                return 0;
+            }
+            else
+            {
+                // Take the dimensionality of the first data point
+                return getDataPoint(0)->getDimensionality();
+            }
+        }
+        
+        /**
+         * Dumps information about the data storage
+         */
+        virtual void dumpInformation(std::ostream & stream = std::cout);
+        
+    protected:
+        /**
+         * Frees the data points and resets the array structures. 
+         */
+        virtual void free();
+        /**
+         * This is a list of data points. 
+         */
+        std::vector< DataPoint* > dataPoints;
+        /**
+         * This keeps track on which data points have to be freed and which 
+         * don't. If we for example bootstrap the data set, then the points
+         * don't have to be freed. 
+         */
+        std::vector<bool> freeFlags;
+    };
+    
+    /**
+     * Basic labeled data storage.
+     */
+    class DataStorage : public AbstractDataStorage {
+    public:
+        DataStorage() : classcount(0) {}
         
         /**
          * Copy constructor
@@ -213,38 +299,9 @@ namespace libf {
         DataStorage & operator=(const DataStorage & other);
         
         /**
-         * Destructor
-         */
-        virtual ~DataStorage();
-        
-        /**
          * Create a DataStorage for an excerpt of thisDataStorage.
          */
         DataStorage excerpt(int begin, int end);
-        
-        /**
-         * Returns the number of data points. 
-         */
-        int getSize() const
-        {
-            return static_cast<int>(dataPoints.size());
-        }
-        
-        /**
-         * Returns the i-th data point together with the i-th class label. 
-         */
-        std::pair< DataPoint*, int> operator[](int i) const
-        {
-            return std::make_pair(dataPoints[i], classLabels[i]);
-        }
-        
-        /**
-         * Returns a reference to the i-th data point
-         */
-        DataPoint* getDataPoint(int i) const
-        {
-            return dataPoints[i];
-        }
         
         /**
          * Returns the i-th class label. 
@@ -276,12 +333,6 @@ namespace libf {
             }
         }
         
-        
-        /**
-         * Returns the dimensionality of the data storage. 
-         */
-        int getDimensionality() const;
-        
         /**
          * Returns the number of classes. You have to call 
          * getCLassLabelMap.computeIntClassLabels() first. 
@@ -295,23 +346,6 @@ namespace libf {
          * Permutes the data points according to some permutation. 
          */
         void permute(const std::vector<int> & permutation);
-        
-        /**
-         * Permutes the data points randomly. 
-         */
-        void randPermute();
-        
-        /**
-         * Splits the data set into two sets. The ratio determines how many 
-         * points stay in this set and how many points will go to the other
-         * set. 
-         */
-        void split(float ratio, DataStorage* other);
-        
-        /**
-         * Bootstraps the training set and creates a set of N examples.  
-         */
-        void bootstrap(int N, DataStorage* dataStorage) const;
         
         /**
          * Bootstraps the training set and creates a set of N examples. The 
@@ -352,7 +386,7 @@ namespace libf {
          */
         virtual void dumpInformation(std::ostream & stream = std::cout);
         
-    private:
+    protected:
         /**
          * Frees the data points and resets the array structures. 
          */
@@ -362,19 +396,9 @@ namespace libf {
          */
         int classcount;
         /**
-         * This is a list of data points. 
-         */
-        std::vector< DataPoint* > dataPoints;
-        /**
          * These are the corresponding class labels to the data points
          */
         std::vector<int> classLabels;
-        /**
-         * This keeps track on which data points have to be freed and which 
-         * don't. If we for example bootstrap the data set, then the points
-         * don't have to be freed. 
-         */
-        std::vector<bool> freeFlags;
         /**
          * The class label map
          */

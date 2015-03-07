@@ -29,17 +29,17 @@ RandomThresholdGenerator::RandomThresholdGenerator(const DataStorage & storage)
     for (int n = 0; n < N; ++n)
     {
         // Retrieve the datapoint to check all features.
-        std::pair<DataPoint*, int> x_n = storage[n];
+        DataPoint* x = storage.getDataPoint(n);
         
         for (int d = 0; d < D; d++)
         {
-            if (x_n.first->at(d) < min[d])
+            if (x->at(d) < min[d])
             {
-                min[d] = x_n.first->at(d);
+                min[d] = x->at(d);
             }
-            if (x_n.first->at(d) > max[d])
+            if (x->at(d) > max[d])
             {
-                max[d] = x_n.first->at(d);
+                max[d] = x->at(d);
             }
         }
     }    
@@ -71,22 +71,22 @@ void OnlineDecisionTreeLearner::updateSplitStatistics(std::vector<EfficientEntro
         std::vector<EfficientEntropyHistogram> & rightChildStatistics, 
         const std::vector<int> & features,
         const std::vector< std::vector<float> > & thresholds, 
-        const std::pair<DataPoint*, int> & x)
+        const DataPoint* x, const int label)
 {
     for (int f = 0; f < numFeatures; f++)
     {
         // There may not be numThresholds thresholds yet!!!
         for (int t = 0; t < thresholds[f].size(); t++)
         {
-            if (x.first->at(features[f]) < thresholds[f][t])
+            if (x->at(features[f]) < thresholds[f][t])
             {
                 // x would fall into left child.
-                leftChildStatistics[t + numThresholds*f].addOne(x.second);
+                leftChildStatistics[t + numThresholds*f].addOne(label);
             }
             else
             {
                 // x would fall into right child.
-                rightChildStatistics[t + numThresholds*f].addOne(x.second);
+                rightChildStatistics[t + numThresholds*f].addOne(label);
             }
         }
     }
@@ -124,8 +124,9 @@ DecisionTree* OnlineDecisionTreeLearner::learn(const DataStorage* storage, Decis
     
     for (int n = 0; n < N; n++)
     {
-        const std::pair<DataPoint*, int> x_n = (*storage)[n];
-        const int leaf = tree->findLeafNode(x_n.first);
+        const DataPoint* x = storage->getDataPoint(n);
+        const int label = storage->getClassLabel(n);
+        const int leaf = tree->findLeafNode(x);
         const int depth = tree->getDepth(leaf);
         
         state.node = leaf;
@@ -214,10 +215,10 @@ DecisionTree* OnlineDecisionTreeLearner::learn(const DataStorage* storage, Decis
         for (int k = 0; k < K; k++)
         {
             // Update node statistics.
-            nodeStatistics.addOne(x_n.second);
+            nodeStatistics.addOne(label);
             // Update left and right node statistics for all splits.
             updateSplitStatistics(leftChildStatistics, rightChildStatistics, 
-                    nodeFeatures, nodeThresholds, x_n);
+                    nodeFeatures, nodeThresholds, x, label);
         }
         
         state.node = leaf;

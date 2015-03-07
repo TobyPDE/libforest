@@ -66,6 +66,7 @@ namespace libf {
                     result++;
                 }
             }
+            
             return result;
         }
     };
@@ -77,6 +78,7 @@ namespace libf {
         {
             std::cout << i << ": " << v[i] << std::endl;
         }
+        
         std::cout.flush();
     }
 }

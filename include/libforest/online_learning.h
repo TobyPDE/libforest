@@ -247,7 +247,7 @@ namespace libf {
                 std::vector<EfficientEntropyHistogram> & rightChildStatistics, 
                 const std::vector<int> & features,
                 const std::vector< std::vector<float> > & thresholds, 
-                const std::pair<DataPoint*, int> & x);
+                const DataPoint* x, const int label);
         
         /**
          * Lambda used for poisson distribution for online bootstrapping.
