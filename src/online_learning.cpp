@@ -12,7 +12,7 @@
 using namespace libf;
 
 static std::random_device rd;
-
+static std::mt19937 g(rd());
 
 ////////////////////////////////////////////////////////////////////////////////
 /// RandomThresholdGenerator
@@ -47,9 +47,7 @@ RandomThresholdGenerator::RandomThresholdGenerator(const DataStorage & storage)
 
 float RandomThresholdGenerator::sample(int feature)
 {
-    assert(feature >= 0 && feature < getSize());
-    
-    std::mt19937 g(rd());
+    // assert(feature >= 0 && feature < getSize());
     std::uniform_real_distribution<float> dist(min[feature], max[feature]);
     
     return dist(g);
@@ -61,11 +59,11 @@ float RandomThresholdGenerator::sample(int feature)
 
 inline void updateLeafNodeHistogram(std::vector<float> & leafNodeHistograms, const EfficientEntropyHistogram & hist, float smoothing)
 {
-    leafNodeHistograms.resize(hist.size());
+    leafNodeHistograms.resize(hist.getSize());
     
-    for (int c = 0; c < hist.size(); c++)
+    for (int c = 0; c < hist.getSize(); c++)
     {
-        leafNodeHistograms[c] = std::log((hist.at(c) + smoothing)/(hist.getMass() + hist.size() * smoothing));
+        leafNodeHistograms[c] = std::log((hist.at(c) + smoothing)/(hist.getMass() + hist.getSize() * smoothing));
     }
 }
 
@@ -102,9 +100,6 @@ DecisionTree* OnlineDecisionTreeLearner::learn(const DataStorage* storage, Decis
     const int N = storage->getSize();
     
     assert(thresholdGenerator.getSize() == D);
-    
-    // Set up probability distribution for features.
-    std::mt19937 g(rd());
     
     // Saves the sum of impurity decrease achieved by each feature
     impurityDecrease = std::vector<float>(D, 0.f);
@@ -143,7 +138,7 @@ DecisionTree* OnlineDecisionTreeLearner::learn(const DataStorage* storage, Decis
         std::vector<EfficientEntropyHistogram> & rightChildStatistics = tree->getRightChildStatistics(leaf);
         
         // This leaf node may be a fresh one.
-        if (nodeStatistics.size() <= 0)
+        if (nodeStatistics.getSize() <= 0)
         {
             nodeStatistics.resize(C);
             
@@ -154,18 +149,29 @@ DecisionTree* OnlineDecisionTreeLearner::learn(const DataStorage* storage, Decis
             nodeThresholds.resize(numFeatures);
             
             // Sample thresholds and features.
+            std::shuffle(features.begin(), features.end(), std::default_random_engine(rd()));
+            
+            // Used to make sure, that non/trivial, different features are chosen.
+            int f_alt = numFeatures;
+            
             for (int f = 0; f < numFeatures; f++)
             {
-                // As the min and max ranges are generated based on data,
-                // we want to filter out irrelevant features.
-                do
-                {
-                    nodeFeatures[f] = features[std::rand()%D];
-                }
-                while(thresholdGenerator.getMin(nodeFeatures[f]) == thresholdGenerator.getMax(nodeFeatures[f]));
+                // Try the first feature.
+                nodeFeatures[f] = features[f];
                 
-                // Check that we did not get a trivial feature.
-                assert(thresholdGenerator.getMin(nodeFeatures[f]) != thresholdGenerator.getMax(nodeFeatures[f]));
+                // This may be a trivial feature, so search for the next non/trivial
+                // feature; make sure that all chosen features are different.
+                const int M = 10;
+                int m = 0;
+
+                // TODO: this should not be necessary!
+//                while(thresholdGenerator.getMin(nodeFeatures[f]) == thresholdGenerator.getMax(nodeFeatures[f])
+//                        && m < M && f_alt < D)
+//                {
+//                    nodeFeatures[f] = features[f_alt];
+//                    ++f_alt;
+//                    ++m;
+//                }
                         
                 nodeThresholds[f].resize(numThresholds);
                 
@@ -175,9 +181,13 @@ DecisionTree* OnlineDecisionTreeLearner::learn(const DataStorage* storage, Decis
                     
                     if (t > 0)
                     {
-                        while (std::abs(nodeThresholds[f][t] - nodeThresholds[f][t - 1]) < 1e-6f)
+                        // Maximum 10 tries to get a better threshold.
+                        m = 0;
+                        while (std::abs(nodeThresholds[f][t] - nodeThresholds[f][t - 1]) < 1e-6f
+                                && m < M)
                         {
                             nodeThresholds[f][t] = thresholdGenerator.sample(nodeFeatures[f]);
+                            ++m;
                         }
                     }
                     
@@ -187,9 +197,6 @@ DecisionTree* OnlineDecisionTreeLearner::learn(const DataStorage* storage, Decis
                     
                     leftChildStatistics[t + numThresholds*f].reset();
                     rightChildStatistics[t + numThresholds*f].reset();
-                    
-                    assert(leftChildStatistics[t + numThresholds*f].getMass() == 0);
-                    assert(rightChildStatistics[t + numThresholds*f].getMass() == 0);
                 }
             }
             
@@ -201,7 +208,7 @@ DecisionTree* OnlineDecisionTreeLearner::learn(const DataStorage* storage, Decis
         if (useBootstrap)
         {
             std::poisson_distribution<int> poisson(bootstrapLambda);
-            int K = std::max(1, poisson(g));
+            int K = poisson(g); // May also give zero.
         }
         
         for (int k = 0; k < K; k++)
@@ -209,24 +216,9 @@ DecisionTree* OnlineDecisionTreeLearner::learn(const DataStorage* storage, Decis
             // Update node statistics.
             nodeStatistics.addOne(x_n.second);
             // Update left and right node statistics for all splits.
-            updateSplitStatistics(leftChildStatistics, rightChildStatistics, nodeFeatures, nodeThresholds, x_n);
+            updateSplitStatistics(leftChildStatistics, rightChildStatistics, 
+                    nodeFeatures, nodeThresholds, x_n);
         }
-            
-        // Do not split, update leaf histogram according to new sample.
-        updateLeafNodeHistogram(tree->getHistogram(leaf), nodeStatistics, smoothingParameter);
-    }
-    
-    for (int n = 0; n < N; n++)
-    {
-        const std::pair<DataPoint*, int> x_n = (*storage)[n];
-        const int leaf = tree->findLeafNode(x_n.first);
-        const int depth = tree->getDepth(leaf);
-        
-        EfficientEntropyHistogram & nodeStatistics = tree->getNodeStatistics(leaf);
-        std::vector<int> & nodeFeatures = tree->getNodeFeatures(leaf);
-        std::vector< std::vector<float> > & nodeThresholds = tree->getNodeThresholds(leaf);
-        std::vector<EfficientEntropyHistogram> & leftChildStatistics = tree->getLeftChildStatistics(leaf);
-        std::vector<EfficientEntropyHistogram> & rightChildStatistics = tree->getRightChildStatistics(leaf);
         
         state.node = leaf;
         state.depth = depth;
@@ -235,8 +227,12 @@ DecisionTree* OnlineDecisionTreeLearner::learn(const DataStorage* storage, Decis
         // As in offline learning, do not split this node
         // - if the number of examples is too small
         // - if the maximum depth is reached
-        if (nodeStatistics.getMass() < minSplitExamples || depth > maxDepth)
+        if (nodeStatistics.getMass() < minSplitExamples || nodeStatistics.isPure() 
+                || depth > maxDepth)
         {
+            // Do not split, update leaf histogram according to new sample.
+            updateLeafNodeHistogram(tree->getHistogram(leaf), nodeStatistics, smoothingParameter);
+        
             state.action = ACTION_NOT_SPLITTING_NODE;  
             evokeCallback(tree, 0, &state);
             
@@ -250,22 +246,16 @@ DecisionTree* OnlineDecisionTreeLearner::learn(const DataStorage* storage, Decis
         
         for (int f = 0; f < numFeatures; f++)
         {
-            // There may not be numThresholds thresholds yet!
             for (int t = 0; t < numThresholds; t++)
             {
-                // Simple assertion to check consistency:
-                // At each timestep, both children together must have
-                // the same number of samples as their parent node.
                 const int leftMass = leftChildStatistics[t + numThresholds*f].getMass();
                 const int rightMass = rightChildStatistics[t + numThresholds*f].getMass();
-
-                assert(leftMass + rightMass == nodeStatistics.getMass());
                 
-                if (leftMass > minChildSplitExamples || rightMass > minChildSplitExamples)
+                if (leftMass > minChildSplitExamples && rightMass > minChildSplitExamples)
                 {
-                    const float localObjective = nodeStatistics.entropy()
-                            - leftChildStatistics[t + numThresholds*f].entropy()
-                            - rightChildStatistics[t + numThresholds*f].entropy();
+                    const float localObjective = nodeStatistics.getEntropy()
+                            - leftChildStatistics[t + numThresholds*f].getEntropy()
+                            - rightChildStatistics[t + numThresholds*f].getEntropy();
                     
                     if (localObjective > bestObjective)
                     {
@@ -278,8 +268,12 @@ DecisionTree* OnlineDecisionTreeLearner::learn(const DataStorage* storage, Decis
         }
         
         // Split only if the minimum objective is obtained.
-        if (bestObjective < minSplitObjective || bestThreshold < 0 || bestFeature < 0)
+        if (bestObjective < minSplitObjective)
         {
+            // Do not split, update leaf histogram according to new sample.
+            updateLeafNodeHistogram(tree->getHistogram(leaf), 
+                    nodeStatistics, smoothingParameter);
+        
             state.action = ACTION_NOT_SPLITTING_OBJECTIVE_NODE;  
             state.objective = bestObjective;
             state.minObjective = minSplitObjective;
@@ -288,10 +282,6 @@ DecisionTree* OnlineDecisionTreeLearner::learn(const DataStorage* storage, Decis
             
             continue;
         }
-        
-        // Some assertions for the selected split.
-        assert(bestFeature < numFeatures
-                && bestThreshold < nodeThresholds[bestFeature].size());
         
         // We split this node!
         tree->setThreshold(leaf, nodeThresholds[bestFeature][bestThreshold]); // Save the actual threshold value.
@@ -310,7 +300,7 @@ DecisionTree* OnlineDecisionTreeLearner::learn(const DataStorage* storage, Decis
                 smoothingParameter);
         
         // Save best objective for variable importance.
-        impurityDecrease[bestFeature] += bestObjective;
+        ++impurityDecrease[bestFeature];
         
         // Clean up node at this is not a leaf anymore and statistics
         // are not required anymore.
@@ -403,6 +393,14 @@ RandomForest* OnlineRandomForestLearner::learn(const DataStorage* storage, Rando
         forest = new RandomForest();
     }
     
+    for (int i = 0; i < numTrees; i++)
+    {
+        if (i >= forest->getSize())
+        {
+            forest->addTree(new DecisionTree(true));
+        }
+    }
+    
     // Initialize variable importance values.
     impurityDecrease = std::vector<float>(D, 0.f);
     
@@ -423,32 +421,26 @@ RandomForest* OnlineRandomForestLearner::learn(const DataStorage* storage, Rando
     {
         #pragma omp critical
         {
-            if (i >= forest->getSize())
-            {
-                tree = new DecisionTree(true);
-                forest->addTree(tree);
-            }
-            else {
-                tree = forest->getTree(i);
-            }
-            
             state.tree = ++treeStartCounter;
             state.action = ACTION_START_TREE;
+            
             evokeCallback(forest, treeStartCounter - 1, &state);
         }
         
+        DecisionTree* tree = forest->getTree(i);
         treeLearner->learn(storage, tree);
         
         #pragma omp critical
         {
             state.tree = ++treeFinishCounter;
             state.action = ACTION_FINISH_TREE;
+            
             evokeCallback(forest, treeFinishCounter - 1, &state);
 
             // Update variable importance.
             for (int f = 0; f < D; ++f)
             {
-                impurityDecrease[f] += treeLearner->getMDIImportance(f)/this->numTrees;
+                impurityDecrease[f] += treeLearner->getMDIImportance(f);
             }
         }
     }
@@ -463,9 +455,9 @@ RandomForest* OnlineRandomForestLearner::learn(const DataStorage* storage, Rando
 int OnlineRandomForestLearner::defaultCallback(RandomForest* forest, OnlineRandomForestLearnerState* state)
 {
     switch (state->action) {
-//        case RandomForestLearner::ACTION_START_FOREST:
-//            std::cout << "Start random forest training" << "\n";
-//            break;
+        case RandomForestLearner::ACTION_START_FOREST:
+            std::cout << "Start random forest training" << "\n";
+            break;
         case RandomForestLearner::ACTION_FINISH_FOREST:
             std::cout << "Finished forest in " << state->getPassedTime().count()/1000000. << "s\n";
             break;

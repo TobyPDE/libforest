@@ -8,10 +8,11 @@
 using namespace libf;
 
 /**
- * Example of online decision tree learning.
+ * Example of online random forest performance and its convergence to the
+ * offline result.
  * 
  * Usage:
- * $ ./examples/cli_online_decision_tree --help
+ * $ ./lib_forest/examples/cli_online_rf --help
  * Allowed options:
  *   --help                               produce help message
  *   --file-train arg                     path to train DAT file
@@ -24,6 +25,8 @@ using namespace libf;
  *                                        deterministically)
  *   --num-thresholds arg (=10)           number of thresholds to use
  *   --max-depth arg (=100)               maximum depth of trees
+ *   --num-trees arg (=100)               number of trees
+ *   --num-threads arg (=1)               number of threads
  */
 int main(int argc, const char** argv)
 {
@@ -38,8 +41,10 @@ int main(int argc, const char** argv)
         ("num-features", boost::program_options::value<int>()->default_value(10), "number of features to use (set to dimensionality of data to learn deterministically)")
         ("num-thresholds", boost::program_options::value<int>()->default_value(10), "number of thresholds to use")
         ("max-depth", boost::program_options::value<int>()->default_value(100), "maximum depth of trees")
-        ("use-bootstrap", "use online bootstrapping");
-    
+        ("use-bootstrap", "use online bootstrapping")
+        ("num-trees", boost::program_options::value<int>()->default_value(100), "number of trees")
+        ("num-threads", boost::program_options::value<int>()->default_value(1), "number of threads");
+
     boost::program_options::positional_options_description positionals;
     positionals.add("file-train", 1);
     positionals.add("file-test", 1);
@@ -81,30 +86,57 @@ int main(int argc, const char** argv)
     std::cout << "Training Data" << std::endl;
     storageT.dumpInformation();
     
-    OnlineDecisionTreeLearner treeLearner;
-    
-    bool useBootstrap = parameters.find("user-bootstrap") != parameters.end();
+    bool useBootstrap = parameters.find("use-bootstrap") != parameters.end();
     RandomThresholdGenerator randomGenerator(storageT);
-    // randomGenerator.addFeatureRanges(storageT.getDimensionality(), 0, 255);
     
-    treeLearner.setThresholdGenerator(randomGenerator);
-    treeLearner.setMinSplitObjective(parameters["min-split-objective"].as<float>());
+    OnlineDecisionTreeLearner onlineTreeLearner;
+    onlineTreeLearner.setThresholdGenerator(randomGenerator);
+    onlineTreeLearner.setMinSplitObjective(parameters["min-split-objective"].as<float>());
+    onlineTreeLearner.setMinSplitExamples(parameters["min-split-examples"].as<int>());
+    onlineTreeLearner.setMinChildSplitExamples(parameters["min-child-split-examples"].as<int>());
+    onlineTreeLearner.setMaxDepth(parameters["max-depth"].as<int>());
+    onlineTreeLearner.setNumFeatures(parameters["num-features"].as<int>());
+    onlineTreeLearner.setNumThresholds(parameters["num-thresholds"].as<int>());
+    onlineTreeLearner.setUseBootstrap(useBootstrap);
+    
+    OnlineRandomForestLearner onlineForestLearner;
+    
+    onlineForestLearner.setTreeLearner(&onlineTreeLearner);
+    onlineForestLearner.setNumTrees(parameters["num-trees"].as<int>());
+    onlineForestLearner.setNumThreads(parameters["num-threads"].as<int>());
+    // onlineForestLearner.addCallback(OnlineRandomForestLearner::verboseCallback, 1);
+    
+    DecisionTreeLearner treeLearner;
     treeLearner.setMinSplitExamples(parameters["min-split-examples"].as<int>());
     treeLearner.setMinChildSplitExamples(parameters["min-child-split-examples"].as<int>());
     treeLearner.setMaxDepth(parameters["max-depth"].as<int>());
     treeLearner.setNumFeatures(parameters["num-features"].as<int>());
-    treeLearner.setNumThresholds(parameters["num-thresholds"].as<int>());
-    treeLearner.addCallback(OnlineDecisionTreeLearner::defaultCallback, 1);
     treeLearner.setUseBootstrap(useBootstrap);
     
-    DecisionTree* tree = treeLearner.learn(&storageT);
+    RandomForestLearner forestLearner;
     
-    AccuracyTool accuracyTool;
-    accuracyTool.measureAndPrint(tree, &storage);
+    forestLearner.setTreeLearner(&treeLearner);
+    forestLearner.setNumTrees(parameters["num-trees"].as<int>());
+    forestLearner.setNumThreads(parameters["num-threads"].as<int>());
+    // forestLearner.addCallback(RandomForestLearner::defaultCallback, 1);
     
-    ConfusionMatrixTool confusionMatrixTool;
-    confusionMatrixTool.measureAndPrint(tree, &storage);
+    const int S = 10;
+    const float steps[] = {0.001f, 0.0025f, 0.005f, 0.01f, 0.025f, 0.05f, 0.1f, 0.25f, 0.5f, 1.f};
     
-    delete tree;
+    for (int s = 0; s < S; s++) 
+    {
+        const int end = (int) std::min((float) storageT.getSize() - 1, storageT.getSize()*steps[s]);
+        DataStorage batch = storageT.excerpt(0, end);
+        
+        RandomForest* onlineForest = onlineForestLearner.learn(&batch);
+        RandomForest* forest = forestLearner.learn(&batch);
+        
+        std::cout << steps[s]*100 << "% - Random Forest / Online Random Forest:" << std::endl;
+        
+        AccuracyTool accuracyTool;
+        accuracyTool.measureAndPrint(forest, &storage);
+        accuracyTool.measureAndPrint(onlineForest, &storage);
+    }
+    
     return 0;
 }

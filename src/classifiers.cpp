@@ -59,7 +59,7 @@ int Classifier::classify(const DataPoint* x) const
 
 void EfficientEntropyHistogram::addOne(const int i)
 {
-    assert(i >= 0 && i < bins);
+    // assert(i >= 0 && i < bins);
     
     totalEntropy += ENTROPY(mass);
     mass += 1;
@@ -72,7 +72,7 @@ void EfficientEntropyHistogram::addOne(const int i)
 
 void EfficientEntropyHistogram::subOne(const int i)
 {
-    assert(i >= 0 && i < bins);
+    // assert(i >= 0 && i < bins);
     
     totalEntropy += ENTROPY(mass);
     mass -= 1;
@@ -88,24 +88,6 @@ void EfficientEntropyHistogram::subOne(const int i)
     {
         entropies[i] = ENTROPY(histogram[i]); 
         totalEntropy += entropies[i];
-    }
-}
-
-void EfficientEntropyHistogram::initEntropies()
-{
-    if (getMass() > 1)
-    {
-        totalEntropy = -ENTROPY(getMass());
-        for (int i = 0; i < bins; i++)
-        {
-            if (at(i) == 0)
-            {
-                continue;
-            }
-            
-            entropies[i] = ENTROPY(histogram[i]);
-            totalEntropy += entropies[i];
-        }
     }
 }
 

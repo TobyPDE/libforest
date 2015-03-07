@@ -69,6 +69,9 @@ int main(int argc, const char** argv)
     reader.read(trainDat.string(), &storageT);
     reader.read(testDat.string(), &storage);
     
+    // Important for sorted datasets!
+    storageT.randPermute();
+    
     std::cout << "Training Data" << std::endl;
     storageT.dumpInformation();
     
@@ -82,10 +85,10 @@ int main(int argc, const char** argv)
     DecisionTree* tree = treeLearner.learn(&storage);
     
     AccuracyTool accuracyTool;
-    accuracyTool.measureAndPrint(tree, &storageT);
+    accuracyTool.measureAndPrint(tree, &storage);
     
     ConfusionMatrixTool confusionMatrixTool;
-    confusionMatrixTool.measureAndPrint(tree, &storageT);
+    confusionMatrixTool.measureAndPrint(tree, &storage);
     
     delete tree;
     return 0;

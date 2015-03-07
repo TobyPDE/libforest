@@ -16,7 +16,6 @@ using namespace libf;
  *   --help                               produce help message
  *   --file-train arg                     path to train DAT file
  *   --file-test arg                      path to test DAT file
- *   --batch-size arg (=1)                number of incoming samples per timestep
  *   --min-split-objective arg (=5)       minimum objective for splitting
  *   --min-split-examples arg (=20)       minimum number of samples for splitting
  *   --min-child-split-examples arg (=10) minimum number of child sampels to split
@@ -35,7 +34,6 @@ int main(int argc, const char** argv)
         ("help", "produce help message")
         ("file-train", boost::program_options::value<std::string>(), "path to train DAT file")
         ("file-test", boost::program_options::value<std::string>(), "path to test DAT file")
-        ("batch-size", boost::program_options::value<int>()->default_value(1), "number of incoming samples per timestep")
         ("min-split-objective", boost::program_options::value<float>()->default_value(5.f), "minimum objective for splitting")
         ("min-split-examples", boost::program_options::value<int>()->default_value(20), "minimum number of samples for splitting")
         ("min-child-split-examples", boost::program_options::value<int>()->default_value(10), "minimum number of child sampels to split")
@@ -107,22 +105,15 @@ int main(int argc, const char** argv)
     forestLearner.setTreeLearner(&treeLearner);
     forestLearner.setNumTrees(parameters["num-trees"].as<int>());
     forestLearner.setNumThreads(parameters["num-threads"].as<int>());
-    forestLearner.addCallback(OnlineRandomForestLearner::defaultCallback, 1);
+    forestLearner.addCallback(OnlineRandomForestLearner::verboseCallback, 1);
     
-    const int batchSize = parameters["batch-size"].as<int>();
-    
-    RandomForest* forest = 0;
-    for (int b = 0; b < storageT.getSize()/batchSize - 1; b++)
-    {
-        DataStorage batch = storageT.excerpt(b*batchSize, (b + 1)*batchSize - 1);
-        forest = forestLearner.learn(&batch, forest);
-    }
+    RandomForest* forest = forestLearner.learn(&storageT);
     
     AccuracyTool accuracyTool;
-    accuracyTool.measureAndPrint(forest, &storageT);
+    accuracyTool.measureAndPrint(forest, &storage);
     
     ConfusionMatrixTool confusionMatrixTool;
-    confusionMatrixTool.measureAndPrint(forest, &storageT);
+    confusionMatrixTool.measureAndPrint(forest, &storage);
     
     delete forest;
     return 0;

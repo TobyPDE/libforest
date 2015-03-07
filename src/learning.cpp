@@ -47,13 +47,13 @@ public:
  */
 inline void updateLeafNodeHistogram(std::vector<float> & leafNodeHistograms, const EfficientEntropyHistogram & hist, float smoothing, bool useBootstrap)
 {
-    leafNodeHistograms.resize(hist.size());
+    leafNodeHistograms.resize(hist.getSize());
     
     if(!useBootstrap)
     {
-        for (int c = 0; c < hist.size(); c++)
+        for (int c = 0; c < hist.getSize(); c++)
         {
-            leafNodeHistograms[c] = std::log((hist.at(c) + smoothing)/(hist.getMass() + hist.size() * smoothing));
+            leafNodeHistograms[c] = std::log((hist.at(c) + smoothing)/(hist.getMass() + hist.getSize() * smoothing));
         }
     }
 }
@@ -149,7 +149,7 @@ DecisionTree* DecisionTreeLearner::learn(const DataStorage* dataStorage)
         for (int m = 0; m < N; m++)
         {
             // Get the class label of this training example
-            hist.add1(storage->getClassLabel(trainingExampleList[m]));
+            hist.addOne(storage->getClassLabel(trainingExampleList[m]));
         }
 
         // Don't split this node
@@ -164,8 +164,7 @@ DecisionTree* DecisionTreeLearner::learn(const DataStorage* dataStorage)
             continue;
         }
         
-        hist.initEntropies();
-        const float parentEntropy = hist.entropy();
+        const float parentEntropy = hist.getEntropy();
         
         // These are the parameters we optimize
         float bestThreshold = 0;
@@ -217,7 +216,8 @@ DecisionTree* DecisionTreeLearner::learn(const DataStorage* dataStorage)
                 }
                 
                 // Get the objective function
-                const float localObjective = leftHistogram.entropy() + rightHistogram.entropy();
+                const float localObjective = leftHistogram.getEntropy()
+                + rightHistogram.getEntropy();
                 
                 if (localObjective < bestObjective)
                 {
@@ -316,6 +316,10 @@ void DecisionTreeLearner::updateHistograms(DecisionTree* tree, const DataStorage
         if (tree->isLeafNode(v))
         {
             std::vector<float> & hist = tree->getHistogram(v);
+            
+            // Make sure that hist is initialized.
+            hist.resize(C);
+            
             for (int c = 0; c < C; c++)
             {
                 hist[c] = 0;

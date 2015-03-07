@@ -21,5 +21,8 @@ target_link_libraries(cli_online_decision_tree libforest ${Boost_LIBRARIES})
 add_executable(cli_online_rf online_rf.cpp)
 target_link_libraries(cli_online_rf libforest ${Boost_LIBRARIES})
 
+add_executable(cli_online_rf_convergence online_rf_convergence.cpp)
+target_link_libraries(cli_online_rf_convergence libforest ${Boost_LIBRARIES})
+
 add_executable(cli_pixel_importance pixel_importance.cpp)
 target_link_libraries(cli_pixel_importance libforest ${Boost_LIBRARIES})
