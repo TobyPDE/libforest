@@ -596,6 +596,7 @@ namespace libf {
                 mass(0),
                 covariance(),
                 mean() {};
+                
         /**
          * Creates a _classes x _classes covariance matrix.
          */
@@ -604,34 +605,42 @@ namespace libf {
                 mass(0),
                 covariance(_classes, _classes),
                 mean(_classes) {};
+                
         /**
          * Destructor.
          */
         ~EfficientCovarianceMatrix();
+        
         /**
          * Get the number of samples.
          */
         int getMass();
+        
         /**
          * Add a sample and update covariance and mean estimate.
          */
         void addOne(const DataPoint* x);
+        
         /**
          * Remove a sample and update covariance and mean estimate.
          */
         void subOne(const DataPoint* x);
+        
         /**
          * Get the current mean.
          */
         Eigen::VectorXf getMean();
+        
         /**
          * Get the current covariance.
          */
         Eigen::MatrixXf getCovariance();
+        
         /**
          * Calculate the determinant of the covariance.
          */
         float computeDeterminant();
+        
     private:
         /**
          * Number of classes: classes x classes covariance matrix.
@@ -657,8 +666,23 @@ namespace libf {
      */
     class DensityDecisionTree : public DecisionTree {
     public:
+        /**
+         * Creates an empty density tree.
+         */
         DensityDecisionTree();
+        
+        /**
+         * Destructor.
+         */
         ~DensityDecisionTree();
+        
+        /**
+         * Get the Gaussian of a specific leaf.
+         */
+        Gaussian & getGaussian(const int node)
+        {
+            return gaussians[node];
+        }
         
     private:
         /**

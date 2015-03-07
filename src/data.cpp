@@ -157,24 +157,93 @@ void ClassLabelMap::read(std::istream& stream)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-/// DataStorage
+/// AbstractDataStorage
 ////////////////////////////////////////////////////////////////////////////////
 
-DataStorage::DataStorage(const DataStorage & other)
+AbstractDataStorage::AbstractDataStorage(const AbstractDataStorage & other)
 {
     // Copy all arrays
     dataPoints = other.dataPoints;
-    classLabels = other.classLabels;
     freeFlags = other.freeFlags;
-    classLabelMap = other.classLabelMap;
-    classcount = other.classcount;
     
     // Set all free flags to false as this is not the owner of the data points
     for (size_t i = 0; i < freeFlags.size(); i++)
     {
         freeFlags[i] = false;
     }
+}
+
+AbstractDataStorage & AbstractDataStorage::operator=(const AbstractDataStorage & other)
+{
+    if (this != &other)
+    {
+        free();
+        dataPoints = other.dataPoints;
+        freeFlags = other.freeFlags;
+
+        // Set all free flags to false as this is not the owner of the data points
+        for (size_t i = 0; i < freeFlags.size(); i++)
+        {
+            freeFlags[i] = false;
+        }
+    }
     
+    return *this;
+}
+
+void AbstractDataStorage::permute(const std::vector<int>& permutation)
+{
+    // We cannot permute in-place
+    std::vector< DataPoint* > dataPointsCopy(dataPoints);
+    std::vector<bool> freeFlagsCopy(freeFlags);
+    
+    // Permute the original arrays
+    Util::permute(permutation, dataPointsCopy, dataPoints);
+    Util::permute(permutation, freeFlagsCopy, freeFlags);
+}
+
+void AbstractDataStorage::randPermute()
+{
+    // Set up a random permutation
+    std::vector<int> permutation(getSize());
+    for (int i = 0; i < getSize(); i++)
+    {
+        permutation[i] = i;
+    }
+    
+    std::shuffle(permutation.begin(), permutation.end(), std::default_random_engine(rd()));
+    
+    permute(permutation);
+}
+
+void AbstractDataStorage::dumpInformation(std::ostream & stream)
+{
+    stream << std::setw(30) << "Size" << ": " << getSize() << "\n";
+}
+
+void AbstractDataStorage::free()
+{
+    for (size_t i = 0; i < dataPoints.size(); i++)
+    {
+        if (freeFlags[i])
+        {
+            delete dataPoints[i];
+            dataPoints[i] = 0;
+        }
+    }
+    
+    dataPoints.empty();
+}
+
+////////////////////////////////////////////////////////////////////////////////
+/// DataStorage
+////////////////////////////////////////////////////////////////////////////////
+
+DataStorage::DataStorage(const DataStorage & other) : AbstractDataStorage(other)
+{
+    classLabels = other.classLabels;
+    classLabelMap = other.classLabelMap;
+    classcount = other.classcount;
 }
 
 DataStorage DataStorage::excerpt(int begin, int end)
@@ -205,105 +274,32 @@ DataStorage DataStorage::excerpt(int begin, int end)
 
 DataStorage & DataStorage::operator=(const DataStorage & other)
 {
+    AbstractDataStorage::operator=(other);
+    
     if (this != &other)
     {
-        free();
-        dataPoints = other.dataPoints;
+        // free() is already called by parent.)
         classLabels = other.classLabels;
-        freeFlags = other.freeFlags;
         classLabelMap = other.classLabelMap;
         classcount = other.classcount;
-
-        // Set all free flags to false as this is not the owner of the data points
-        for (size_t i = 0; i < freeFlags.size(); i++)
-        {
-            freeFlags[i] = false;
-        }
     }
+    
     return *this;
 }
 
 void DataStorage::free()
 {
-    for (size_t i = 0; i < dataPoints.size(); i++)
-    {
-        if (freeFlags[i])
-        {
-            delete dataPoints[i];
-            dataPoints[i] = 0;
-        }
-    }
-    
-    dataPoints.empty();
+    AbstractDataStorage::free();
     classLabels.empty();
     freeFlags.empty();
 }
 
-DataStorage::~DataStorage()
-{
-    free();
-}
-    
-int DataStorage::getDimensionality() const
-{
-    if (getSize() == 0)
-    {
-        // There are no data points
-        return 0;
-    }
-    else
-    {
-        // Take the dimensionality of the first data point
-        return getDataPoint(0)->getDimensionality();
-    }
-}
-
 void DataStorage::permute(const std::vector<int>& permutation)
 {
-    // Copy the arrays because we cannot permute in-place
-    std::vector< DataPoint* > dataPointsCopy(dataPoints);
+    AbstractDataStorage::permute(permutation);
+    
     std::vector<int> classLabelsCopy(classLabels);
-    std::vector<bool> freeFlagsCopy(freeFlags);
-    
-    // Permute the original arrays
-    Util::permute(permutation, dataPointsCopy, dataPoints);
     Util::permute(permutation, classLabelsCopy, classLabels);
-    Util::permute(permutation, freeFlagsCopy, freeFlags);
-}
-
-void DataStorage::randPermute()
-{
-    // Set up a random permutation
-    std::vector<int> permutation(getSize());
-    for (int i = 0; i < getSize(); i++)
-    {
-        permutation[i] = i;
-    }
-    
-    std::shuffle(permutation.begin(), permutation.end(), std::default_random_engine(rd()));
-    
-    permute(permutation);
-}
-
-void DataStorage::split(float ratio, DataStorage* other)
-{
-    // Calculate the number of points that go to the other set
-    const int numPoints = getSize() * ratio;
-    
-    for (int i = getSize() - 1; i > numPoints; i--)
-    {
-        other->addDataPoint(dataPoints[i], classLabels[i], freeFlags[i]);
-        dataPoints.pop_back();
-        classLabels.pop_back();
-        freeFlags.pop_back();
-    }
-    other->classLabelMap = classLabelMap;
-}
-
-void DataStorage::bootstrap(int N, DataStorage* dataStorage) const
-{
-    std::vector<bool> sampled;
-    bootstrap(N, dataStorage, sampled);
 }
 
 void DataStorage::bootstrap(int N, DataStorage* dataStorage, std::vector<bool> & sampled) const
@@ -337,8 +333,7 @@ void DataStorage::dumpInformation(std::ostream & stream)
     std::vector<int> intLabelMap;
     getClassLabelMap().computeIntClassLabels(intLabelMap);
     
-    stream << std::setw(30) << "Size" << ": " << getSize() << "\n";
-    stream << std::setw(30) << "Dimensionality" << ": " << getDimensionality() << "\n";
+    AbstractDataStorage::dumpInformation(stream);
     stream << std::setw(30) << "Classes" << ": " << getClasscount() << "\n";
 }
 

@@ -264,11 +264,6 @@ namespace libf {
     protected:
         
         /**
-         * Splits a node
-         */
-        void splitNode(DecisionTree* tree, int node) const;
-        
-        /**
          * The number of random features that shall be evaluated for each 
          * split.
          */
