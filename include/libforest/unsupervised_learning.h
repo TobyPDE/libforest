@@ -54,10 +54,7 @@ namespace libf {
             public AbstractDecisionTreeLearner<DensityDecisionTreeLearnerState>,
             public UnsupervisedLearner<DensityDecisionTree> {
     public:
-        DensityDecisionTreeLearner() : 
-                maxDepth(0), 
-                minSplitExamples(0), 
-                minChildSplitExamples(0) {};
+        DensityDecisionTreeLearner() : AbstractDecisionTreeLearner() {};
                 
         /**
          * The default callback for this learner.
@@ -76,20 +73,8 @@ namespace libf {
         DensityDecisionTree* learn(const UnlabeledDataStorage* storage);
         
     protected:
-        void updateGaussian();
+        void updateLeafNodeGaussian(Gaussian gaussian, EfficientCovarianceMatrix covariance);
         
-        /**
-         * Maximum depth of the tree.
-         */
-        int maxDepth;
-        /**
-         * Minimum examples required for a split.
-         */
-        int minSplitExamples;
-        /**
-         * Minimum examples required in the children of each node.
-         */
-        int minChildSplitExamples;
     };
 }
 

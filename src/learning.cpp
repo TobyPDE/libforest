@@ -140,8 +140,6 @@ DecisionTree* DecisionTreeLearner::learn(const DataStorage* dataStorage)
             continue;
         }
         
-        const float parentEntropy = hist.getEntropy();
-        
         // These are the parameters we optimize
         float bestThreshold = 0;
         int bestFeature = -1;
@@ -193,7 +191,7 @@ DecisionTree* DecisionTreeLearner::learn(const DataStorage* dataStorage)
                 
                 // Get the objective function
                 const float localObjective = leftHistogram.getEntropy()
-                + rightHistogram.getEntropy();
+                        + rightHistogram.getEntropy();
                 
                 if (localObjective < bestObjective)
                 {
@@ -260,7 +258,7 @@ DecisionTree* DecisionTreeLearner::learn(const DataStorage* dataStorage)
         evokeCallback(tree, 0, &state);
         
         // Save the impurity reduction for this feature if requested
-        importance[bestFeature] += N/storage->getSize()*(parentEntropy - bestObjective);
+        importance[bestFeature] += N/storage->getSize()*(hist.getEntropy() - bestObjective);
         
         // Prepare to split the child nodes
         splitStack.push_back(leftChild);

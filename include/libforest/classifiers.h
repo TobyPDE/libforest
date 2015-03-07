@@ -110,7 +110,7 @@ namespace libf {
             {
                 if (other.bins != bins)
                 {
-                    resize (other.bins);
+                    resize(other.bins);
                 }
                 for (int i = 0; i < bins; i++)
                 {
@@ -533,44 +533,76 @@ namespace libf {
         /**
          * Default Gaussian with zero mean and identity covariance.
          */
-        Gaussian();
+        Gaussian() :
+                cachedInverse(false),
+                cachedDeterminant(false) {};
         
         /**
          * Gaussian with given mean and covariance.
          */
-        Gaussian(Eigen::VectorXf _mean, Eigen::MatrixXf _covariance);
+        Gaussian(Eigen::VectorXf _mean, Eigen::MatrixXf _covariance) : 
+                mean(_mean), 
+                covariance(_covariance),
+                cachedInverse(false),
+                cachedDeterminant(false) {};
         
+        /**
+         * Gaussian with given mean and covariance and cached determinant.
+         */
+        Gaussian(Eigen::VectorXf _mean, Eigen::MatrixXf _covariance, float _covarianceDeterminant) : 
+                mean(_mean), 
+                covariance(_covariance),
+                cachedInverse(false),
+                cachedDeterminant(false),
+                covarianceDeterminant(__covarianceDeterminant) {};
+                
         /**
          * Destructor.
          */
-        ~Gaussian();
+        ~Gaussian() {};
         
         /**
          * Get probability of the given data point.
          */
-        float evaluate(DataPoint* x);
+        float evaluate(const DataPoint* x);
         
         /**
          * Sets the mean.
          */
-        void setMean(Eigen::VectorXf _mean);
+        void setMean(Eigen::VectorXf _mean)
+        {
+            mean = Eigen::VectorXf(_mean);
+        }
         
         /**
          * Returns the mean.
          */
-        Eigen::VectorXf getMean();
+        Eigen::VectorXf & getMean()
+        {
+            return mean;
+        }
         
         /**
          * Sets the covariance matrix.
          */
-        void setCovariance(Eigen::MatrixXf _covariance);
+        void setCovariance(Eigen::MatrixXf _covariance)
+        {
+            covariance = Eigen::MatrixXf(_covariance);
+            cachedInverse = false;
+            cachedDeterminant = false;
+        }
         
         /**
          * Returns the covariance matrix.
          */
-        Eigen::MatrixXf getCovariance();
+        Eigen::MatrixXf getCovariance()
+        {
+            return covariance;
+        }
         
     private:
+        Eigen::VectorXf asEigenVector(const DataPoint* x);
+        
         /**
          * Mean of Gaussian.
          */
@@ -579,6 +611,22 @@ namespace libf {
          * Covariance of Gaussian.
          */
         Eigen::MatrixXf covariance;
+        /**
+         * Inverse covariance can be cached.
+         */
+        bool cachedInverse = false;
+        /**
+         * Covariance determinant can be cached.
+         */
+        bool cachedDeterminant = false;
+        /**
+         * Cached covariance inverse.
+         */
+        Eigen::MatrixXf covarianceInverse;
+        /**
+         * Cached determinant.
+         */
+        float covarianceDeterminant;
     };
     
     /**
@@ -592,29 +640,64 @@ namespace libf {
          * Creates an empty covaraince matrix.
          */
         EfficientCovarianceMatrix() : 
-                classes(0),
+                dimensions(0),
                 mass(0),
-                covariance(),
-                mean() {};
+                cachedTrueCovariance(false),
+                cachedDeterminant(false),
+                covarianceDeterminant(0) {};
                 
         /**
          * Creates a _classes x _classes covariance matrix.
          */
-        EfficientCovarianceMatrix(int _classes) : 
-                classes(_classes),
+        EfficientCovarianceMatrix(int _dimensions) : 
+                dimensions(_dimensions),
                 mass(0),
-                covariance(_classes, _classes),
-                mean(_classes) {};
+                covariance(_dimensions, _dimensions),
+                mean(_dimensions),
+                cachedTrueCovariance(false),
+                cachedDeterminant(false),
+                trueCovariance(_dimensions, _dimensions),
+                covarianceDeterminant(0) {};
                 
         /**
          * Destructor.
          */
-        ~EfficientCovarianceMatrix();
+        ~EfficientCovarianceMatrix() {};
+        
+        EfficientCovarianceMatrix operator=(const EfficientCovarianceMatrix & other)
+        {
+            mean = Eigen::VectorXf(other.mean);
+            covariance = Eigen::MatrixXf(other.covariance);
+            dimensions = other.dimensions;
+            mass = other.mass;
+            // TODO: does currently not consider caching!
+            
+            return *this;
+        }
+        
+        /**
+         * Resets the mean and covariance to zero.
+         */
+        void reset()
+        {
+            mean = Eigen::VectorXf::Zero(dimensions);
+            covariance = Eigen::MatrixXf::Zero(dimensions, dimensions);
+            mass = 0;
+            
+            // Update caches.
+            cachedTrueCovariance = false;
+            cachedDeterminant = false;
+            trueCovariance = Eigen::MatrixXf::Zero(dimensions, dimensions);
+            covarianceDeterminant = 0;
+        }
         
         /**
          * Get the number of samples.
          */
-        int getMass();
+        int getMass()
+        {
+            return mass;
+        }
         
         /**
          * Add a sample and update covariance and mean estimate.
@@ -627,37 +710,63 @@ namespace libf {
         void subOne(const DataPoint* x);
         
         /**
-         * Get the current mean.
+         * Returns mean.
          */
-        Eigen::VectorXf getMean();
+        Eigen::VectorXf & getMean()
+        {
+            return mean;
+        }
         
         /**
-         * Get the current covariance.
+         * Returns true covariance matrix from estimates.
          */
-        Eigen::MatrixXf getCovariance();
+        Eigen::MatrixXf & getCovariance();
         
         /**
-         * Calculate the determinant of the covariance.
+         * Returns covariance determinant;
          */
-        float computeDeterminant();
+        float getDeterminant();
+        
+        /**
+         * Get the entropy to determine split objective.
+         */
+        float getEntropy();
         
     private:
+        
         /**
-         * Number of classes: classes x classes covariance matrix.
+         * Number of dimensions: dimension x dimension covariance matrix.
          */
-        int classes;
+        int dimensions;
         /**
          * Number of samples.
          */
         int mass;
         /**
-         * Current estimate of classes x classes covariance matrix.
+         * Current estimate of dimension x dimension covariance matrix.
          */
         Eigen::MatrixXf covariance;
         /**
          * Current estimate of mean.
          */
         Eigen::VectorXf mean;
+        /**
+         * The true covariance is cached for reuse when setting a leaf's
+         * Gaussian distribution.
+         */
+        bool cachedTrueCovariance;
+        /**
+         * The determinant is cached for the same reason as above.
+         */
+        bool cachedDeterminant;
+        /**
+         * Cached true covariance matrix.
+         */
+        Eigen::MatrixXf trueCovariance;
+        /**
+         * Cached covariance determinant.
+         */
+        float covarianceDeterminant;
         
     };
     

@@ -18,6 +18,11 @@ static std::mt19937 g(rd());
 /// DensityDecisionTreeLearner
 ////////////////////////////////////////////////////////////////////////////////
 
+void DensityDecisionTreeLearner::updateLeafNodeGaussian(Gaussian gaussian, EfficientCovarianceMatrix covariance)
+{
+    gaussian = Gaussian(covariance.getMean(), covariance.getCovariance(), covariance.getDeterminant());
+}
+
 DensityDecisionTree* DensityDecisionTreeLearner::learn(UnlabeledDataStorage* storage)
 {
     const int D = storage->getDimensionality();
@@ -55,61 +60,49 @@ DensityDecisionTree* DensityDecisionTreeLearner::learn(UnlabeledDataStorage* sto
     FeatureComparator cp;
     cp.storage = storage;
     
-    // Set up a probability distribution over the features
-    std::mt19937 g(rd());
-    // Set up the array of possible features, we use it in order to sample
-    // the features without replacement
-    std::vector<int> sampledFeatures(D);
-    for (int d = 0; d < D; d++)
+    std::vector<int> features(N);
+    for (f = 0; f < D; f++) 
     {
-        sampledFeatures[d] = d;
+        features[f] = f;
     }
 
-    // Start training
     while (splitStack.size() > 0)
     {
         // Extract an element from the queue
-        const int node = splitStack.back();
+        const int leaf = splitStack.back();
         splitStack.pop_back();
-        
-        // Get the training example list
-        int* trainingExampleList = trainingExamples[node];
-        const int N = trainingExamplesSizes[node];
 
+        const int N_leaf = trainingExamples[leaf].size();
+        
         // Set up the right histogram
         // Because we start with the threshold being at the left most position
         // The right child node contains all training examples
         
-        EfficientEntropyHistogram hist(C);
-        for (int m = 0; m < N; m++)
+        EfficientCovarianceMatrix covariance(C);
+        for (int m = 0; m < N_leaf; m++)
         {
-            // Get the class label of this training example
-            hist.addOne(storage->getClassLabel(trainingExampleList[m]));
+            covariance.addOne(storage->getdataPoint(m));
         }
 
         // Don't split this node
         //  If the number of examples is too small
         //  If the training examples are all of the same class
         //  If the maximum depth is reached
-        if (hist.getMass() < minSplitExamples || hist.isPure() || tree->getDepth(node) > maxDepth)
+        if (covariance.getMass() < minSplitExamples || tree->getDepth(leaf) > maxDepth)
         {
-            delete[] trainingExampleList;
+            trainingExamples[leaf].clear();
             // Resize and initialize the leaf node histogram
-            updateLeafNodeHistogram(tree->getHistogram(node), hist, smoothingParameter, useBootstrap);
+            updateLeafNodeGaussian(tree->getGaussian(leaf), covariance);
             continue;
         }
-        
-        const float parentEntropy = hist.getEntropy();
         
         // These are the parameters we optimize
         float bestThreshold = 0;
         int bestFeature = -1;
         float bestObjective = 1e35;
-        int bestLeftMass = 0;
-        int bestRightMass = N;
 
         // Sample random features
-        std::shuffle(sampledFeatures.begin(), sampledFeatures.end(), std::default_random_engine(rd()));
+        std::shuffle(features.begin(), features.end(), std::default_random_engine(rd()));
         
         // Optimize over all features
         for (int f = 0; f < numFeatures; f++)
@@ -117,93 +110,80 @@ DensityDecisionTree* DensityDecisionTreeLearner::learn(UnlabeledDataStorage* sto
             const int feature = sampledFeatures[f];
             
             cp.feature = feature;
-            std::sort(trainingExampleList, trainingExampleList + N, cp);
+            std::sort(trainingExamples[leaf], trainingExamples[leaf] + N, cp);
             
-            // Initialize the histograms
-            leftHistogram.reset();
-            rightHistogram = hist;
+            leftCovariance.reset();
+            rightCovariance = covariance;
             
-            float leftValue = storage->getDataPoint(trainingExampleList[0])->at(feature);
-            int leftClass = storage->getClassLabel(trainingExampleList[0]);
+            // Initialize left feature value.
+            float leftFeatureValue = storage->getDataPoint(trainingExamples[leaf][0])->at(feature);
             
-            // Test different thresholds
-            // Go over all examples in this node
+            // The training samples are our thresholds to optimize over.
             for (int m = 1; m < N; m++)
             {
-                const int n = trainingExampleList[m];
+                const int n = trainingExamples[leaf][m];
                 
-                // Move the last point to the left histogram
-                leftHistogram.addOne(leftClass);
-                rightHistogram.subOne(leftClass);
-                        
-                // It does
-                // Get the two feature values
-                const float rightValue = storage->getDataPoint(n)->at(feature);
+                // Shift threshold one sample to the right.
+                leftCovariance.addOne(leftClass);
+                rightCovariance.subOne(leftClass);
                 
-                // Skip this split, if the two points lie too close together
-                const float diff = rightValue - leftValue;
-                
-                if (diff < 1e-6f)
+                const float rightFeatureValue = storage->getDataPoint(n)->at(feature);
+                if (std::abs(rightFeatureValue - leftFeatureValue) < 1e-6f)
                 {
-                    leftValue = rightValue;
-                    leftClass = storage->getClassLabel(n);
+                    leftFeatureValue = rightFeatureValue;
                     continue;
                 }
                 
-                // Get the objective function
-                const float localObjective = leftHistogram.getEntropy()
-                + rightHistogram.getEntropy();
-                
-                if (localObjective < bestObjective)
+                // Only try if enough samples would be in the new children.
+                if (leftCovariance.getMass() > minChildSplitExamples
+                        && rightCovariance.getMass() > minChildSplitExamples)
                 {
-                    // Get the threshold value
-                    bestThreshold = (leftValue + rightValue);
-                    bestFeature = feature;
-                    bestObjective = localObjective;
-                    bestLeftMass = leftHistogram.getMass();
-                    bestRightMass = rightHistogram.getMass();
+                    // Get the objective function
+                    const float localObjective = leftCovariance.getEntropy()
+                            + rightCovariance.getEntropy();
+
+                    if (localObjective < bestObjective)
+                    {
+                        // Get the threshold value
+                        bestThreshold = (leftValue + rightValue)/2;
+                        bestFeature = feature;
+                        bestObjective = localObjective;
+                    }
                 }
                 
-                leftValue = rightValue;
-                leftClass = storage->getClassLabel(n);
+                leftFeatureValue = rightFeatureValue;
             }
         }
         
-        // We spare the additional multiplication at each iteration.
-        bestThreshold *= 0.5f;
-        
         // Did we find good split values?
-        if (bestFeature < 0 || bestLeftMass < minChildSplitExamples || bestRightMass < minChildSplitExamples)
+        if (bestFeature < 0)
         {
-            // We didn't
             // Don't split
-            delete[] trainingExampleList;
-            updateLeafNodeHistogram(tree->getHistogram(node), hist, smoothingParameter, useBootstrap);
+            trainingExamples[leaf].clear();
+            updateLeafNodeGaussians(tree->getGaussian(leaf), covariance);
             continue;
         }
         
         // Set up the data lists for the child nodes
-        trainingExamplesSizes.push_back(bestLeftMass);
-        trainingExamplesSizes.push_back(bestRightMass);
-        trainingExamples.push_back(new int[bestLeftMass]);
-        trainingExamples.push_back(new int[bestRightMass]);
+        trainingExamples.push_back(std::vector<int>());
+        trainingExamples.push_back(std::vector<int>());
         
-        int* leftList = trainingExamples[trainingExamples.size() - 2];
-        int* rightList = trainingExamples[trainingExamples.size() - 1];
+        std::vector<int> leftTrainingExamples = trainingExamples[trainingExamples.size() - 2];
+        std::vector<int> rightTrainingExamples = trainingExamples[trainingExamples.size() - 1];
         
         // Sort the points
         for (int m = 0; m < N; m++)
         {
-            const int n = trainingExampleList[m];
+            const int n = trainingExamples[leaf][m];
             const float featureValue = storage->getDataPoint(n)->at(bestFeature);
             
             if (featureValue < bestThreshold)
             {
-                leftList[--bestLeftMass] = n;
+                leftTrainingExamples.push_back(n);
             }
             else
             {
-                rightList[--bestRightMass] = n;
+                rightTrainingExamples.push_back(n);
             }
         }
         
@@ -218,14 +198,9 @@ DensityDecisionTree* DensityDecisionTreeLearner::learn(UnlabeledDataStorage* sto
         
         evokeCallback(tree, 0, &state);
         
-        // Save the impurity reduction for this feature if requested
-        impurityDecrease[bestFeature] += N/storage->getSize()*(parentEntropy - bestObjective);
-        
         // Prepare to split the child nodes
         splitStack.push_back(leftChild);
         splitStack.push_back(leftChild + 1);
-        
-        delete[] trainingExampleList;
     }
     
     return tree;

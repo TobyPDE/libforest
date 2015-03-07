@@ -7,6 +7,7 @@
 #include <iostream>
 #include <string>
 #include <cmath>
+#include <Eigen/LU>
 
 using namespace libf;
 
@@ -237,6 +238,118 @@ void DecisionTree::write(std::ostream& stream) const
         writeBinary(stream, nodeThresholds);
         writeBinary(stream, nodeFeatures);
     }
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+/// Gaussian
+////////////////////////////////////////////////////////////////////////////////
+
+float Gaussian::evaluate(const DataPoint* x)
+{
+    assert(x->getDimensionality() == mean.rows());
+    assert(x->getDimensionality() == covariance.rows());
+    
+    // Invert the covariance matrix if not cached.
+    if (!cachedInverse)
+    {
+        covarianceInverse = covariance.inverse();
+        cachedInverse = true;
+    }
+    
+    // @see http://eigen.tuxfamily.org/dox-devel/group__LU__Module.html
+    if (!cachedDeterminant)
+    {
+        covarianceDeterminant = covariance.determinant();
+        cachedDeterminant = true;
+    }
+    
+    Eigen::VectorXf x_bar = asEigenVector(x);
+    
+    Eigen::VectorXf offset = x_bar - mean;
+    return 1/std::sqrt(pow(2*M_PI, mean.rows())*covarianceDeterminant)
+            * std::exp(-1/2 * offset.transpose()*covarianceInverse*offset);
+}
+
+Eigen::VectorXf Gaussian::asEigenVector(const DataPoint* x)
+{
+    Eigen::VectorXf x_bar(x->getDimensionality());
+    
+    for (int i = 0; i < x->getDimensionality(); i++)
+    {
+        x_bar(i) = x->at(i);
+    }
+    
+    return x_bar;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+/// EfficientCovarianceMatrix
+////////////////////////////////////////////////////////////////////////////////
+
+void EfficientCovarianceMatrix::addOne(const DataPoint* x)
+{
+    assert(x->getDimensionality() == mean.rows());
+    assert(x->getDimensionality() == covariance.rows());
+    
+    for (int i = 0; i < x->getDimensionality(); i++)
+    {
+        // Update runnign estimate of mean.
+        mean(i) += x->at(i);
+        
+        for (int j = 0; j < x->getDimensionality(); j++)
+        {
+            // Update runnign estimate of covariance.
+            covariance(i, j) += x->at(i)*x->at(j);
+        }
+    }
+    
+    mass += 1;
+}
+
+void EfficientCovarianceMatrix::subOne(const DataPoint* x)
+{
+    assert(x->getDimensionality() == mean.rows());
+    assert(x->getDimensionality() == covariance.rows());
+    
+    for (int i = 0; i < x->getDimensionality(); i++)
+    {
+        // Update runnign estimate of mean.
+        mean(i) -= x->at(i);
+        
+        for (int j = 0; j < x->getDimensionality(); j++)
+        {
+            // Update runnign estimate of covariance.
+            covariance(i, j) -= x->at(i)*x->at(j);
+        }
+    }
+    
+    mass += 1;
+}
+
+float EfficientCovarianceMatrix::getEntropy()
+{
+    return ENTROPY(mass)*ENTROPY(getDeterminant());
+}
+
+float EfficientCovarianceMatrix::getDeterminant()
+{
+    if (!cachedDeterminant)
+    {
+        covarianceDeterminant = getCovariance().determinant();
+    }
+    
+    return covarianceDeterminant;
+}
+
+Eigen::MatrixXf & EfficientCovarianceMatrix::getCovariance()
+{
+    if (!cachedTrueCovariance)
+    {
+        trueCovariance = (covariance - mean*mean.transpose())/mass;
+    }
+    
+    return trueCovariance;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
