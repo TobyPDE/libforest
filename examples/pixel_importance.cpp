@@ -84,6 +84,9 @@ int main(int argc, const char** argv)
     reader.read(mnistTrainDat.string(), &storageT);
     reader.read(mnistTestDat.string(), &storage);
     
+    // Important for sorted datasets!
+    storageT.randPermute();
+    
     std::cout << "Training Data" << std::endl;
     storageT.dumpInformation();
     
@@ -103,10 +106,10 @@ int main(int argc, const char** argv)
     RandomForest* forest = forestLearner.learn(&storage);
     
     AccuracyTool accuracyTool;
-    accuracyTool.measureAndPrint(forest, &storageT);
+    accuracyTool.measureAndPrint(forest, &storage);
     
     ConfusionMatrixTool confusionMatrixTool;
-    confusionMatrixTool.measureAndPrint(forest, &storageT);
+    confusionMatrixTool.measureAndPrint(forest, &storage);
     
     // USPS images are 16 x 16, MNIST are 28 x 28.
     PixelImportanceTool piTool;

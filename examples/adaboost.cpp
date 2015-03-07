@@ -67,6 +67,9 @@ int main(int argc, const char** argv)
     reader.read(trainDat.string(), &storageT);
     reader.read(testDat.string(), &storage);
     
+    // Important for sorted datasets!
+    storageT.randPermute();
+    
     std::cout << "Training Data" << std::endl;
     storageT.dumpInformation();
     
@@ -85,10 +88,10 @@ int main(int argc, const char** argv)
     BoostedRandomForest* forest = forestLearner.learn(&storage);
     
     AccuracyTool accuracyTool;
-    accuracyTool.measureAndPrint(forest, &storageT);
+    accuracyTool.measureAndPrint(forest, &storage);
     
     ConfusionMatrixTool confusionMatrixTool;
-    confusionMatrixTool.measureAndPrint(forest, &storageT);
+    confusionMatrixTool.measureAndPrint(forest, &storage);
     
     delete forest;
     return 0;

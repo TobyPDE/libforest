@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 2.6)
 project(libforest)
 
-set(CMAKE_CXX_FLAGS "-std=c++0x -g")
+set(CMAKE_CXX_FLAGS "-std=c++0x -O4")
 
 set(LIBF_INCLUDE_DIRS "${PROJECT_SOURCE_DIR}/include")
 find_package(Boost COMPONENTS system REQUIRED)

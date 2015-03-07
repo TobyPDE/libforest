@@ -64,21 +64,24 @@ namespace libf {
          * Default constructor
          */
         EfficientEntropyHistogram() : 
-                bins(0), 
-                histogram(0), 
-                mass(0), 
-                entropies(0), 
+                bins(0),
+                histogram(0),
+                mass(0),
+                entropies(0),
                 totalEntropy(0) {}
 
         /**
          * Construct a entropy histogram of the given size.
          */
-        EfficientEntropyHistogram(int _classCount) : 
-            bins(_classCount), 
-            histogram(0), 
-            entropies(0), 
-            mass(0), 
-            totalEntropy(0) { resize(_classCount); }
+        EfficientEntropyHistogram(int _bins) : 
+            bins(_bins),
+            histogram(0),
+            entropies(0),
+            mass(0),
+            totalEntropy(0)
+        {
+            resize(_bins);
+        }
 
         /**
          * Copy constructor
@@ -139,7 +142,7 @@ namespace libf {
         /**
          * Resizes the histogram to a certain size
          */
-        void resize(int _classCount)
+        void resize(int _bins)
         {
             // Release the current histogram
             if (histogram != 0)
@@ -154,11 +157,11 @@ namespace libf {
             }
 
             // Only allocate a new histogram, if there is more than one class
-            if (_classCount > 0)
+            if (_bins > 0)
             {
-                histogram = new int[_classCount];
-                entropies = new float[_classCount];
-                bins = _classCount;
+                bins = _bins;
+                histogram = new int[bins];
+                entropies = new float[bins];
 
                 // Initialize the histogram
                 for (int i = 0; i < bins; i++)
@@ -172,51 +175,18 @@ namespace libf {
         /**
          * Returns the size of the histogram (= class count)
          */
-        int size() const { return bins; }
+        int getSize() const
+        {
+            return bins; 
+        }
 
         /**
          * Get the histogram value for class i.
          */
         int at(const int i) const
         {
-            assert(i >= 0 && i < bins);
+            // assert(i >= 0 && i < bins);
             return histogram[i];
-        }
-        
-        /**
-         * Add v instances to class i.
-         */
-        void add(const int i, const int v)
-        {
-            assert(i >= 0 && i < bins);
-            mass += v; histogram[i] += v;
-        }
-        
-        /**
-         * Remove v instances from class i.
-         */
-        void sub(const int i, const int v)
-        {
-            assert(i >= 0 && i < bins);
-            mass -= v; histogram[i] -= v;
-        }
-        
-        /**
-         * Add one instance to class i.
-         */
-        void add1(const int i)
-        {
-            assert(i >= 0 && i < bins);
-            mass += 1; histogram[i]++;
-        }
-        
-        /**
-         * Remove one instance from class i.
-         */
-        void sub1(const int i)
-        {
-            assert(i >= 0 && i < bins);
-            mass -= 1; histogram[i]--;
         }
         
         /**
@@ -242,15 +212,10 @@ namespace libf {
          * 
          * @return The calculated entropy
          */
-        float entropy() const
+        float getEntropy() const
         {
             return totalEntropy;
         }
-
-        /**
-         * Initializes all entropies
-         */
-        void initEntropies();
 
         /**
          * Sets all entries in the histogram to 0
@@ -264,25 +229,6 @@ namespace libf {
             }
             totalEntropy = 0;
             mass = 0;
-        }
-
-        /**
-         * Returns the greatest bin
-         */
-        int argMax() const
-        {
-            int maxBin = 0;
-            int maxCount = histogram[0];
-            for (int i = 1; i < bins; i++)
-            {
-                if (histogram[i] > maxCount)
-                {
-                    maxCount = at(i);
-                    maxBin = i;
-                }
-            }
-
-            return maxBin;
         }
 
         /**
@@ -305,11 +251,11 @@ namespace libf {
                     }
                 }
             }
+            
             return true;
         }
 
     private:
-        // int get(const int i) const { return histogram[i]; }
         /**
          * Set the value of class i to v.
          */
@@ -635,7 +581,74 @@ namespace libf {
         Eigen::MatrixXf covariance;
     };
     
+    /**
+     * Represents the Gaussian at each leaf and allows to update mean and covariance
+     * efficiently as well as compute the determinant of the covariance matrix
+     * for learning.
+     */
     class EfficientCovarianceMatrix {
+    public:
+        /**
+         * Creates an empty covaraince matrix.
+         */
+        EfficientCovarianceMatrix() : 
+                classes(0),
+                mass(0),
+                covariance(),
+                mean() {};
+        /**
+         * Creates a _classes x _classes covariance matrix.
+         */
+        EfficientCovarianceMatrix(int _classes) : 
+                classes(_classes),
+                mass(0),
+                covariance(_classes, _classes),
+                mean(_classes) {};
+        /**
+         * Destructor.
+         */
+        ~EfficientCovarianceMatrix();
+        /**
+         * Get the number of samples.
+         */
+        int getMass();
+        /**
+         * Add a sample and update covariance and mean estimate.
+         */
+        void addOne(const DataPoint* x);
+        /**
+         * Remove a sample and update covariance and mean estimate.
+         */
+        void subOne(const DataPoint* x);
+        /**
+         * Get the current mean.
+         */
+        Eigen::VectorXf getMean();
+        /**
+         * Get the current covariance.
+         */
+        Eigen::MatrixXf getCovariance();
+        /**
+         * Calculate the determinant of the covariance.
+         */
+        float computeDeterminant();
+    private:
+        /**
+         * Number of classes: classes x classes covariance matrix.
+         */
+        int classes;
+        /**
+         * Number of samples.
+         */
+        int mass;
+        /**
+         * Current estimate of classes x classes covariance matrix.
+         */
+        Eigen::MatrixXf covariance;
+        /**
+         * Current estimate of mean.
+         */
+        Eigen::VectorXf mean;
         
     };
     
