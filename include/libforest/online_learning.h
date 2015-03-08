@@ -149,7 +149,8 @@ namespace libf {
      * Learn a decision tree online, either by passing a single sample at a time
      * or doing online batch learning.
      */
-    class OnlineDecisionTreeLearner : public AbstractDecisionTreeLearner<OnlineDecisionTreeLearnerState>,
+    class OnlineDecisionTreeLearner :
+            public AbstractDecisionTreeLearner<DecisionTree, OnlineDecisionTreeLearnerState>,
             public OnlineLearner<DecisionTree> {
     public:
         OnlineDecisionTreeLearner() : AbstractDecisionTreeLearner(),

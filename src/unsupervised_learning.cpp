@@ -23,10 +23,10 @@ void DensityDecisionTreeLearner::updateLeafNodeGaussian(Gaussian gaussian, Effic
     gaussian = Gaussian(covariance.getMean(), covariance.getCovariance(), covariance.getDeterminant());
 }
 
-DensityDecisionTree* DensityDecisionTreeLearner::learn(UnlabeledDataStorage* storage)
+DensityDecisionTree* DensityDecisionTreeLearner::learn(const UnlabeledDataStorage* storage)
 {
     const int D = storage->getDimensionality();
-    const int C = storage->getClasscount();
+    const int N = storage->getSize();
     
     // Set up a new density tree. 
     DensityDecisionTree* tree = new DensityDecisionTree();
@@ -53,15 +53,15 @@ DensityDecisionTree* DensityDecisionTreeLearner::learn(UnlabeledDataStorage* sto
         trainingExamples[0][n] = n;
     }
     
-    EfficientCovarianceMatrix leftCovariance(C);
-    EfficientEntropyHistogram rightCovariance(C);
+    EfficientCovarianceMatrix leftCovariance(D);
+    EfficientCovarianceMatrix rightCovariance(D);
     
     // We use this in order to sort the data points
     FeatureComparator cp;
     cp.storage = storage;
     
     std::vector<int> features(N);
-    for (f = 0; f < D; f++) 
+    for (int f = 0; f < D; f++) 
     {
         features[f] = f;
     }
@@ -78,10 +78,10 @@ DensityDecisionTree* DensityDecisionTreeLearner::learn(UnlabeledDataStorage* sto
         // Because we start with the threshold being at the left most position
         // The right child node contains all training examples
         
-        EfficientCovarianceMatrix covariance(C);
+        EfficientCovarianceMatrix covariance(D);
         for (int m = 0; m < N_leaf; m++)
         {
-            covariance.addOne(storage->getdataPoint(m));
+            covariance.addOne(storage->getDataPoint(m));
         }
 
         // Don't split this node
@@ -107,10 +107,10 @@ DensityDecisionTree* DensityDecisionTreeLearner::learn(UnlabeledDataStorage* sto
         // Optimize over all features
         for (int f = 0; f < numFeatures; f++)
         {
-            const int feature = sampledFeatures[f];
+            const int feature = features[f];
             
             cp.feature = feature;
-            std::sort(trainingExamples[leaf], trainingExamples[leaf] + N, cp);
+            std::sort(trainingExamples[leaf].begin(), trainingExamples[leaf].end(), cp);
             
             leftCovariance.reset();
             rightCovariance = covariance;
@@ -124,8 +124,8 @@ DensityDecisionTree* DensityDecisionTreeLearner::learn(UnlabeledDataStorage* sto
                 const int n = trainingExamples[leaf][m];
                 
                 // Shift threshold one sample to the right.
-                leftCovariance.addOne(leftClass);
-                rightCovariance.subOne(leftClass);
+                leftCovariance.addOne(storage->getDataPoint(n));
+                rightCovariance.subOne(storage->getDataPoint(n));
                 
                 const float rightFeatureValue = storage->getDataPoint(n)->at(feature);
                 if (std::abs(rightFeatureValue - leftFeatureValue) < 1e-6f)
@@ -145,7 +145,7 @@ DensityDecisionTree* DensityDecisionTreeLearner::learn(UnlabeledDataStorage* sto
                     if (localObjective < bestObjective)
                     {
                         // Get the threshold value
-                        bestThreshold = (leftValue + rightValue)/2;
+                        bestThreshold = (leftFeatureValue + rightFeatureValue)/2;
                         bestFeature = feature;
                         bestObjective = localObjective;
                     }
@@ -160,7 +160,7 @@ DensityDecisionTree* DensityDecisionTreeLearner::learn(UnlabeledDataStorage* sto
         {
             // Don't split
             trainingExamples[leaf].clear();
-            updateLeafNodeGaussians(tree->getGaussian(leaf), covariance);
+            updateLeafNodeGaussian(tree->getGaussian(leaf), covariance);
             continue;
         }
         
@@ -188,12 +188,12 @@ DensityDecisionTree* DensityDecisionTreeLearner::learn(UnlabeledDataStorage* sto
         }
         
         // Ok, split the node
-        tree->setThreshold(node, bestThreshold);
-        tree->setSplitFeature(node, bestFeature);
-        const int leftChild = tree->splitNode(node);
+        tree->setThreshold(leaf, bestThreshold);
+        tree->setSplitFeature(leaf, bestFeature);
+        const int leftChild = tree->splitNode(leaf);
         
         state.action = ACTION_SPLIT_NODE;
-        state.depth = tree->getDepth(node);
+        state.depth = tree->getDepth(leaf);
         state.objective = bestObjective;
         
         evokeCallback(tree, 0, &state);
@@ -204,4 +204,23 @@ DensityDecisionTree* DensityDecisionTreeLearner::learn(UnlabeledDataStorage* sto
     }
     
     return tree;
+}
+
+int DensityDecisionTreeLearner::defaultCallback(DensityDecisionTree* tree, DensityDecisionTreeLearnerState* state)
+{
+    switch (state->action) {
+        case DecisionTreeLearner::ACTION_START_TREE:
+            std::cout << "Start decision tree training" << "\n";
+            break;
+        case DecisionTreeLearner::ACTION_SPLIT_NODE:
+            std::cout << std::setw(15) << std::left << "Split node:"
+                    << "depth = " << std::setw(3) << std::right << state->depth
+                    << ", objective = " << std::setw(6) << std::left
+                    << std::setprecision(4) << state->objective << "\n";
+            break;
+        default:
+            std::cout << "UNKNOWN ACTION CODE " << state->action << "\n";
+            break;
+    }
+    return 0;
 }
