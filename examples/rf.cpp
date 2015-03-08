@@ -97,7 +97,7 @@ int main(int argc, const char** argv)
     forestLearner.setNumTrees(parameters["num-trees"].as<int>());
     forestLearner.setNumThreads(parameters["num-threads"].as<int>());
     
-    RandomForest* forest = forestLearner.learn(&storage);
+    RandomForest* forest = forestLearner.learn(&storageT);
     
     AccuracyTool accuracyTool;
     accuracyTool.measureAndPrint(forest, &storage);

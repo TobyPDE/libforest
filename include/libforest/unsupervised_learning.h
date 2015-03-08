@@ -31,6 +31,7 @@ namespace libf {
     };
     
     class DensityDecisionTreeLearnerState : public AbstractLearnerState {
+    public:
         DensityDecisionTreeLearnerState() : 
             node(0),
             samples(0),
@@ -40,6 +41,10 @@ namespace libf {
              * Current node.
              */
             int node;
+            /**
+             * Depth of node.
+             */
+            int depth;
             /**
              * Number of samples at current node.
              */
@@ -51,7 +56,7 @@ namespace libf {
     };
     
     class DensityDecisionTreeLearner : 
-            public AbstractDecisionTreeLearner<DensityDecisionTreeLearnerState>,
+            public AbstractDecisionTreeLearner<DensityDecisionTree, DensityDecisionTreeLearnerState>,
             public UnsupervisedLearner<DensityDecisionTree> {
     public:
         DensityDecisionTreeLearner() : AbstractDecisionTreeLearner() {};
@@ -59,7 +64,7 @@ namespace libf {
         /**
          * The default callback for this learner.
          */
-        static int defaultCallback(KernelDecisionTree* tree, DensityDecisionTreeLearnerState* state);
+        static int defaultCallback(DensityDecisionTree* tree, DensityDecisionTreeLearnerState* state);
                 
         /**
          * Actions for the callback function.

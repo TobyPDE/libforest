@@ -12,6 +12,11 @@
 #include <vector>
 #include <Eigen/Dense>
 
+// For gaussian sampling
+#include <boost/random/mersenne_twister.hpp>
+#include <boost/random/normal_distribution.hpp>
+#include <boost/random/variate_generator.hpp>
+
 #include "data.h"
 
 namespace libf {
@@ -535,36 +540,45 @@ namespace libf {
          */
         Gaussian() :
                 cachedInverse(false),
-                cachedDeterminant(false) {};
+                cachedDeterminant(false),
+                randN(rng, norm) {};
         
         /**
          * Gaussian with given mean and covariance.
          */
-        Gaussian(Eigen::VectorXf _mean, Eigen::MatrixXf _covariance) : 
-                mean(_mean), 
-                covariance(_covariance),
-                cachedInverse(false),
-                cachedDeterminant(false) {};
+        Gaussian(Eigen::VectorXf _mean, Eigen::MatrixXf _covariance);
         
         /**
          * Gaussian with given mean and covariance and cached determinant.
          */
-        Gaussian(Eigen::VectorXf _mean, Eigen::MatrixXf _covariance, float _covarianceDeterminant) : 
-                mean(_mean), 
-                covariance(_covariance),
-                cachedInverse(false),
-                cachedDeterminant(false),
-                covarianceDeterminant(__covarianceDeterminant) {};
+        Gaussian(Eigen::VectorXf _mean, Eigen::MatrixXf _covariance, float _covarianceDeterminant);
                 
         /**
          * Destructor.
          */
         ~Gaussian() {};
         
+        Gaussian operator=(const Gaussian & other)
+        {
+            mean = Eigen::VectorXf(other.mean);
+            covariance = Eigen::MatrixXf(other.covariance);
+
+            rot = Eigen::MatrixXf(other.rot);
+            scl = Eigen::VectorXf(other.scl);
+            
+            cachedInverse = false;
+            cachedDeterminant = false;
+        }
+        
         /**
          * Get probability of the given data point.
          */
         float evaluate(const DataPoint* x);
+        
+        /**
+         * Sample a point from the Gaussian.
+         */
+        DataPoint* sample();
         
         /**
          * Sets the mean.
@@ -585,12 +599,7 @@ namespace libf {
         /**
          * Sets the covariance matrix.
          */
-        void setCovariance(Eigen::MatrixXf _covariance)
-        {
-            covariance = Eigen::MatrixXf(_covariance);
-            cachedInverse = false;
-            cachedDeterminant = false;
-        }
+        void setCovariance(Eigen::MatrixXf _covariance);
         
         /**
          * Returns the covariance matrix.
@@ -627,6 +636,26 @@ namespace libf {
          * Cached determinant.
          */
         float covarianceDeterminant;
+        /**
+         * Uniform pseudo random generator.
+         */
+        boost::mt19937 rng;
+        /**
+         * Scalar Gaussian distribution.
+         */
+        boost::normal_distribution<float> norm;
+        /**
+         * Zero mean and unit variance Gaussian distribution.
+         */
+        boost::variate_generator<boost::mt19937&, boost::normal_distribution<float> > randN;
+        /**
+         * Eigenvectors of covariance matrix.
+         */
+        Eigen::MatrixXf rot;
+        /**
+         * Eigenvalues of covariance matrix.
+         */
+        Eigen::VectorXf scl;
     };
     
     /**
@@ -778,12 +807,12 @@ namespace libf {
         /**
          * Creates an empty density tree.
          */
-        DensityDecisionTree();
+        DensityDecisionTree() : DecisionTree() {};
         
         /**
          * Destructor.
          */
-        ~DensityDecisionTree();
+        ~DensityDecisionTree() {};
         
         /**
          * Get the Gaussian of a specific leaf.

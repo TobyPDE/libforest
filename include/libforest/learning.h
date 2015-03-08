@@ -129,8 +129,8 @@ namespace libf {
      * This is an abstract decision tree learning providing functionality
      * needed for all decision tree learners (online or offline.
      */
-    template<class S>
-    class AbstractDecisionTreeLearner : public AbstractLearner<DecisionTree, S> {
+    template<class M, class S>
+    class AbstractDecisionTreeLearner : public AbstractLearner<M, S> {
     public:
         AbstractDecisionTreeLearner() : 
                 numFeatures(10), 
@@ -298,7 +298,8 @@ namespace libf {
      * This is an ordinary offline decision tree learning algorithm. It learns the
      * tree using the information gain criterion.
      */
-    class DecisionTreeLearner : public AbstractDecisionTreeLearner<DecisionTreeLearnerState>, 
+    class DecisionTreeLearner : 
+            public AbstractDecisionTreeLearner<DecisionTree, DecisionTreeLearnerState>, 
             public Learner<DecisionTree> {
     public:
         DecisionTreeLearner() : AbstractDecisionTreeLearner(),

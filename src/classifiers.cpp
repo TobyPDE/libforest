@@ -245,6 +245,88 @@ void DecisionTree::write(std::ostream& stream) const
 /// Gaussian
 ////////////////////////////////////////////////////////////////////////////////
 
+Gaussian::Gaussian(Eigen::VectorXf _mean, Eigen::MatrixXf _covariance) :
+        mean(_mean), 
+        covariance(_covariance),
+        cachedInverse(false),
+        cachedDeterminant(false),
+        randN(rng, norm)
+{
+    const int rows = _covariance.rows();
+    const int cols = _covariance.cols();
+    
+    assert(rows == cols);
+    assert(rows == _mean.rows());
+    
+    Eigen::SelfAdjointEigenSolver<Eigen::MatrixXf> solver(covariance);
+        
+    rot = solver.eigenvectors();
+    scl = solver.eigenvalues();
+    for (int i =  0; i < rows; i++)
+    {
+        scl(i, 0) = std::sqrt(scl(i));
+    }
+}
+
+Gaussian::Gaussian(Eigen::VectorXf _mean, Eigen::MatrixXf _covariance, float _covarianceDeterminant) :
+        mean(_mean), 
+        covariance(_covariance),
+        cachedInverse(false),
+        cachedDeterminant(true),
+        covarianceDeterminant(_covarianceDeterminant),
+        randN(rng, norm)
+{
+    const int rows = _covariance.rows();
+    const int cols = _covariance.cols();
+    
+    assert(rows == cols);
+    assert(rows == _mean.rows());
+    
+    Eigen::SelfAdjointEigenSolver<Eigen::MatrixXf> solver(covariance);
+        
+    rot = solver.eigenvectors();
+    scl = solver.eigenvalues();
+    for (int i =  0; i < rows; i++)
+    {
+        scl(i, 0) = std::sqrt(scl(i));
+    }
+}
+
+void Gaussian::setCovariance(Eigen::MatrixXf _covariance)
+{
+    const int rows = _covariance.rows();
+    const int cols = _covariance.cols();
+    
+    assert(rows == cols);
+    
+    covariance = Eigen::MatrixXf(_covariance);
+    
+    Eigen::SelfAdjointEigenSolver<Eigen::MatrixXf> solver(covariance);
+        
+    rot = solver.eigenvectors();
+    scl = solver.eigenvalues();
+    for (int i =  0; i < rows; i++)
+    {
+        scl(i, 0) = std::sqrt(scl(i));
+    }
+    
+    cachedInverse = false;
+    cachedDeterminant = false;
+}
+
+DataPoint* Gaussian::sample()
+{
+    const int rows = mean.rows();
+    
+    DataPoint* x = new DataPoint(rows);
+    for (int i = 0 ; i < rows; i++)
+    {
+        x->at(i) = randN()*scl(i, 0);
+    }
+    
+    return x;
+}
+
 float Gaussian::evaluate(const DataPoint* x)
 {
     assert(x->getDimensionality() == mean.rows());

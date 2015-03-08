@@ -8,7 +8,7 @@
 using namespace libf;
 
 /**
- * Example of cecision tree learning.
+ * Example of decision tree learning.
  * 
  * Usage:
  * $ ./lib_forest/examples/cli_decision_tree --help
@@ -82,7 +82,7 @@ int main(int argc, const char** argv)
     treeLearner.setNumFeatures(parameters["num-features"].as<int>());
     treeLearner.addCallback(DecisionTreeLearner::defaultCallback, 1);
     
-    DecisionTree* tree = treeLearner.learn(&storage);
+    DecisionTree* tree = treeLearner.learn(&storageT);
     
     AccuracyTool accuracyTool;
     accuracyTool.measureAndPrint(tree, &storage);

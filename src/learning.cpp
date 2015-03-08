@@ -328,11 +328,11 @@ void DecisionTreeLearner::updateHistograms(DecisionTree* tree, const DataStorage
     }
 }
 
-int DecisionTreeLearner::defaultCallback(DecisionTree* forest, DecisionTreeLearnerState* state)
+int DecisionTreeLearner::defaultCallback(DecisionTree* tree, DecisionTreeLearnerState* state)
 {
     switch (state->action) {
         case DecisionTreeLearner::ACTION_START_TREE:
-            std::cout << "Start decision tree training\n" << "\n";
+            std::cout << "Start decision tree training" << "\n";
             break;
         case DecisionTreeLearner::ACTION_SPLIT_NODE:
             std::cout << std::setw(15) << std::left << "Split node:"
@@ -344,6 +344,7 @@ int DecisionTreeLearner::defaultCallback(DecisionTree* forest, DecisionTreeLearn
             std::cout << "UNKNOWN ACTION CODE " << state->action << "\n";
             break;
     }
+    
     return 0;
 
 }

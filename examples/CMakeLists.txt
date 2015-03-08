@@ -1,7 +1,8 @@
 cmake_minimum_required(VERSION 2.6)
 
 find_package(Boost COMPONENTS system filesystem program_options REQUIRED)
-include_directories(../include ${Boost_INCLUDE_DIRS})
+find_package(Eigen3 REQUIRED)
+include_directories(../include ${EIGEN3_INCLUDE_DIR} ${Boost_INCLUDE_DIRS})
 
 add_executable(cli_convert convert.cpp)
 target_link_libraries(cli_convert libforest ${Boost_LIBRARIES})
@@ -15,6 +16,9 @@ target_link_libraries(cli_adaboost libforest ${Boost_LIBRARIES})
 add_executable(cli_decision_tree decision_tree.cpp)
 target_link_libraries(cli_decision_tree libforest ${Boost_LIBRARIES})
 
+add_executable(cli_pixel_importance pixel_importance.cpp)
+target_link_libraries(cli_pixel_importance libforest ${Boost_LIBRARIES} ${OpenCV_LIBRARIES})
+
 add_executable(cli_online_decision_tree online_decision_tree.cpp)
 target_link_libraries(cli_online_decision_tree libforest ${Boost_LIBRARIES})
 
@@ -24,5 +28,5 @@ target_link_libraries(cli_online_rf libforest ${Boost_LIBRARIES})
 add_executable(cli_online_rf_convergence online_rf_convergence.cpp)
 target_link_libraries(cli_online_rf_convergence libforest ${Boost_LIBRARIES})
 
-add_executable(cli_pixel_importance pixel_importance.cpp)
-target_link_libraries(cli_pixel_importance libforest ${Boost_LIBRARIES})
+add_executable(cli_density_tree density_tree.cpp)
+target_link_libraries(cli_density_tree libforest ${Boost_LIBRARIES} ${OpenCV_LIBRARIES})
