@@ -4,7 +4,6 @@
 #include <fstream>
 #include <boost/program_options.hpp>
 #include <boost/filesystem.hpp>
-#include "multivariate_gaussian.h"
 #include <Eigen/Dense>
 #include <cmath>
 #include <opencv2/opencv.hpp>
