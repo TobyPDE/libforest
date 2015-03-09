@@ -106,10 +106,10 @@ int main(int argc, const char** argv)
     RandomForest* forest = forestLearner.learn(&storage);
     
     AccuracyTool accuracyTool;
-    accuracyTool.measureAndPrint(forest, &storage);
+    accuracyTool.measureAndPrint(forest, &storageT);
     
     ConfusionMatrixTool confusionMatrixTool;
-    confusionMatrixTool.measureAndPrint(forest, &storage);
+    confusionMatrixTool.measureAndPrint(forest, &storageT);
     
     // USPS images are 16 x 16, MNIST are 28 x 28.
     PixelImportanceTool piTool;

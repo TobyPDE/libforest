@@ -99,6 +99,7 @@ DecisionTree* OnlineDecisionTreeLearner::learn(const DataStorage* storage, Decis
     const int C = storage->getClasscount();
     const int N = storage->getSize();
     
+    assert(numFeatures <= D);
     assert(thresholdGenerator.getSize() == D);
     
     // Saves the sum of impurity decrease achieved by each feature
@@ -153,7 +154,7 @@ DecisionTree* OnlineDecisionTreeLearner::learn(const DataStorage* storage, Decis
             std::shuffle(features.begin(), features.end(), std::default_random_engine(rd()));
             
             // Used to make sure, that non/trivial, different features are chosen.
-            int f_alt = numFeatures;
+//            int f_alt = numFeatures;
             
             for (int f = 0; f < numFeatures; f++)
             {
