@@ -64,6 +64,26 @@ cv::Mat visualizeGaussians(int H, int W, std::vector<Gaussian> gaussians, std::v
     return image;
 }
 
+cv::Mat visualizeSamples(int H, int W, const UnlabeledDataStorage & storage)
+{
+    cv::Mat image(H, W, CV_8UC1, cv::Scalar(255));
+    
+    for (int n = 0; n < storage.getSize(); n++)
+    {
+        DataPoint* x = storage.getDataPoint(n);
+        
+        int i = std::floor(x->at(0));
+        int j = std::floor(x->at(1));
+        
+        if (i >= 0 && i < H && j >= 0 && j < W)
+        {
+            image.at<unsigned char>(i, j) = 0;
+        }
+    }
+    
+    return image;
+}
+
 /**
  * Example of density tree.
  * 
@@ -122,7 +142,7 @@ int main(int argc, const char** argv)
         float v1 = randFloat(25, W/4);
         float theta = randFloat(0, M_PI);
         
-        Eigen::Matrix2f covariance = genCovar(v0, v1, theta);
+        Eigen::Matrix2f covariance = genCovar(v0, 2*v1, theta);
         
         Eigen::Vector2f mean(2);
         mean(0) = randFloat(H/4, 3*(H/4));
@@ -137,7 +157,20 @@ int main(int argc, const char** argv)
     }
     
     cv::Mat image = visualizeGaussians(H, W, gaussians, weights);
-    cv::imwrite("gaussian.png", image);
+    cv::imwrite("gaussians.png", image);
+    
+    // Generate samples.
+    const int N = parameters["num-samples"].as<int>();
+    UnlabeledDataStorage storage;
+    
+    for (int n = 0; n < N; n++)
+    {
+        int m = std::rand() % M;
+        storage.addDataPoint(gaussians[m].sample());
+    }
+    
+    cv::Mat image_samples = visualizeSamples(H, W, storage);
+    cv::imwrite("samples.png", image_samples);
     
     return 0;
 }
