@@ -172,5 +172,12 @@ int main(int argc, const char** argv)
     cv::Mat image_samples = visualizeSamples(H, W, storage);
     cv::imwrite("samples.png", image_samples);
     
+    DensityDecisionTreeLearner learner;
+    learner.addCallback(DensityDecisionTreeLearner::defaultCallback, 1);
+    
+    DensityDecisionTree* tree = learner.learn(&storage);
+    
+    
+    
     return 0;
 }
