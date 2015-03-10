@@ -347,10 +347,12 @@ float Gaussian::evaluate(const DataPoint* x)
     }
     
     Eigen::VectorXf x_bar = asEigenVector(x);
-    
     Eigen::VectorXf offset = x_bar - mean;
-    return 1/std::sqrt(pow(2*M_PI, mean.rows())*covarianceDeterminant)
-            * std::exp(-1/2 * offset.transpose()*covarianceInverse*offset);
+    
+    float p = 1/std::sqrt(pow(2*M_PI, mean.rows())*covarianceDeterminant)
+            * std::exp(- (1./2.) * offset.transpose()*covarianceInverse*offset);
+    
+    return p;
 }
 
 Eigen::VectorXf Gaussian::asEigenVector(const DataPoint* x)

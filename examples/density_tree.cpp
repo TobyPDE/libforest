@@ -18,30 +18,46 @@ Eigen::Matrix2f genCovar(float v0, float v1, float theta)
 
 float randFloat(float min, float max)
 {
-    return min + static_cast<float>(std::rand()) / (static_cast<float>(RAND_MAX/max));
+    return min + static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX) * (max - min);
 }
 
 cv::Mat visualizeGaussians(int H, int W, std::vector<Gaussian> gaussians, std::vector<float> weights)
 {
     assert(weights.size() == gaussians.size());
+    const int M = weights.size();
     
-    cv::Mat image(H, W, CV_8UC3, cv::Scalar(0, 0, 0));
+    cv::Mat image(H, W, CV_32FC1, cv::Scalar(0));
+    float p_max = 0;
+    
     for (int i = 0; i < H; i++)
     {
         for (int j = 0; j < W; j++)
         {
-            float p_x = 0;
-            
             DataPoint x(2);
             x.at(0) = i;
             x.at(1) = j;
             
-            for (int m = 0; m < weights.size(); m++)
+            float p_x = 0;
+            
+            for (int m = 0; m < M; m++)
             {
-                p_x += weights[m] * gaussians[m].evaluate(&x);
+                p_x += weights[m]*gaussians[m].evaluate(&x);
             }
             
-            image.at<cv::Vec3b>(i, j) = cv::Vec3b(0, p_x*255, 255);
+            if (p_x > p_max)
+            {
+                p_max = p_x;
+            }
+            
+            image.at<float>(i, j) = p_x;
+        }
+    }
+    
+    for (int i = 0; i < H; i++)
+    {
+        for (int j = 0; j < W; j++)
+        {
+            image.at<float>(i, j) = image.at<float>(i, j)/p_max * 255;
         }
     }
     
@@ -80,68 +96,48 @@ int main(int argc, const char** argv)
         return 1;
     }
     
-    // Generate a artificial dataset from a gaussian mixture model.
-    const int N = parameters["num-samples"].as<int>();
-    const int M = 2;
-    const int W = 400;
+    // Number of components.
+    const int M = 3;
     const int H = 400;
+    const int W = 400;
     
-    std::vector<float> w(M, 0.f);
-    float w_sum = 0.f;
+    // New seed.
+    std::srand(std::time(0));
     
-    std::vector<Gaussian> gaussians(M);
+    std::vector<Gaussian> gaussians;
+    std::vector<float> weights(M);
+    float weights_sum = 0;
     
     for (int m = 0; m < M; m++)
     {
-        w[m] = std::rand()%100;
-        w_sum += w[m];
+        do
+        {
+            weights[m] = randFloat(0, 1);
+        }
+        while (weights[m] == 0);
         
-        Eigen::VectorXf mean;
-        mean(0) = randFloat(H/4.f, H/4.f + H/2.f);
-        mean(1) = randFloat(W/4.f, W/4.f + W/2.f);
+        weights_sum +=weights[m];
         
-        float v0 = randFloat(0.f, H/100.f);
-        float v1 = randFloat(0.f, W/100.f);
-        float theta = std::fmod(randFloat(0.f, 10.f), M_PI);
+        float v0 = randFloat(25, H/4);
+        float v1 = randFloat(25, W/4);
+        float theta = randFloat(0, M_PI);
         
-        Eigen::MatrixXf covariance = genCovar(v0, v1, theta);
+        Eigen::Matrix2f covariance = genCovar(v0, v1, theta);
         
-        Gaussian gaussian(mean, covariance);
-        gaussians[m] = gaussian;
+        Eigen::Vector2f mean(2);
+        mean(0) = randFloat(H/4, 3*(H/4));
+        mean(1) = randFloat(W/4, 3*(W/4));
+        
+        gaussians.push_back(Gaussian(mean, covariance));
     }
     
-    // Normalize weights.
-    std::vector<float> w_cum_sum(M, w[0]);
     for (int m = 0; m < M; m++)
     {
-        w[m] /= w_sum;
-        
-        // Update cumulative sum.
-        if (m > 0)
-        {
-            w_cum_sum[m] += w_cum_sum[m - 1];
-        }
+        weights[m] /= weights_sum;
     }
     
-    UnlabeledDataStorage storage;
-    for (int n = 0; n < N; n++)
-    {
-        float r = randFloat(0.f, 1.f);
-        int m = 0;
-        while (r > w_cum_sum[m])
-        {
-            m++;
-        }
-        
-        assert(m < M);
-        
-        // Sample from the m-th gaussian.
-        DataPoint* x = gaussians[m].sample();
-        storage.addDataPoint(x);
-    }
+    cv::Mat image = visualizeGaussians(H, W, gaussians, weights);
+    cv::imwrite("gaussian.png", image);
     
-    // Visualize the initial distribution as image.
-    cv::Mat image = visualizeGaussians(H, W, gaussians, w);
-    cv::imwrite("test.png", image);
     return 0;
 }
