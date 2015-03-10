@@ -259,13 +259,7 @@ Gaussian::Gaussian(Eigen::VectorXf _mean, Eigen::MatrixXf _covariance) :
     assert(rows == _mean.rows());
     
     Eigen::SelfAdjointEigenSolver<Eigen::MatrixXf> solver(covariance);
-        
-    rot = solver.eigenvectors();
-    scl = solver.eigenvalues();
-    for (int i =  0; i < rows; i++)
-    {
-        scl(i, 0) = std::sqrt(scl(i));
-    }
+    transform = solver.eigenvectors()*solver.eigenvalues().cwiseSqrt().asDiagonal();
 }
 
 Gaussian::Gaussian(Eigen::VectorXf _mean, Eigen::MatrixXf _covariance, float _covarianceDeterminant) :
@@ -283,13 +277,7 @@ Gaussian::Gaussian(Eigen::VectorXf _mean, Eigen::MatrixXf _covariance, float _co
     assert(rows == _mean.rows());
     
     Eigen::SelfAdjointEigenSolver<Eigen::MatrixXf> solver(covariance);
-        
-    rot = solver.eigenvectors();
-    scl = solver.eigenvalues();
-    for (int i =  0; i < rows; i++)
-    {
-        scl(i, 0) = std::sqrt(scl(i));
-    }
+    transform = solver.eigenvectors()*solver.eigenvalues().cwiseSqrt().asDiagonal();
 }
 
 void Gaussian::setCovariance(Eigen::MatrixXf _covariance)
@@ -302,13 +290,7 @@ void Gaussian::setCovariance(Eigen::MatrixXf _covariance)
     covariance = Eigen::MatrixXf(_covariance);
     
     Eigen::SelfAdjointEigenSolver<Eigen::MatrixXf> solver(covariance);
-        
-    rot = solver.eigenvectors();
-    scl = solver.eigenvalues();
-    for (int i =  0; i < rows; i++)
-    {
-        scl(i, 0) = std::sqrt(scl(i));
-    }
+    transform = solver.eigenvectors()*solver.eigenvalues().cwiseSqrt().asDiagonal();
     
     cachedInverse = false;
     cachedDeterminant = false;
@@ -318,13 +300,15 @@ DataPoint* Gaussian::sample()
 {
     const int rows = mean.rows();
     
-    DataPoint* x = new DataPoint(rows);
-    for (int i = 0 ; i < rows; i++)
+    Eigen::VectorXf randNVector(rows);
+    for (int i = 0; i < rows; i++)
     {
-        x->at(i) = randN()*scl(i, 0);
+        randNVector(i) = randN();
     }
     
-    return x;
+    Eigen::VectorXf x = transform * randNVector + mean;
+    
+    return asDataPoint(x);
 }
 
 float Gaussian::evaluate(const DataPoint* x)
@@ -362,6 +346,18 @@ Eigen::VectorXf Gaussian::asEigenVector(const DataPoint* x)
     for (int i = 0; i < x->getDimensionality(); i++)
     {
         x_bar(i) = x->at(i);
+    }
+    
+    return x_bar;
+}
+
+DataPoint* Gaussian::asDataPoint(const Eigen::VectorXf & x)
+{
+    DataPoint* x_bar = new DataPoint(x.rows());
+    
+    for (int i = 0; i < x.rows(); i++)
+    {
+        x_bar->at(i) = x(i);
     }
     
     return x_bar;

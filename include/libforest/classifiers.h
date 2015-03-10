@@ -563,8 +563,7 @@ namespace libf {
             mean = Eigen::VectorXf(other.mean);
             covariance = Eigen::MatrixXf(other.covariance);
 
-            rot = Eigen::MatrixXf(other.rot);
-            scl = Eigen::VectorXf(other.scl);
+            transform = Eigen::MatrixXf(other.transform);
             
             cachedInverse = false;
             cachedDeterminant = false;
@@ -611,6 +610,7 @@ namespace libf {
         
     private:
         Eigen::VectorXf asEigenVector(const DataPoint* x);
+        DataPoint* asDataPoint(const Eigen::VectorXf & y);
         
         /**
          * Mean of Gaussian.
@@ -649,13 +649,9 @@ namespace libf {
          */
         boost::variate_generator<boost::mt19937&, boost::normal_distribution<float> > randN;
         /**
-         * Eigenvectors of covariance matrix.
+         * Eigenvector and eigenvalue transformation for sampling.
          */
-        Eigen::MatrixXf rot;
-        /**
-         * Eigenvalues of covariance matrix.
-         */
-        Eigen::VectorXf scl;
+        Eigen::MatrixXf transform;
     };
     
     /**
