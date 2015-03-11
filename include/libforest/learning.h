@@ -283,7 +283,7 @@ namespace libf {
         /**
          * The data storage
          */
-        const AbstractDataStorage* storage;
+        const UnlabeledDataStorage* storage;
 
         /**
          * Compares two training examples
@@ -303,8 +303,8 @@ namespace libf {
             public Learner<DecisionTree> {
     public:
         DecisionTreeLearner() : AbstractDecisionTreeLearner(),
-                useBootstrap(false),
                 smoothingParameter(1),
+                useBootstrap(false),
                 numBootstrapExamples(1) {}
                 
         /**

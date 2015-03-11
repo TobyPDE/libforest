@@ -283,8 +283,10 @@ void VariableImportanceTool::measure(RandomForestLearner* learner, std::vector<f
 
 void VariableImportanceTool::print(const std::vector<float> & result) const
 {
+    const int F = static_cast<int>(result.size());
+    
     float max = 0;
-    for (int f = 0; f < result.size(); f++)
+    for (int f = 0; f < F; f++)
     {
         if (result[f] > max)
         {
@@ -292,7 +294,7 @@ void VariableImportanceTool::print(const std::vector<float> & result) const
         }
     }
     
-    for (int f = 0; f < result.size(); ++f)
+    for (int f = 0; f < F; ++f)
     {
         if (result[f] > 0)
         {
@@ -316,11 +318,13 @@ void VariableImportanceTool::measureAndPrint(RandomForestLearner* learner) const
 
 void PixelImportanceTool::measureAndSave(RandomForestLearner* learner, boost::filesystem::path file, int rows) const
 {
-    cv::Mat image(rows, rows, CV_8UC3, cv::Scalar(255, 255, 255));
     const std::vector<float> result = learner->getImportance();
+    const int F = static_cast<int>(result.size());
+    
+    cv::Mat image(rows, rows, CV_8UC3, cv::Scalar(255, 255, 255));
     
     float max = 0;
-    for (int i = 0; i < result.size(); i++)
+    for (int i = 0; i < F; i++)
     {
         if (result[i] > max)
         {
