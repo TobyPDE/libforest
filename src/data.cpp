@@ -157,10 +157,10 @@ void ClassLabelMap::read(std::istream& stream)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-/// AbstractDataStorage
+/// UnlabeledDataStorage
 ////////////////////////////////////////////////////////////////////////////////
 
-AbstractDataStorage::AbstractDataStorage(const AbstractDataStorage & other)
+UnlabeledDataStorage::UnlabeledDataStorage(const UnlabeledDataStorage & other)
 {
     // Copy all arrays
     dataPoints = other.dataPoints;
@@ -173,7 +173,7 @@ AbstractDataStorage::AbstractDataStorage(const AbstractDataStorage & other)
     }
 }
 
-AbstractDataStorage & AbstractDataStorage::operator=(const AbstractDataStorage & other)
+UnlabeledDataStorage & UnlabeledDataStorage::operator=(const UnlabeledDataStorage & other)
 {
     if (this != &other)
     {
@@ -191,7 +191,7 @@ AbstractDataStorage & AbstractDataStorage::operator=(const AbstractDataStorage &
     return *this;
 }
 
-void AbstractDataStorage::permute(const std::vector<int>& permutation)
+void UnlabeledDataStorage::permute(const std::vector<int>& permutation)
 {
     // We cannot permute in-place
     std::vector< DataPoint* > dataPointsCopy(dataPoints);
@@ -202,7 +202,7 @@ void AbstractDataStorage::permute(const std::vector<int>& permutation)
     Util::permute(permutation, freeFlagsCopy, freeFlags);
 }
 
-void AbstractDataStorage::randPermute()
+void UnlabeledDataStorage::randPermute()
 {
     // Set up a random permutation
     std::vector<int> permutation(getSize());
@@ -216,13 +216,13 @@ void AbstractDataStorage::randPermute()
     permute(permutation);
 }
 
-void AbstractDataStorage::dumpInformation(std::ostream & stream)
+void UnlabeledDataStorage::dumpInformation(std::ostream & stream)
 {
     stream << std::setw(30) << "Size" << ": " << getSize() << "\n";
     stream << std::setw(30) << "Dimensionality" << ": " << getDimensionality() << "\n";
 }
 
-void AbstractDataStorage::free()
+void UnlabeledDataStorage::free()
 {
     for (size_t i = 0; i < dataPoints.size(); i++)
     {
@@ -240,7 +240,7 @@ void AbstractDataStorage::free()
 /// DataStorage
 ////////////////////////////////////////////////////////////////////////////////
 
-DataStorage::DataStorage(const DataStorage & other) : AbstractDataStorage(other)
+DataStorage::DataStorage(const DataStorage & other) : UnlabeledDataStorage(other)
 {
     classLabels = other.classLabels;
     classLabelMap = other.classLabelMap;
@@ -275,7 +275,7 @@ DataStorage DataStorage::excerpt(int begin, int end)
 
 DataStorage & DataStorage::operator=(const DataStorage & other)
 {
-    AbstractDataStorage::operator=(other);
+    UnlabeledDataStorage::operator=(other);
     
     if (this != &other)
     {
@@ -290,14 +290,14 @@ DataStorage & DataStorage::operator=(const DataStorage & other)
 
 void DataStorage::free()
 {
-    AbstractDataStorage::free();
+    UnlabeledDataStorage::free();
     classLabels.empty();
     freeFlags.empty();
 }
 
 void DataStorage::permute(const std::vector<int>& permutation)
 {
-    AbstractDataStorage::permute(permutation);
+    UnlabeledDataStorage::permute(permutation);
     
     std::vector<int> classLabelsCopy(classLabels);
     Util::permute(permutation, classLabelsCopy, classLabels);
@@ -334,7 +334,7 @@ void DataStorage::dumpInformation(std::ostream & stream)
     std::vector<int> intLabelMap;
     getClassLabelMap().computeIntClassLabels(intLabelMap);
     
-    AbstractDataStorage::dumpInformation(stream);
+    UnlabeledDataStorage::dumpInformation(stream);
     stream << std::setw(30) << "Classes" << ": " << getClasscount() << "\n";
 }
 
@@ -486,7 +486,6 @@ void CSVDataProvider::read(std::istream & stream, UnlabeledDataStorage* dataStor
         
         // Load the data point
         DataPoint* dataPoint = new DataPoint(isize - 1);
-        int  label = 0;
         for (int  i = 0; i < isize; i++)
         {
             dataPoint->at(i) = atof(row[i].c_str());

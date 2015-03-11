@@ -75,7 +75,7 @@ void OnlineDecisionTreeLearner::updateSplitStatistics(std::vector<EfficientEntro
     for (int f = 0; f < numFeatures; f++)
     {
         // There may not be numThresholds thresholds yet!!!
-        for (int t = 0; t < thresholds[f].size(); t++)
+        for (unsigned int t = 0; t < thresholds[f].size(); t++)
         {
             if (x->at(features[f]) < thresholds[f][t])
             {
@@ -209,7 +209,7 @@ DecisionTree* OnlineDecisionTreeLearner::learn(const DataStorage* storage, Decis
         if (useBootstrap)
         {
             std::poisson_distribution<int> poisson(bootstrapLambda);
-            int K = poisson(g); // May also give zero.
+            K = poisson(g); // May also give zero.
         }
         
         for (int k = 0; k < K; k++)
@@ -416,7 +416,6 @@ RandomForest* OnlineRandomForestLearner::learn(const DataStorage* storage, Rando
     int treeStartCounter = 0; 
     int treeFinishCounter = 0; 
     
-    DecisionTree* tree;
     #pragma omp parallel for num_threads(numThreads)
     for (int i = 0; i < numTrees; i++)
     {

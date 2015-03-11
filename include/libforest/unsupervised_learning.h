@@ -5,7 +5,7 @@
 #include <iostream>
 #include <cmath>
 #include <vector>
-#include "classifiers.h"
+#include "estimators.h"
 #include "learning.h"
 
 namespace libf {
@@ -13,8 +13,8 @@ namespace libf {
      * Forward declarations.
      */
     class UnlabeledDataStorage;
-    class DensityDecisionTree;
-    class DensityDecisionTreeLearner;
+    class DensityTree;
+    class DensityTreeLearner;
     
     /**
      * This is the base class for all unsupervised learners.
@@ -30,9 +30,9 @@ namespace libf {
 
     };
     
-    class DensityDecisionTreeLearnerState : public AbstractLearnerState {
+    class DensityTreeLearnerState : public AbstractLearnerState {
     public:
-        DensityDecisionTreeLearnerState() : 
+        DensityTreeLearnerState() : 
             node(0),
             samples(0),
             objective(0) {};
@@ -55,16 +55,16 @@ namespace libf {
             float objective;
     };
     
-    class DensityDecisionTreeLearner : 
-            public AbstractDecisionTreeLearner<DensityDecisionTree, DensityDecisionTreeLearnerState>,
-            public UnsupervisedLearner<DensityDecisionTree> {
+    class DensityTreeLearner : 
+            public AbstractDecisionTreeLearner<DensityTree, DensityTreeLearnerState>,
+            public UnsupervisedLearner<DensityTree> {
     public:
-        DensityDecisionTreeLearner() : AbstractDecisionTreeLearner() {};
+        DensityTreeLearner() : AbstractDecisionTreeLearner() {};
                 
         /**
          * The default callback for this learner.
          */
-        static int defaultCallback(DensityDecisionTree* tree, DensityDecisionTreeLearnerState* state);
+        static int defaultCallback(DensityTree* tree, DensityTreeLearnerState* state);
                 
         /**
          * Actions for the callback function.
@@ -75,7 +75,7 @@ namespace libf {
         /**
          * Learn a density tree.
          */
-        DensityDecisionTree* learn(const UnlabeledDataStorage* storage);
+        DensityTree* learn(const UnlabeledDataStorage* storage);
         
     protected:
         void updateLeafNodeGaussian(Gaussian gaussian, EfficientCovarianceMatrix covariance);

@@ -20,15 +20,18 @@ static std::random_device rd;
 /**
  * Updates the leaf node histograms using a smoothing parameter
  */
-inline void updateLeafNodeHistogram(std::vector<float> & leafNodeHistograms, const EfficientEntropyHistogram & hist, float smoothing, bool useBootstrap)
+inline void updateLeafNodeHistogram(std::vector<float> & leafNodeHistogram, const EfficientEntropyHistogram & hist, float smoothing, bool useBootstrap)
 {
-    leafNodeHistograms.resize(hist.getSize());
+    const int C = hist.getSize();
+    
+    leafNodeHistogram.resize(C);
+    assert(leafNodeHistogram.size() > 0);
     
     if(!useBootstrap)
     {
-        for (int c = 0; c < hist.getSize(); c++)
+        for (int c = 0; c < C; c++)
         {
-            leafNodeHistograms[c] = std::log((hist.at(c) + smoothing)/(hist.getMass() + hist.getSize() * smoothing));
+            leafNodeHistogram[c] = std::log((hist.at(c) + smoothing)/(hist.getMass() + hist.getSize() * smoothing));
         }
     }
 }
@@ -133,9 +136,9 @@ DecisionTree* DecisionTreeLearner::learn(const DataStorage* dataStorage)
         //  If the maximum depth is reached
         if (hist.getMass() < minSplitExamples || hist.isPure() || tree->getDepth(node) > maxDepth)
         {
-            delete[] trainingExampleList;
             // Resize and initialize the leaf node histogram
             updateLeafNodeHistogram(tree->getHistogram(node), hist, smoothingParameter, useBootstrap);
+            assert(tree->getHistogram(node).size() > 0);
             continue;
         }
         
@@ -215,8 +218,8 @@ DecisionTree* DecisionTreeLearner::learn(const DataStorage* dataStorage)
         {
             // We didn't
             // Don't split
-            delete[] trainingExampleList;
             updateLeafNodeHistogram(tree->getHistogram(node), hist, smoothingParameter, useBootstrap);
+            assert(tree->getHistogram(node).size() > 0);
             continue;
         }
         

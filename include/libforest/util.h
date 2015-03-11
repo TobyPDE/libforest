@@ -1,21 +1,23 @@
 #ifndef LIBF_UTIL_H
 #define LIBF_UTIL_H
 
+#include "libforest/data.h"
+#include "libforest/error_handling.h"
+#include "libforest/fastlog.h"
 #include <vector>
 #include <iostream>
-
-#include "error_handling.h"
-#include "fastlog.h"
+#include <Eigen/Dense>
+#include <Eigen/LU>
 
 /**
  * This is the buffer size for the arrays in the graph structures
  */
-#define LIBF_GRAPH_BUFFER_SIZE 5000
+#define LIBF_GRAPH_BUFFER_SIZE 10000
 
 /**
  * Quickly computes the entropy of a single bin of a histogram.
  */
-#define ENTROPY(p) (-(p)*fastlog2(p))
+#define LIBF_ENTROPY(p) (-(p)*fastlog2(p))
 
 namespace libf {
     class Exception {
@@ -320,12 +322,12 @@ namespace libf {
         {
             BOOST_ASSERT_MSG(i >= 0 && i < bins, "Invalid bin bin index.");
 
-            totalEntropy += ENTROPY(mass);
+            totalEntropy += LIBF_ENTROPY(mass);
             mass += 1;
-            totalEntropy -= ENTROPY(mass);
+            totalEntropy -= LIBF_ENTROPY(mass);
             histogram[i]++;
             totalEntropy -= entropies[i];
-            entropies[i] = ENTROPY(histogram[i]); 
+            entropies[i] = LIBF_ENTROPY(histogram[i]); 
             totalEntropy += entropies[i];
         }
         
@@ -339,9 +341,9 @@ namespace libf {
             BOOST_ASSERT_MSG(i >= 0 && i < bins, "Invalid bin bin index.");
             BOOST_ASSERT_MSG(at(i) > 0, "Bin is already empty.");
 
-            totalEntropy += ENTROPY(mass);
+            totalEntropy += LIBF_ENTROPY(mass);
             mass -= 1;
-            totalEntropy -= ENTROPY(mass);
+            totalEntropy -= LIBF_ENTROPY(mass);
 
             histogram[i]--;
             totalEntropy -= entropies[i];
@@ -351,7 +353,7 @@ namespace libf {
             }
             else
             {
-                entropies[i] = ENTROPY(histogram[i]); 
+                entropies[i] = LIBF_ENTROPY(histogram[i]); 
                 totalEntropy += entropies[i];
             }
         }
@@ -428,6 +430,202 @@ namespace libf {
          * The total entropy
          */
         float totalEntropy;
+    };
+    
+    /**
+     * Represents the Gaussian at each leaf and allows to update mean and covariance
+     * efficiently as well as compute the determinant of the covariance matrix
+     * for learning.
+     */
+    class EfficientCovarianceMatrix {
+    public:
+        /**
+         * Creates an empty covaraince matrix.
+         */
+        EfficientCovarianceMatrix() : 
+                dimensions(0),
+                mass(0),
+                cachedTrueCovariance(false),
+                cachedDeterminant(false),
+                covarianceDeterminant(0) {};
+                
+        /**
+         * Creates a _classes x _classes covariance matrix.
+         */
+        EfficientCovarianceMatrix(int _dimensions) : 
+                dimensions(_dimensions),
+                mass(0),
+                covariance(_dimensions, _dimensions),
+                mean(_dimensions),
+                cachedTrueCovariance(false),
+                cachedDeterminant(false),
+                trueCovariance(_dimensions, _dimensions),
+                covarianceDeterminant(0) {};
+                
+        /**
+         * Destructor.
+         */
+        ~EfficientCovarianceMatrix() {};
+        
+        EfficientCovarianceMatrix operator=(const EfficientCovarianceMatrix & other)
+        {
+            mean = Eigen::VectorXf(other.mean);
+            covariance = Eigen::MatrixXf(other.covariance);
+            dimensions = other.dimensions;
+            mass = other.mass;
+            // TODO: does currently not consider caching!
+            
+            return *this;
+        }
+        
+        /**
+         * Resets the mean and covariance to zero.
+         */
+        void reset()
+        {
+            mean = Eigen::VectorXf::Zero(dimensions);
+            covariance = Eigen::MatrixXf::Zero(dimensions, dimensions);
+            mass = 0;
+            
+            // Update caches.
+            cachedTrueCovariance = false;
+            cachedDeterminant = false;
+            trueCovariance = Eigen::MatrixXf::Zero(dimensions, dimensions);
+            covarianceDeterminant = 0;
+        }
+        
+        /**
+         * Get the number of samples.
+         */
+        int getMass()
+        {
+            return mass;
+        }
+        
+        /**
+         * Add a sample and update covariance and mean estimate.
+         */
+        void addOne(const DataPoint* x)
+        {
+            assert(x->getDimensionality() == mean.rows());
+            assert(x->getDimensionality() == covariance.rows());
+
+            for (int i = 0; i < x->getDimensionality(); i++)
+            {
+                // Update runnign estimate of mean.
+                mean(i) += x->at(i);
+
+                for (int j = 0; j < x->getDimensionality(); j++)
+                {
+                    // Update runnign estimate of covariance.
+                    covariance(i, j) += x->at(i)*x->at(j);
+                }
+            }
+
+            mass += 1;
+        }
+        
+        /**
+         * Remove a sample and update covariance and mean estimate.
+         */
+        void subOne(const DataPoint* x)
+        {
+            assert(x->getDimensionality() == mean.rows());
+            assert(x->getDimensionality() == covariance.rows());
+
+            for (int i = 0; i < x->getDimensionality(); i++)
+            {
+                // Update runnign estimate of mean.
+                mean(i) -= x->at(i);
+
+                for (int j = 0; j < x->getDimensionality(); j++)
+                {
+                    // Update runnign estimate of covariance.
+                    covariance(i, j) -= x->at(i)*x->at(j);
+                }
+            }
+
+            mass += 1;
+        }
+        
+        /**
+         * Returns mean.
+         */
+        Eigen::VectorXf & getMean()
+        {
+            return mean;
+        }
+        
+        /**
+         * Returns true covariance matrix from estimates.
+         */
+        Eigen::MatrixXf & getCovariance()
+        {
+            if (!cachedTrueCovariance)
+            {
+                trueCovariance = (covariance - mean*mean.transpose())/mass;
+            }
+
+            return trueCovariance;
+        }
+        
+        /**
+         * Returns covariance determinant;
+         */
+        float getDeterminant()
+        {
+            if (!cachedDeterminant)
+            {
+                covarianceDeterminant = getCovariance().determinant();
+            }
+
+            return covarianceDeterminant;
+        }
+        
+        /**
+         * Get the entropy to determine split objective.
+         */
+        float getEntropy()
+        {
+            return LIBF_ENTROPY(mass)*LIBF_ENTROPY(getDeterminant());
+        }
+        
+    private:
+        
+        /**
+         * Number of dimensions: dimension x dimension covariance matrix.
+         */
+        int dimensions;
+        /**
+         * Number of samples.
+         */
+        int mass;
+        /**
+         * Current estimate of dimension x dimension covariance matrix.
+         */
+        Eigen::MatrixXf covariance;
+        /**
+         * Current estimate of mean.
+         */
+        Eigen::VectorXf mean;
+        /**
+         * The true covariance is cached for reuse when setting a leaf's
+         * Gaussian distribution.
+         */
+        bool cachedTrueCovariance;
+        /**
+         * The determinant is cached for the same reason as above.
+         */
+        bool cachedDeterminant;
+        /**
+         * Cached true covariance matrix.
+         */
+        Eigen::MatrixXf trueCovariance;
+        /**
+         * Cached covariance determinant.
+         */
+        float covarianceDeterminant;
+        
     };
 }
 #endif

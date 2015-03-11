@@ -192,21 +192,21 @@ namespace libf {
     };
     
     /**
-     * Abstract data storage.
+     * Unlabeled data storage.
      */
-    class AbstractDataStorage {
+    class UnlabeledDataStorage {
     public:
-        AbstractDataStorage() {};
+        UnlabeledDataStorage() {};
         
         /**
          * Copy constructor
          */
-        AbstractDataStorage(const AbstractDataStorage & other);
+        UnlabeledDataStorage(const UnlabeledDataStorage & other);
         
         /**
          * Destructor
          */
-        virtual ~AbstractDataStorage()
+        virtual ~UnlabeledDataStorage()
         {
             free();
         };
@@ -214,7 +214,7 @@ namespace libf {
         /**
          * Assignment operator
          */
-        virtual AbstractDataStorage & operator=(const AbstractDataStorage & other);
+        virtual UnlabeledDataStorage & operator=(const UnlabeledDataStorage & other);
         
         /**
          * Permutes the data points according to some permutation. 
@@ -240,6 +240,15 @@ namespace libf {
         DataPoint* getDataPoint(int i) const
         {
             return dataPoints[i];
+        }
+        
+        /**
+         * Add a single data point.
+         */
+        void addDataPoint(DataPoint* point, bool free = true)
+        {
+            dataPoints.push_back(point);
+            freeFlags.push_back(free);
         }
         
         /**
@@ -282,24 +291,9 @@ namespace libf {
     };
     
     /**
-     * Storage for unlabeled data. 
-     */
-    class UnlabeledDataStorage : public AbstractDataStorage {
-    public:
-        /**
-         * Add a single data point.
-         */
-        void addDataPoint(DataPoint* point, bool free = true)
-        {
-            dataPoints.push_back(point);
-            freeFlags.push_back(free);
-        }
-    };
-    
-    /**
      * Basic labeled data storage.
      */
-    class DataStorage : public AbstractDataStorage {
+    class DataStorage : public UnlabeledDataStorage {
     public:
         DataStorage() : classcount(0) {}
         

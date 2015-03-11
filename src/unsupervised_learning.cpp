@@ -14,24 +14,24 @@ static std::random_device rd;
 static std::mt19937 g(rd());
 
 ////////////////////////////////////////////////////////////////////////////////
-/// DensityDecisionTreeLearner
+/// DensityTreeLearner
 ////////////////////////////////////////////////////////////////////////////////
 
-void DensityDecisionTreeLearner::updateLeafNodeGaussian(Gaussian gaussian, EfficientCovarianceMatrix covariance)
+void DensityTreeLearner::updateLeafNodeGaussian(Gaussian gaussian, EfficientCovarianceMatrix covariance)
 {
     gaussian = Gaussian(covariance.getMean(), covariance.getCovariance(), covariance.getDeterminant());
 }
 
-DensityDecisionTree* DensityDecisionTreeLearner::learn(const UnlabeledDataStorage* storage)
+DensityTree* DensityTreeLearner::learn(const UnlabeledDataStorage* storage)
 {
     const int D = storage->getDimensionality();
     const int N = storage->getSize();
     
     // Set up a new density tree. 
-    DensityDecisionTree* tree = new DensityDecisionTree();
+    DensityTree* tree = new DensityTree();
     
     // Set up the state for the callbacks.
-    DensityDecisionTreeLearnerState state;
+    DensityTreeLearnerState state;
     state.action = ACTION_START_TREE;
     
     evokeCallback(tree, 0, &state);
@@ -205,7 +205,7 @@ DensityDecisionTree* DensityDecisionTreeLearner::learn(const UnlabeledDataStorag
     return tree;
 }
 
-int DensityDecisionTreeLearner::defaultCallback(DensityDecisionTree* tree, DensityDecisionTreeLearnerState* state)
+int DensityTreeLearner::defaultCallback(DensityTree* tree, DensityTreeLearnerState* state)
 {
     switch (state->action) {
         case DecisionTreeLearner::ACTION_START_TREE:

@@ -10,12 +10,6 @@
 
 #include <iostream>
 #include <vector>
-#include <Eigen/Dense>
-
-// For gaussian sampling
-#include <boost/random/mersenne_twister.hpp>
-#include <boost/random/normal_distribution.hpp>
-#include <boost/random/variate_generator.hpp>
 
 #include "data.h"
 #include "util.h"
@@ -61,21 +55,12 @@ namespace libf {
         virtual void write(std::ostream & stream) const = 0;
     };
     
-    /**
-     * This class represents a decision tree.
-     */
-    class DecisionTree : public Classifier {
+    class Tree {
     public:
         /**
          * Creates a new decision tree
          */
-        DecisionTree();
-        
-        /**
-         * Creates a decision tree which maintains a set of statistics
-         * for each leaf node.
-         */
-        DecisionTree(bool _statistics);
+        Tree();
         
         /**
          * Sets the split feature for a node
@@ -112,12 +97,100 @@ namespace libf {
         /**
          * Splits a child node and returns the index of the left child. 
          */
-        int splitNode(int node);
+        virtual int splitNode(int node);
         
         /**
          * Returns the leaf node for a specific data point
          */
         int findLeafNode(const DataPoint* x) const;
+        
+        /**
+         * Reads the tree from a stream
+         */
+        virtual void read(std::istream & stream);
+        
+        /**
+         * Writes the tree to a stream
+         */
+        virtual void write(std::ostream & stream) const;
+        
+        /**
+         * Returns the total number of nodes
+         */
+        int getNumNodes() const
+        {
+            return static_cast<int>(leftChild.size());
+        }
+        
+        /**
+         * Returns true if the given node is a leaf node
+         */
+        bool isLeafNode(int node) const 
+        {
+            assert(node >= 0 && node <= static_cast<int>(leftChild.size()));
+            return leftChild[node] == 0;
+        }
+        
+        /**
+         * Returns the left child for a node
+         */
+        int getLeftChild(int node) const
+        {
+            assert(node >= 0 && node <= static_cast<int>(leftChild.size()));
+            return leftChild[node];
+        }
+        
+        /**
+         * Get depth of a node.
+         */
+        int getDepth(int node)
+        {
+            assert(node >= 0 && node <= static_cast<int>(depths.size()));
+            return depths[node];
+        }
+        
+    protected:
+        /**
+         * Adds a plain new node.
+         */
+        virtual void addNode(int depth);
+        
+        /**
+         * The depth of each node.
+         */
+        std::vector<int> depths;
+        /**
+         * The split feature at each node. 
+         */
+        std::vector<int> splitFeatures;
+        /**
+         * The threshold at each node
+         */
+        std::vector<float> thresholds;
+        /**
+         * The left child node of each node. If the left child node is 0, then 
+         * this is a leaf node. The right child node is left + 1. 
+         */
+        std::vector<int> leftChild;
+    };
+    
+    /**
+     * This class represents a decision tree.
+     */
+    class DecisionTree : public Tree, public Classifier {
+    public:
+        using Tree::splitNode;
+        
+        /**
+         * Creates a new decision tree
+         */
+        DecisionTree();
+        
+        /**
+         * Creates a decision tree which maintains a set of statistics
+         * for each leaf node.
+         */
+        DecisionTree(bool _statistics);
         
         /**
          * Returns the class log posterior p(c | x).
@@ -139,6 +212,7 @@ namespace libf {
          */
         std::vector<float> & getHistogram(int node)
         {
+            assert(node >= 0 && node <= static_cast<int>(histograms.size()));
             return histograms[node];
         }
         
@@ -147,39 +221,8 @@ namespace libf {
          */
         const std::vector<float> & getHistogram(int node) const
         {
+            assert(node >= 0 && node <= static_cast<int>(histograms.size()));
             return histograms[node];
-        }
-        
-        /**
-         * Returns the total number of nodes
-         */
-        int getNumNodes() const
-        {
-            return static_cast<int>(leftChild.size());
-        }
-        
-        /**
-         * Returns true if the given node is a leaf node
-         */
-        bool isLeafNode(int node) const 
-        {
-            return leftChild[node] == 0;
-        }
-        
-        /**
-         * Returns the left child for a node
-         */
-        int getLeftChild(int node) const
-        {
-            return leftChild[node];
-        }
-        
-        /**
-         * Get depth of a node.
-         */
-        int getDepth(int node)
-        {
-            return depths[node];
         }
         
         /**
@@ -188,6 +231,7 @@ namespace libf {
          */
         EfficientEntropyHistogram & getNodeStatistics(int node)
         {
+            assert(node >= 0 && node <= static_cast<int>(nodeStatistics.size()));
             return nodeStatistics[node];
         }
         
@@ -196,6 +240,7 @@ namespace libf {
          */
         std::vector< std::vector<float> > & getNodeThresholds(int node)
         {
+            assert(node >= 0 && node <= static_cast<int>(nodeThresholds.size()));
             return nodeThresholds[node];
         }
         
@@ -204,6 +249,7 @@ namespace libf {
          */
         std::vector<int> & getNodeFeatures(int node)
         {
+            assert(node >= 0 && node <= static_cast<int>(nodeFeatures.size()));
             return nodeFeatures[node];
         }
         
@@ -214,6 +260,7 @@ namespace libf {
          */
         std::vector<EfficientEntropyHistogram> & getLeftChildStatistics(int node)
         {
+            assert(node >= 0 && node <= static_cast<int>(leftChildStatistics.size()));
             return leftChildStatistics[node];
         }
         
@@ -224,34 +271,16 @@ namespace libf {
          */
         std::vector<EfficientEntropyHistogram> & getRightChildStatistics(int node)
         {
+            assert(node >= 0 && node <= static_cast<int>(rightChildStatistics.size()));
             return rightChildStatistics[node];
         }
         
-    protected:
+    private:
         /**
          * Adds a plain new node.
          */
-        void addNode(int depth);
+        virtual void addNode(int depth);
         
-        /**
-         * The depth of each node.
-         */
-        std::vector<int> depths;
-        /**
-         * The split feature at each node. 
-         */
-        std::vector<int> splitFeatures;
-        /**
-         * The threshold at each node
-         */
-        std::vector<float> thresholds;
-        /**
-         * The left child node of each node. If the left child node is 0, then 
-         * this is a leaf node. The right child node is left + 1. 
-         */
-        std::vector<int> leftChild;
-        
-    private:
         /**
          * The histograms for each node. We only store actual histograms at 
          * leaf nodes. 
@@ -292,302 +321,6 @@ namespace libf {
          * Features for all nodes.
          */
         std::vector< std::vector<int> > nodeFeatures;
-    };
-    
-    /**
-     * A simple Gaussian distribution represented by mean and covariance matrix.
-     */
-    class Gaussian {
-    public:
-        /**
-         * Default Gaussian with zero mean and identity covariance.
-         */
-        Gaussian() :
-                cachedInverse(false),
-                cachedDeterminant(false),
-                randN(rng, norm) {};
-        
-        /**
-         * Gaussian with given mean and covariance.
-         */
-        Gaussian(Eigen::VectorXf _mean, Eigen::MatrixXf _covariance);
-        
-        /**
-         * Gaussian with given mean and covariance and cached determinant.
-         */
-        Gaussian(Eigen::VectorXf _mean, Eigen::MatrixXf _covariance, float _covarianceDeterminant);
-                
-        /**
-         * Destructor.
-         */
-        ~Gaussian() {};
-        
-        Gaussian operator=(const Gaussian & other)
-        {
-            mean = Eigen::VectorXf(other.mean);
-            covariance = Eigen::MatrixXf(other.covariance);
-
-            transform = Eigen::MatrixXf(other.transform);
-            
-            cachedInverse = false;
-            cachedDeterminant = false;
-        }
-        
-        /**
-         * Get probability of the given data point.
-         */
-        float evaluate(const DataPoint* x);
-        
-        /**
-         * Sample a point from the Gaussian.
-         */
-        DataPoint* sample();
-        
-        /**
-         * Sets the mean.
-         */
-        void setMean(Eigen::VectorXf _mean)
-        {
-            mean = Eigen::VectorXf(_mean);
-        }
-        
-        /**
-         * Returns the mean.
-         */
-        Eigen::VectorXf & getMean()
-        {
-            return mean;
-        }
-        
-        /**
-         * Sets the covariance matrix.
-         */
-        void setCovariance(Eigen::MatrixXf _covariance);
-        
-        /**
-         * Returns the covariance matrix.
-         */
-        Eigen::MatrixXf getCovariance()
-        {
-            return covariance;
-        }
-        
-    private:
-        Eigen::VectorXf asEigenVector(const DataPoint* x);
-        DataPoint* asDataPoint(const Eigen::VectorXf & y);
-        
-        /**
-         * Mean of Gaussian.
-         */
-        Eigen::VectorXf mean;
-        /**
-         * Covariance of Gaussian.
-         */
-        Eigen::MatrixXf covariance;
-        /**
-         * Inverse covariance can be cached.
-         */
-        bool cachedInverse = false;
-        /**
-         * Covariance determinant can be cached.
-         */
-        bool cachedDeterminant = false;
-        /**
-         * Cached covariance inverse.
-         */
-        Eigen::MatrixXf covarianceInverse;
-        /**
-         * Cached determinant.
-         */
-        float covarianceDeterminant;
-        /**
-         * Uniform pseudo random generator.
-         */
-        boost::mt19937 rng;
-        /**
-         * Scalar Gaussian distribution.
-         */
-        boost::normal_distribution<float> norm;
-        /**
-         * Zero mean and unit variance Gaussian distribution.
-         */
-        boost::variate_generator<boost::mt19937&, boost::normal_distribution<float> > randN;
-        /**
-         * Eigenvector and eigenvalue transformation for sampling.
-         */
-        Eigen::MatrixXf transform;
-    };
-    
-    /**
-     * Represents the Gaussian at each leaf and allows to update mean and covariance
-     * efficiently as well as compute the determinant of the covariance matrix
-     * for learning.
-     */
-    class EfficientCovarianceMatrix {
-    public:
-        /**
-         * Creates an empty covaraince matrix.
-         */
-        EfficientCovarianceMatrix() : 
-                dimensions(0),
-                mass(0),
-                cachedTrueCovariance(false),
-                cachedDeterminant(false),
-                covarianceDeterminant(0) {};
-                
-        /**
-         * Creates a _classes x _classes covariance matrix.
-         */
-        EfficientCovarianceMatrix(int _dimensions) : 
-                dimensions(_dimensions),
-                mass(0),
-                covariance(_dimensions, _dimensions),
-                mean(_dimensions),
-                cachedTrueCovariance(false),
-                cachedDeterminant(false),
-                trueCovariance(_dimensions, _dimensions),
-                covarianceDeterminant(0) {};
-                
-        /**
-         * Destructor.
-         */
-        ~EfficientCovarianceMatrix() {};
-        
-        EfficientCovarianceMatrix operator=(const EfficientCovarianceMatrix & other)
-        {
-            mean = Eigen::VectorXf(other.mean);
-            covariance = Eigen::MatrixXf(other.covariance);
-            dimensions = other.dimensions;
-            mass = other.mass;
-            // TODO: does currently not consider caching!
-            
-            return *this;
-        }
-        
-        /**
-         * Resets the mean and covariance to zero.
-         */
-        void reset()
-        {
-            mean = Eigen::VectorXf::Zero(dimensions);
-            covariance = Eigen::MatrixXf::Zero(dimensions, dimensions);
-            mass = 0;
-            
-            // Update caches.
-            cachedTrueCovariance = false;
-            cachedDeterminant = false;
-            trueCovariance = Eigen::MatrixXf::Zero(dimensions, dimensions);
-            covarianceDeterminant = 0;
-        }
-        
-        /**
-         * Get the number of samples.
-         */
-        int getMass()
-        {
-            return mass;
-        }
-        
-        /**
-         * Add a sample and update covariance and mean estimate.
-         */
-        void addOne(const DataPoint* x);
-        
-        /**
-         * Remove a sample and update covariance and mean estimate.
-         */
-        void subOne(const DataPoint* x);
-        
-        /**
-         * Returns mean.
-         */
-        Eigen::VectorXf & getMean()
-        {
-            return mean;
-        }
-        
-        /**
-         * Returns true covariance matrix from estimates.
-         */
-        Eigen::MatrixXf & getCovariance();
-        
-        /**
-         * Returns covariance determinant;
-         */
-        float getDeterminant();
-        
-        /**
-         * Get the entropy to determine split objective.
-         */
-        float getEntropy();
-        
-    private:
-        
-        /**
-         * Number of dimensions: dimension x dimension covariance matrix.
-         */
-        int dimensions;
-        /**
-         * Number of samples.
-         */
-        int mass;
-        /**
-         * Current estimate of dimension x dimension covariance matrix.
-         */
-        Eigen::MatrixXf covariance;
-        /**
-         * Current estimate of mean.
-         */
-        Eigen::VectorXf mean;
-        /**
-         * The true covariance is cached for reuse when setting a leaf's
-         * Gaussian distribution.
-         */
-        bool cachedTrueCovariance;
-        /**
-         * The determinant is cached for the same reason as above.
-         */
-        bool cachedDeterminant;
-        /**
-         * Cached true covariance matrix.
-         */
-        Eigen::MatrixXf trueCovariance;
-        /**
-         * Cached covariance determinant.
-         */
-        float covarianceDeterminant;
-        
-    };
-    
-    /**
-     * Density decision tree for unsupervised learning.
-     */
-    class DensityDecisionTree : public DecisionTree {
-    public:
-        /**
-         * Creates an empty density tree.
-         */
-        DensityDecisionTree() : DecisionTree() {};
-        
-        /**
-         * Destructor.
-         */
-        ~DensityDecisionTree() {};
-        
-        /**
-         * Get the Gaussian of a specific leaf.
-         */
-        Gaussian & getGaussian(const int node)
-        {
-            return gaussians[node];
-        }
-        
-    private:
-        /**
-         * The Gaussians at the leafs.
-         */
-        std::vector<Gaussian> gaussians;
-        
     };
     
     /**

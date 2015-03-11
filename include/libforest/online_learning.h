@@ -295,10 +295,6 @@ namespace libf {
          */
         float bootstrapLambda;
         /**
-         * Minimum objective required for a node to split.
-         */
-        float minSplitObjective;
-        /**
          * Number of thresholds randomly sampled. Together with the sampled
          * features these define the tests over which to optimize at
          * each node in online learning.
@@ -306,6 +302,10 @@ namespace libf {
          * @see http://lrs.icg.tugraz.at/pubs/saffari_olcv_09.pdf
          */
         int numThresholds;
+        /**
+         * Minimum objective required for a node to split.
+         */
+        float minSplitObjective;
         /**
          * The generator to sample random thresholds.
          */
