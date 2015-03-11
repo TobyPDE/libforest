@@ -14,40 +14,21 @@
           </df>
         </df>
       </df>
-      <df name="example">
-        <df name="build">
-          <df name="CMakeFiles">
-            <df name="3.0.0">
-              <df name="CompilerIdC">
-                <in>CMakeCCompilerId.c</in>
-              </df>
-              <df name="CompilerIdCXX">
-                <in>CMakeCXXCompilerId.cpp</in>
-              </df>
-            </df>
-          </df>
-        </df>
-        <in>main.cpp</in>
-      </df>
-      <df name="include">
-        <df name="libforest">
-          <in>classifiers.h</in>
-          <in>data.h</in>
-          <in>io.h</in>
-          <in>learning.h</in>
-          <in>libforest.h</in>
-          <in>tools.h</in>
-          <in>util.h</in>
-        </df>
+      <df name="examples">
+        <in>adaboost.cpp</in>
+        <in>convert.cpp</in>
+        <in>decision_tree.cpp</in>
+        <in>density_tree.cpp</in>
+        <in>rf.cpp</in>
       </df>
       <df name="src">
-        <in>classifier.cpp</in>
+        <in>classifiers.cpp</in>
         <in>data.cpp</in>
-        <in>fastlog.h</in>
+        <in>error_handling.cpp</in>
         <in>learning.cpp</in>
-        <in>mcmc.h</in>
-        <in>sse.h</in>
+        <in>online_learning.cpp</in>
         <in>tools.cpp</in>
+        <in>unsupervised_learning.cpp</in>
       </df>
     </df>
     <logicalFolder name="ExternalFiles"
@@ -70,6 +51,9 @@
         <dependencyChecking>false</dependencyChecking>
         <rebuildPropChanged>false</rebuildPropChanged>
       </toolsSet>
+      <flagsDictionary>
+        <element flagsID="0" commonFlags="-std=c++11 -O3"/>
+      </flagsDictionary>
       <codeAssistance>
       </codeAssistance>
       <makefileType>
@@ -86,52 +70,88 @@
       <item path="build/CMakeFiles/3.0.0/CompilerIdC/CMakeCCompilerId.c"
             ex="false"
             tool="0"
-            flavor2="0">
+            flavor2="2">
       </item>
       <item path="build/CMakeFiles/3.0.0/CompilerIdCXX/CMakeCXXCompilerId.cpp"
             ex="false"
             tool="1"
-            flavor2="0">
+            flavor2="8">
       </item>
-      <item path="example/build/CMakeFiles/3.0.0/CompilerIdC/CMakeCCompilerId.c"
-            ex="false"
-            tool="0"
-            flavor2="0">
+      <item path="examples/adaboost.cpp" ex="false" tool="1" flavor2="8">
+        <ccTool flags="0">
+        </ccTool>
       </item>
-      <item path="example/build/CMakeFiles/3.0.0/CompilerIdCXX/CMakeCXXCompilerId.cpp"
-            ex="false"
-            tool="1"
-            flavor2="0">
+      <item path="examples/convert.cpp" ex="false" tool="1" flavor2="8">
+        <ccTool flags="0">
+        </ccTool>
       </item>
-      <item path="example/main.cpp" ex="false" tool="1" flavor2="0">
+      <item path="examples/decision_tree.cpp" ex="false" tool="1" flavor2="8">
+        <ccTool flags="0">
+        </ccTool>
       </item>
-      <item path="include/libforest/classifiers.h" ex="false" tool="3" flavor2="0">
+      <item path="examples/density_tree.cpp" ex="false" tool="1" flavor2="8">
+        <ccTool flags="0">
+        </ccTool>
       </item>
-      <item path="include/libforest/data.h" ex="false" tool="3" flavor2="0">
+      <item path="examples/rf.cpp" ex="false" tool="1" flavor2="8">
+        <ccTool flags="0">
+        </ccTool>
       </item>
-      <item path="include/libforest/io.h" ex="false" tool="3" flavor2="0">
+      <folder path="0/examples">
+        <ccTool>
+          <incDir>
+            <pElem>/usr/local/include/opencv</pElem>
+            <pElem>/usr/local/include</pElem>
+            <pElem>/opt/local/include/eigen3</pElem>
+            <pElem>include</pElem>
+            <pElem>build/examples</pElem>
+          </incDir>
+          <preprocessorList>
+            <Elem>NDEBUG</Elem>
+          </preprocessorList>
+        </ccTool>
+      </folder>
+      <folder path="0/src">
+        <ccTool>
+          <incDir>
+            <pElem>/usr/local/include/opencv</pElem>
+            <pElem>/usr/local/include</pElem>
+            <pElem>/opt/local/include/eigen3</pElem>
+            <pElem>include</pElem>
+            <pElem>build</pElem>
+          </incDir>
+          <preprocessorList>
+            <Elem>NDEBUG</Elem>
+          </preprocessorList>
+        </ccTool>
+      </folder>
+      <item path="src/classifiers.cpp" ex="false" tool="1" flavor2="8">
+        <ccTool flags="0">
+        </ccTool>
       </item>
-      <item path="include/libforest/learning.h" ex="false" tool="3" flavor2="0">
+      <item path="src/data.cpp" ex="false" tool="1" flavor2="8">
+        <ccTool flags="0">
+        </ccTool>
       </item>
-      <item path="include/libforest/libforest.h" ex="false" tool="3" flavor2="0">
+      <item path="src/error_handling.cpp" ex="false" tool="1" flavor2="8">
+        <ccTool flags="0">
+        </ccTool>
       </item>
-      <item path="include/libforest/tools.h" ex="false" tool="3" flavor2="0">
+      <item path="src/learning.cpp" ex="false" tool="1" flavor2="8">
+        <ccTool flags="0">
+        </ccTool>
       </item>
-      <item path="include/libforest/util.h" ex="false" tool="3" flavor2="0">
+      <item path="src/online_learning.cpp" ex="false" tool="1" flavor2="8">
+        <ccTool flags="0">
+        </ccTool>
       </item>
-      <item path="src/classifier.cpp" ex="false" tool="1" flavor2="0">
+      <item path="src/tools.cpp" ex="false" tool="1" flavor2="8">
+        <ccTool flags="0">
+        </ccTool>
       </item>
-      <item path="src/data.cpp" ex="false" tool="1" flavor2="0">
-      </item>
-      <item path="src/fastlog.h" ex="false" tool="3" flavor2="0">
-      </item>
-      <item path="src/learning.cpp" ex="false" tool="1" flavor2="0">
-      </item>
-      <item path="src/mcmc.h" ex="false" tool="3" flavor2="0">
-      </item>
-      <item path="src/sse.h" ex="false" tool="3" flavor2="0">
-      </item>
-      <item path="src/tools.cpp" ex="false" tool="1" flavor2="0">
+      <item path="src/unsupervised_learning.cpp" ex="false" tool="1" flavor2="8">
+        <ccTool flags="0">
+        </ccTool>
       </item>
     </conf>
   </confs>
