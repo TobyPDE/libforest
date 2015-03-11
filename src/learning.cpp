@@ -2,7 +2,6 @@
 #include "libforest/data.h"
 #include "libforest/classifiers.h"
 #include "libforest/util.h"
-#include "fastlog.h"
 #include "mcmc.h"
 
 #include <algorithm>

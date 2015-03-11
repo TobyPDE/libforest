@@ -2,7 +2,6 @@
 #include "libforest/data.h"
 #include "libforest/io.h"
 #include "libforest/util.h"
-#include "fastlog.h"
 #include <ios>
 #include <iostream>
 #include <string>
@@ -10,8 +9,6 @@
 #include <Eigen/LU>
 
 using namespace libf;
-
-#define ENTROPY(p) (-(p)*fastlog2(p))
 
 ////////////////////////////////////////////////////////////////////////////////
 /// Classifier
@@ -52,44 +49,6 @@ int Classifier::classify(const DataPoint* x) const
     }
     
     return label;
-}
-
-////////////////////////////////////////////////////////////////////////////////
-/// EfficientEntropyHistogram
-////////////////////////////////////////////////////////////////////////////////
-
-void EfficientEntropyHistogram::addOne(const int i)
-{
-    // assert(i >= 0 && i < bins);
-    
-    totalEntropy += ENTROPY(mass);
-    mass += 1;
-    totalEntropy -= ENTROPY(mass);
-    histogram[i]++;
-    totalEntropy -= entropies[i];
-    entropies[i] = ENTROPY(histogram[i]); 
-    totalEntropy += entropies[i];
-}
-
-void EfficientEntropyHistogram::subOne(const int i)
-{
-    // assert(i >= 0 && i < bins);
-    
-    totalEntropy += ENTROPY(mass);
-    mass -= 1;
-    totalEntropy -= ENTROPY(mass);
-
-    histogram[i]--;
-    totalEntropy -= entropies[i];
-    if (histogram[i] < 1)
-    {
-        entropies[i] = 0;
-    }
-    else
-    {
-        entropies[i] = ENTROPY(histogram[i]); 
-        totalEntropy += entropies[i];
-    }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
