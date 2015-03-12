@@ -12,11 +12,6 @@
 #include <vector>
 #include <Eigen/Dense>
 
-// For gaussian sampling
-#include <boost/random/mersenne_twister.hpp>
-#include <boost/random/normal_distribution.hpp>
-#include <boost/random/variate_generator.hpp>
-
 #include "util.h"
 #include "data.h"
 #include "classifiers.h"
@@ -51,36 +46,30 @@ namespace libf {
          */
         Gaussian() :
                 cachedInverse(false),
-                cachedDeterminant(false),
-                randN(rng, norm) {};
+                cachedDeterminant(false) {};
         
         /**
          * Gaussian with given mean and covariance.
          */
         Gaussian(Eigen::VectorXf _mean, Eigen::MatrixXf _covariance);
-        
-        /**
-         * Gaussian with given mean and covariance and cached determinant.
-         */
-        Gaussian(Eigen::VectorXf _mean, Eigen::MatrixXf _covariance, float _covarianceDeterminant);
                 
         /**
          * Destructor.
          */
         ~Gaussian() {};
         
-        Gaussian operator=(const Gaussian & other)
-        {
+//        Gaussian operator=(const Gaussian & other)
+//        {
 //            mean = other.mean;
-            covariance = other.covariance;
-
-            transform = other.transform;
-            
-            cachedInverse = false;
-            cachedDeterminant = false;
-            
-            return *this;
-        }
+//            covariance = other.covariance;
+//            
+//            transform = other.transform;
+//            
+//            cachedInverse = false;
+//            cachedDeterminant = false;
+//            
+//            return *this;
+//        }
         
         /**
          * Get probability of the given data point.
@@ -158,18 +147,6 @@ namespace libf {
          */
         float covarianceDeterminant;
         /**
-         * Uniform pseudo random generator.
-         */
-        boost::mt19937 rng;
-        /**
-         * Scalar Gaussian distribution.
-         */
-        boost::normal_distribution<float> norm;
-        /**
-         * Zero mean and unit variance Gaussian distribution.
-         */
-        boost::variate_generator<boost::mt19937&, boost::normal_distribution<float> > randN;
-        /**
          * Eigenvector and eigenvalue transformation for sampling.
          */
         Eigen::MatrixXf transform;
@@ -178,17 +155,95 @@ namespace libf {
     /**
      * Density decision tree for unsupervised learning.
      */
-    class DensityTree : public Tree, public Estimator {
+    class DensityTree :public Estimator {
     public:
+        
         /**
          * Creates an empty density tree.
          */
-        DensityTree() : Tree() {};
+        DensityTree();
         
         /**
          * Destructor.
          */
-        ~DensityTree() {};
+        virtual ~DensityTree() {};
+        
+        /**
+         * Splits a child node and returns the index of the left child. 
+         */
+        int splitNode(int node);
+        
+        /**
+         * Returns the leaf node for a specific data point
+         */
+        int findLeafNode(const DataPoint* x) const;
+        
+        /**
+         * Sets the split feature for a node
+         */
+        void setSplitFeature(int node, int feature)
+        {
+            splitFeatures[node] = feature;
+        }
+        
+        /**
+         * Returns the split feature for a node
+         */
+        int getSplitFeature(int node) const
+        {
+            return splitFeatures[node];
+        }
+        
+        /**
+         * Sets the threshold for a node
+         */
+        void setThreshold(int node, float threshold)
+        {
+            thresholds[node] = threshold;
+        }
+        
+        /**
+         * Returns the threshold for a node
+         */
+        float getThreshold(int node) const
+        {
+            return thresholds[node];
+        }
+        
+        /**
+         * Returns the total number of nodes
+         */
+        int getNumNodes() const
+        {
+            return static_cast<int>(leftChild.size());
+        }
+        
+        /**
+         * Returns true if the given node is a leaf node
+         */
+        bool isLeafNode(int node) const 
+        {
+            assert(node >= 0 && node <= static_cast<int>(leftChild.size()));
+            return leftChild[node] == 0;
+        }
+        
+        /**
+         * Returns the left child for a node
+         */
+        int getLeftChild(int node) const
+        {
+            assert(node >= 0 && node <= static_cast<int>(leftChild.size()));
+            return leftChild[node];
+        }
+        
+        /**
+         * Get depth of a node.
+         */
+        int getDepth(int node)
+        {
+            assert(node >= 0 && node <= static_cast<int>(depths.size()));
+            return depths[node];
+        }
         
         /**
          * Get the Gaussian of a specific leaf.
@@ -213,6 +268,24 @@ namespace libf {
          * Adds a plain new node.
          */
         virtual void addNode(int depth);
+        
+        /**
+         * The depth of each node.
+         */
+        std::vector<int> depths;
+        /**
+         * The split feature at each node. 
+         */
+        std::vector<int> splitFeatures;
+        /**
+         * The threshold at each node
+         */
+        std::vector<float> thresholds;
+        /**
+         * The left child node of each node. If the left child node is 0, then 
+         * this is a leaf node. The right child node is left + 1. 
+         */
+        std::vector<int> leftChild;
         
         /**
          * The Gaussians at the leafs.

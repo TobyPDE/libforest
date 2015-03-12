@@ -51,29 +51,65 @@ int Classifier::classify(const DataPoint* x) const
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-/// Tree
+/// DecisionTree
 ////////////////////////////////////////////////////////////////////////////////
 
-Tree::Tree()
-{    
+DecisionTree::DecisionTree()
+{
+    // Indicates that we do not need to maintain statistics.
+    statistics = false;
+    
     splitFeatures.reserve(LIBF_GRAPH_BUFFER_SIZE);
     thresholds.reserve(LIBF_GRAPH_BUFFER_SIZE);
     leftChild.reserve(LIBF_GRAPH_BUFFER_SIZE);
     depths.reserve(LIBF_GRAPH_BUFFER_SIZE);
+    histograms.reserve(LIBF_GRAPH_BUFFER_SIZE);
     
     // Add at least the root node with index 0
     addNode(0);
 }
 
-void Tree::addNode(int depth)
+DecisionTree::DecisionTree(bool _statistics)
+{
+    splitFeatures.reserve(LIBF_GRAPH_BUFFER_SIZE);
+    thresholds.reserve(LIBF_GRAPH_BUFFER_SIZE);
+    leftChild.reserve(LIBF_GRAPH_BUFFER_SIZE);
+    depths.reserve(LIBF_GRAPH_BUFFER_SIZE);
+    histograms.reserve(LIBF_GRAPH_BUFFER_SIZE);
+    
+    statistics = _statistics;
+    if (statistics)
+    {
+        nodeStatistics.reserve(LIBF_GRAPH_BUFFER_SIZE);
+        leftChildStatistics.reserve(LIBF_GRAPH_BUFFER_SIZE);
+        rightChildStatistics.reserve(LIBF_GRAPH_BUFFER_SIZE);
+        nodeThresholds.reserve(LIBF_GRAPH_BUFFER_SIZE);
+        nodeFeatures.reserve(LIBF_GRAPH_BUFFER_SIZE);
+    }
+    
+    // Important to add the first node after enabling statistics!
+    addNode(0);
+}
+
+void DecisionTree::addNode(int depth)
 {
     splitFeatures.push_back(0);
     thresholds.push_back(0);
     leftChild.push_back(0);
     depths.push_back(depth);
+    histograms.push_back(std::vector<float>());
+    
+    if (statistics)
+    {
+        nodeStatistics.push_back(EfficientEntropyHistogram());
+        leftChildStatistics.push_back(std::vector<EfficientEntropyHistogram>());
+        rightChildStatistics.push_back(std::vector<EfficientEntropyHistogram>());
+        nodeThresholds.push_back(std::vector< std::vector<float> >());
+        nodeFeatures.push_back(std::vector<int>());
+    }
 }
 
-int Tree::splitNode(int node)
+int DecisionTree::splitNode(int node)
 {
     // Make sure this is a valid node ID
     assert(0 <= node && node < static_cast<int>(splitFeatures.size()));
@@ -94,7 +130,7 @@ int Tree::splitNode(int node)
     return leftNode;
 }
 
-int Tree::findLeafNode(const DataPoint* x) const
+int DecisionTree::findLeafNode(const DataPoint* x) const
 {
     // Select the root node as current node
     int node = 0;
@@ -118,71 +154,6 @@ int Tree::findLeafNode(const DataPoint* x) const
     return node;
 }
 
-void Tree::read(std::istream& stream)
-{
-    // Write the attributes to the file
-    readBinary(stream, splitFeatures);
-    readBinary(stream, thresholds);
-    readBinary(stream, leftChild);
-}
-
-void Tree::write(std::ostream& stream) const
-{
-    // Write the attributes to the file
-    writeBinary(stream, splitFeatures);
-    writeBinary(stream, thresholds);
-    writeBinary(stream, leftChild);
-}
-
-////////////////////////////////////////////////////////////////////////////////
-/// DecisionTree
-////////////////////////////////////////////////////////////////////////////////
-
-DecisionTree::DecisionTree() : Tree()
-{
-    // Indicates that we do not need to maintain statistics.
-    statistics = false;
-    
-    histograms.reserve(LIBF_GRAPH_BUFFER_SIZE);
-    
-    // Add at least the root node with index 0
-    addNode(0);
-}
-
-DecisionTree::DecisionTree(bool _statistics) : Tree()
-{
-    histograms.reserve(LIBF_GRAPH_BUFFER_SIZE);
-    
-    statistics = _statistics;
-    if (statistics)
-    {
-        nodeStatistics.reserve(LIBF_GRAPH_BUFFER_SIZE);
-        leftChildStatistics.reserve(LIBF_GRAPH_BUFFER_SIZE);
-        rightChildStatistics.reserve(LIBF_GRAPH_BUFFER_SIZE);
-        nodeThresholds.reserve(LIBF_GRAPH_BUFFER_SIZE);
-        nodeFeatures.reserve(LIBF_GRAPH_BUFFER_SIZE);
-    }
-    
-    // Important to add the first node after enabling statistics!
-    addNode(0);
-}
-
-void DecisionTree::addNode(int depth)
-{
-    Tree::addNode(depth);
-    
-    histograms.push_back(std::vector<float>());
-    
-    if (statistics)
-    {
-        nodeStatistics.push_back(EfficientEntropyHistogram());
-        leftChildStatistics.push_back(std::vector<EfficientEntropyHistogram>());
-        rightChildStatistics.push_back(std::vector<EfficientEntropyHistogram>());
-        nodeThresholds.push_back(std::vector< std::vector<float> >());
-        nodeFeatures.push_back(std::vector<int>());
-    }
-}
-
 void DecisionTree::classLogPosterior(const DataPoint* x, std::vector<float> & probabilities) const
 {
     // Get the leaf node
@@ -192,7 +163,10 @@ void DecisionTree::classLogPosterior(const DataPoint* x, std::vector<float> & pr
 
 void DecisionTree::read(std::istream& stream)
 {
-    Tree::read(stream);
+    // Write the attributes to the file
+    readBinary(stream, splitFeatures);
+    readBinary(stream, thresholds);
+    readBinary(stream, leftChild);
     readBinary(stream, histograms);
     
     readBinary(stream, statistics);
@@ -207,7 +181,10 @@ void DecisionTree::read(std::istream& stream)
 
 void DecisionTree::write(std::ostream& stream) const
 {
-    Tree::write(stream);
+    // Write the attributes to the file
+    writeBinary(stream, splitFeatures);
+    writeBinary(stream, thresholds);
+    writeBinary(stream, leftChild);
     writeBinary(stream, histograms);
     
     writeBinary(stream, statistics);
