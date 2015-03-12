@@ -63,6 +63,11 @@ namespace libf {
         Tree();
         
         /**
+         * Destructor.
+         */
+        virtual ~Tree() {};
+        
+        /**
          * Sets the split feature for a node
          */
         void setSplitFeature(int node, int feature)
@@ -191,6 +196,11 @@ namespace libf {
          * for each leaf node.
          */
         DecisionTree(bool _statistics);
+        
+        /**
+         * Destructor.
+         */
+        ~DecisionTree() {};
         
         /**
          * Returns the class log posterior p(c | x).

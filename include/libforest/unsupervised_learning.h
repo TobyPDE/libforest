@@ -71,15 +71,16 @@ namespace libf {
          */
         const static int ACTION_START_TREE = 1;
         const static int ACTION_SPLIT_NODE = 2;
+        const static int ACTION_PROCESS_NODE = 3;
+        const static int ACTION_INIT_NODE = 4;
+        const static int ACTION_NOT_SPLIT_NODE = 5;
+        const static int ACTION_NO_SPLIT_NODE = 6;
         
         /**
          * Learn a density tree.
          */
         DensityTree* learn(const UnlabeledDataStorage* storage);
-        
-    protected:
-        void updateLeafNodeGaussian(Gaussian gaussian, EfficientCovarianceMatrix covariance);
-        
+
     };
 }
 

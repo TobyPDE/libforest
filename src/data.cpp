@@ -250,7 +250,7 @@ DataStorage::DataStorage(const DataStorage & other) : UnlabeledDataStorage(other
 DataStorage DataStorage::excerpt(int begin, int end)
 {
     assert(begin >= 0 && begin <= end);
-    assert(end >= begin && end < dataPoints.size());
+    assert(end >= begin && end < static_cast<int>(dataPoints.size()));
     
     DataStorage excerpt;
     

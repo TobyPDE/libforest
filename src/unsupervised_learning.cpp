@@ -17,11 +17,6 @@ static std::mt19937 g(rd());
 /// DensityTreeLearner
 ////////////////////////////////////////////////////////////////////////////////
 
-void DensityTreeLearner::updateLeafNodeGaussian(Gaussian gaussian, EfficientCovarianceMatrix covariance)
-{
-    gaussian = Gaussian(covariance.getMean(), covariance.getCovariance(), covariance.getDeterminant());
-}
-
 DensityTree* DensityTreeLearner::learn(const UnlabeledDataStorage* storage)
 {
     const int D = storage->getDimensionality();
@@ -71,6 +66,14 @@ DensityTree* DensityTreeLearner::learn(const UnlabeledDataStorage* storage)
         const int leaf = splitStack.back();
         splitStack.pop_back();
 
+        const int depth = tree->getDepth(leaf);
+        
+        state.action = ACTION_PROCESS_NODE;
+        state.node = leaf;
+        state.depth = depth;
+                
+        evokeCallback(tree, 0, &state);
+        
         const int N_leaf = trainingExamples[leaf].size();
         
         // Set up the right histogram
@@ -83,15 +86,27 @@ DensityTree* DensityTreeLearner::learn(const UnlabeledDataStorage* storage)
             covariance.addOne(storage->getDataPoint(m));
         }
 
+        state.action = ACTION_INIT_NODE;
+        evokeCallback(tree, 0, &state);
+        
         // Don't split this node
         //  If the number of examples is too small
         //  If the training examples are all of the same class
         //  If the maximum depth is reached
         if (covariance.getMass() < minSplitExamples || tree->getDepth(leaf) > maxDepth)
         {
+            state.action = ACTION_NOT_SPLIT_NODE;
+            evokeCallback(tree, 0, &state);
+        
             trainingExamples[leaf].clear();
-            // Resize and initialize the leaf node histogram
-            updateLeafNodeGaussian(tree->getGaussian(leaf), covariance);
+            
+            // Resize and initialize the leaf node histogram.
+            Eigen::VectorXf mu = covariance.getMean();
+            Eigen::MatrixXf sigma = covariance.getCovariance();
+            
+            Gaussian gaussian(mu, sigma);
+            tree->getGaussian(leaf) = gaussian;
+            
             continue;
         }
         
@@ -157,9 +172,17 @@ DensityTree* DensityTreeLearner::learn(const UnlabeledDataStorage* storage)
         // Did we find good split values?
         if (bestFeature < 0)
         {
+            state.action = ACTION_NO_SPLIT_NODE;
+            state.objective = bestObjective;
+            
+            evokeCallback(tree, 0, &state);
+            
             // Don't split
             trainingExamples[leaf].clear();
-            updateLeafNodeGaussian(tree->getGaussian(leaf), covariance);
+           
+            tree->getGaussian(leaf).setMean(covariance.getMean());
+            tree->getGaussian(leaf).setCovariance(covariance.getCovariance());
+            
             continue;
         }
         
@@ -192,7 +215,7 @@ DensityTree* DensityTreeLearner::learn(const UnlabeledDataStorage* storage)
         const int leftChild = tree->splitNode(leaf);
         
         state.action = ACTION_SPLIT_NODE;
-        state.depth = tree->getDepth(leaf);
+        state.depth = depth;
         state.objective = bestObjective;
         
         evokeCallback(tree, 0, &state);
@@ -208,14 +231,32 @@ DensityTree* DensityTreeLearner::learn(const UnlabeledDataStorage* storage)
 int DensityTreeLearner::defaultCallback(DensityTree* tree, DensityTreeLearnerState* state)
 {
     switch (state->action) {
-        case DecisionTreeLearner::ACTION_START_TREE:
+        case DensityTreeLearner::ACTION_START_TREE:
             std::cout << "Start decision tree training" << "\n";
             break;
-        case DecisionTreeLearner::ACTION_SPLIT_NODE:
+        case DensityTreeLearner::ACTION_SPLIT_NODE:
             std::cout << std::setw(15) << std::left << "Split node:"
                     << "depth = " << std::setw(3) << std::right << state->depth
                     << ", objective = " << std::setw(6) << std::left
                     << std::setprecision(4) << state->objective << "\n";
+            break;
+        case DensityTreeLearner::ACTION_INIT_NODE:
+            std::cout << std::setw(15) << std::left << "Init node:"
+                    << "depth = " << std::setw(3) << std::right << state->depth << "\n";
+            break;
+        case DensityTreeLearner::ACTION_NOT_SPLIT_NODE:
+            std::cout << std::setw(15) << std::left << "Not split node:"
+                    << "depth = " << std::setw(3) << std::right << state->depth << "\n";
+            break;
+        case DensityTreeLearner::ACTION_NO_SPLIT_NODE:
+            std::cout << std::setw(15) << std::left << "Not split node:"
+                    << "depth = " << std::setw(3) << std::right << state->depth
+                    << ", objective = " << std::setw(6) << std::left
+                    << std::setprecision(4) << state->objective << "\n";
+            break;
+        case DensityTreeLearner::ACTION_PROCESS_NODE:
+            std::cout << std::setw(15) << std::left << "Process node:"
+                    << "depth = " << std::setw(3) << std::right << state->depth << "\n";
             break;
         default:
             std::cout << "UNKNOWN ACTION CODE " << state->action << "\n";

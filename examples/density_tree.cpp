@@ -148,7 +148,11 @@ int main(int argc, const char** argv)
         mean(0) = randFloat(H/4, 3*(H/4));
         mean(1) = randFloat(W/4, 3*(W/4));
         
-        gaussians.push_back(Gaussian(mean, covariance));
+        Gaussian gaussian;
+        gaussian.setMean(mean);
+        gaussian.setCovariance(covariance);
+        
+        gaussians.push_back(gaussian);
     }
     
     for (int m = 0; m < M; m++)
@@ -170,14 +174,24 @@ int main(int argc, const char** argv)
     }
     
     cv::Mat image_samples = visualizeSamples(H, W, storage);
-    cv::imwrite("samples.png", image_samples);
+    cv::imwrite("samples.png", image_samples);    
     
-    DensityDecisionTreeLearner learner;
-    learner.addCallback(DensityDecisionTreeLearner::defaultCallback, 1);
+    DensityTreeLearner learner;
+    learner.addCallback(DensityTreeLearner::defaultCallback, 1);
     
-    DensityDecisionTree* tree = learner.learn(&storage);
+    DensityTree* tree = learner.learn(&storage);
     
+    GMMDensityAccuracyTool accuracyTool;
+    accuracyTool.measureAndPrint(tree, gaussians, weights, N);
     
+    UnlabeledDataStorage storage_tree;
+    for (int n = 0; n < N; n++)
+    {
+        storage_tree.addDataPoint(tree->sample());
+    }
     
+    cv::Mat image_tree = visualizeSamples(H, W, storage_tree);
+    
+    delete tree;
     return 0;
 }
