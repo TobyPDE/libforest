@@ -239,6 +239,7 @@ namespace libf {
          */
         DataPoint* getDataPoint(int i) const
         {
+            assert(i >= 0 && i < static_cast<int>(dataPoints.size()));
             return dataPoints[i];
         }
         

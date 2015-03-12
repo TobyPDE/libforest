@@ -447,7 +447,8 @@ namespace libf {
                 mass(0),
                 cachedTrueCovariance(false),
                 cachedDeterminant(false),
-                covarianceDeterminant(0) {};
+                covarianceDeterminant(0),
+                cachedTrueMean(false) {};
                 
         /**
          * Creates a _classes x _classes covariance matrix.
@@ -460,20 +461,30 @@ namespace libf {
                 cachedTrueCovariance(false),
                 cachedDeterminant(false),
                 trueCovariance(_dimensions, _dimensions),
-                covarianceDeterminant(0) {};
+                covarianceDeterminant(0),
+                cachedTrueMean(false), 
+                trueMean(dimensions) {};
                 
         /**
          * Destructor.
          */
-        ~EfficientCovarianceMatrix() {};
+        virtual ~EfficientCovarianceMatrix() {};
         
         EfficientCovarianceMatrix operator=(const EfficientCovarianceMatrix & other)
         {
-            mean = Eigen::VectorXf(other.mean);
-            covariance = Eigen::MatrixXf(other.covariance);
+            mean = other.mean;
+            covariance = other.covariance;
             dimensions = other.dimensions;
             mass = other.mass;
             // TODO: does currently not consider caching!
+            
+            trueCovariance = Eigen::MatrixXf::Zero(dimensions, dimensions);
+            covarianceDeterminant = 0;
+            cachedTrueCovariance = false;
+            cachedDeterminant = false;
+            
+            trueMean = Eigen::VectorXf::Zero(dimensions);
+            cachedTrueMean = false;
             
             return *this;
         }
@@ -492,6 +503,9 @@ namespace libf {
             cachedDeterminant = false;
             trueCovariance = Eigen::MatrixXf::Zero(dimensions, dimensions);
             covarianceDeterminant = 0;
+            
+            cachedTrueMean = false;
+            trueMean = Eigen::VectorXf::Zero(dimensions);
         }
         
         /**
@@ -509,19 +523,36 @@ namespace libf {
         {
             assert(x->getDimensionality() == mean.rows());
             assert(x->getDimensionality() == covariance.rows());
+            assert(x->getDimensionality() == covariance.cols());
 
             for (int i = 0; i < x->getDimensionality(); i++)
             {
-                // Update runnign estimate of mean.
+                // Update running estimate of mean.
                 mean(i) += x->at(i);
 
                 for (int j = 0; j < x->getDimensionality(); j++)
                 {
-                    // Update runnign estimate of covariance.
+                    // Update running estimate of covariance.
                     covariance(i, j) += x->at(i)*x->at(j);
                 }
             }
+            
+            for (int i = 0; i < covariance.rows(); i++)
+            {
+                // Cannot be positive definite if diagonal values are negative:
+                assert(covariance(i, i) > 0);
 
+                for (int j = 0; j < i; j++)
+                {
+                    // Symmetry:
+                    assert(covariance(i, j) == covariance(j, i));
+                }
+            }
+            
+            cachedTrueMean = false;
+            cachedTrueCovariance = false;
+            cachedDeterminant = false;
+            
             mass += 1;
         }
         
@@ -532,20 +563,37 @@ namespace libf {
         {
             assert(x->getDimensionality() == mean.rows());
             assert(x->getDimensionality() == covariance.rows());
-
+            assert(x->getDimensionality() == covariance.cols());
+            
             for (int i = 0; i < x->getDimensionality(); i++)
             {
-                // Update runnign estimate of mean.
+                // Update running estimate of mean.
                 mean(i) -= x->at(i);
 
                 for (int j = 0; j < x->getDimensionality(); j++)
                 {
-                    // Update runnign estimate of covariance.
+                    // Update running estimate of covariance.
                     covariance(i, j) -= x->at(i)*x->at(j);
                 }
             }
 
-            mass += 1;
+            for (int i = 0; i < covariance.rows(); i++)
+            {
+                // Cannot be positive definite if diagonal values are negative:
+                assert(covariance(i, i) > 0);
+
+                for (int j = 0; j < i; j++)
+                {
+                    // Symmetry:
+                    assert(covariance(i, j) == covariance(j, i));
+                }
+            }
+            
+            cachedTrueMean = false;
+            cachedTrueCovariance = false;
+            cachedDeterminant = false;
+            
+            mass -= 1;
         }
         
         /**
@@ -553,7 +601,14 @@ namespace libf {
          */
         Eigen::VectorXf & getMean()
         {
-            return mean;
+            if (!cachedTrueMean)
+            {
+                trueMean = mean/mass;
+                cachedTrueMean = true;
+                
+            }
+            
+            return trueMean;
         }
         
         /**
@@ -563,7 +618,22 @@ namespace libf {
         {
             if (!cachedTrueCovariance)
             {
-                trueCovariance = (covariance - mean*mean.transpose())/mass;
+                trueCovariance = (mean*mean.transpose())/(mass*mass); // (mean/mass)*(mean.transpose()/mass)
+                trueCovariance = covariance/(mass - 1) - trueCovariance; // covariance/mass - (mean/mass)*(mean.transpose()/mass)
+                
+                for (int i = 0; i < trueCovariance.rows(); i++)
+                {
+                    // Cannot be positive definite if diagonal values are negative:
+                    assert(trueCovariance(i, i) >= 0);
+                    
+                    for (int j = 0; j < i; j++)
+                    {
+                        // Symmetry:
+                        assert(trueCovariance(i, j) == trueCovariance(j, i));
+                    }
+                }
+                
+                cachedTrueCovariance = true;
             }
 
             return trueCovariance;
@@ -576,7 +646,17 @@ namespace libf {
         {
             if (!cachedDeterminant)
             {
-                covarianceDeterminant = covariance.determinant();
+                covarianceDeterminant = getCovariance().determinant();
+                
+//                getCovariance();
+//                covarianceDeterminant = 0;
+//                
+//                for (int i = 0; i < covariance.rows(); i++)
+//                {
+//                    covarianceDeterminant *= trueCovariance(i, i);
+//                }
+//                
+//                cachedDeterminant = true;
             }
 
             return covarianceDeterminant;
@@ -587,7 +667,7 @@ namespace libf {
          */
         float getEntropy()
         {
-            return LIBF_ENTROPY(mass)*LIBF_ENTROPY(getDeterminant());
+            return mass*fastlog2(getDeterminant());
         }
         
     private:
@@ -625,6 +705,14 @@ namespace libf {
          * Cached covariance determinant.
          */
         float covarianceDeterminant;
+        /**
+         T* he mean is also cached.
+         */
+        bool cachedTrueMean;
+        /**
+         * The cached mean.
+         */
+        Eigen::VectorXf trueMean;
         
     };
 }

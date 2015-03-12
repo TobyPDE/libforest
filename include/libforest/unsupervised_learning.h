@@ -46,6 +46,10 @@ namespace libf {
              */
             int depth;
             /**
+             * Max depth allowed.
+             */
+            int maxDepth;
+            /**
              * Number of samples at current node.
              */
             int samples;
@@ -81,6 +85,9 @@ namespace libf {
          */
         DensityTree* learn(const UnlabeledDataStorage* storage);
 
+    private:
+        void updateLeafNodeGaussian(Gaussian & gaussian, EfficientCovarianceMatrix & covariance);
+        
     };
 }
 

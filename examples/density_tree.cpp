@@ -102,7 +102,7 @@ int main(int argc, const char** argv)
         ("help", "produce help message")
         ("num-samples", boost::program_options::value<int>()->default_value(10000),"number of samples for training")
         ("num-features", boost::program_options::value<int>()->default_value(10), "number of features to use (set to dimensionality of data to learn deterministically)")
-        ("max-depth", boost::program_options::value<int>()->default_value(100), "maximum depth of trees");
+        ("max-depth", boost::program_options::value<int>()->default_value(10), "maximum depth of trees");
 
     boost::program_options::positional_options_description positionals;
     
@@ -117,7 +117,7 @@ int main(int argc, const char** argv)
     }
     
     // Number of components.
-    const int M = 3;
+    const int M = 2;
     const int H = 400;
     const int W = 400;
     
@@ -130,12 +130,12 @@ int main(int argc, const char** argv)
     
     for (int m = 0; m < M; m++)
     {
-        do
-        {
-            weights[m] = randFloat(0, 1);
-        }
-        while (weights[m] == 0);
-        
+//        do
+//        {
+//            weights[m] = randFloat(0, 1);
+//        }
+//        while (weights[m] == 0);
+        weights[m] = 1./M;
         weights_sum +=weights[m];
         
         float v0 = randFloat(25, H/4);
@@ -178,6 +178,8 @@ int main(int argc, const char** argv)
     
     DensityTreeLearner learner;
     learner.addCallback(DensityTreeLearner::defaultCallback, 1);
+    learner.setMaxDepth(parameters["max-depth"].as<int>());
+    learner.setNumFeatures(parameters["num-features"].as<int>());
     
     DensityTree* tree = learner.learn(&storage);
     
@@ -188,9 +190,12 @@ int main(int argc, const char** argv)
     for (int n = 0; n < N; n++)
     {
         storage_tree.addDataPoint(tree->sample());
+//        std::cout << storage_tree.getDataPoint(n)->at(0) << " " 
+//                << std::cout << storage_tree.getDataPoint(n)->at(1) << std::endl;
     }
     
     cv::Mat image_tree = visualizeSamples(H, W, storage_tree);
+    cv::imwrite("tree_samples.png", image_tree);
     
     delete tree;
     return 0;
