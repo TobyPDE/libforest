@@ -46,7 +46,8 @@ namespace libf {
          */
         Gaussian() :
                 cachedInverse(false),
-                cachedDeterminant(false) {};
+                cachedDeterminant(false),
+                dataSupport(0) {};
         
         /**
          * Gaussian with given mean and covariance.
@@ -118,6 +119,22 @@ namespace libf {
             return covariance;
         }
         
+        /**
+         * Returns the number of samples used to estimate this gaussian.
+         */
+        int getDataSupport()
+        {
+            return dataSupport;
+        }
+        
+        /**
+         * Set number of samples used to estimate this gaussian.
+         */
+        void setDataSupport(int _dataSupport)
+        {
+            dataSupport = _dataSupport;
+        }
+        
     private:
         Eigen::VectorXf asEigenVector(const DataPoint* x);
         DataPoint* asDataPoint(const Eigen::VectorXf & y);
@@ -150,6 +167,10 @@ namespace libf {
          * Eigenvector and eigenvalue transformation for sampling.
          */
         Eigen::MatrixXf transform;
+        /**
+         * Number of data points used for this gaussian.
+         */
+        int dataSupport;
     };
     
     /**
@@ -265,6 +286,11 @@ namespace libf {
         
     private:
         /**
+         * Compute and cache the partition function.
+         */
+        float getPartitionFunction(int D);
+        
+        /**
          * Adds a plain new node.
          */
         virtual void addNode(int depth);
@@ -291,7 +317,82 @@ namespace libf {
          * The Gaussians at the leafs.
          */
         std::vector<Gaussian> gaussians;
+        /**
+         * Partition function.
+         */
+        float partitionFunction;
+        /**
+         * The partition function is cached.
+         */
+        bool cachedPartitionFunction;
         
+    };
+    
+    /**
+     * A density forest consisting of several density trees.
+     */
+    class DensityForest : public Estimator {
+    public:
+        /**
+         * Constructor.
+         */
+        DensityForest() {}
+        
+        /**
+         * Destructor.
+         */
+        virtual ~DensityForest() {};
+        
+        /**
+         * Adds a tree to the ensemble
+         */
+        void addTree(DensityTree* tree)
+        {
+            trees.push_back(tree);
+        }
+        
+        /**
+         * Returns the number of trees
+         */
+        int getSize() const
+        {
+            return static_cast<int>(trees.size());
+        }
+        
+        /**
+         * Returns the i-th tree
+         */
+        DensityTree* getTree(int i)
+        {
+            return trees[i];
+        }
+        
+        /**
+         * Removes the i-th tree
+         */
+        void removeTree(int i)
+        {
+            // Delete the tree
+            delete trees[i];
+            // Remove it from the array
+            trees.erase(trees.begin() + i);
+        }
+        
+        /**
+         * Estimate the probability of a datapoint.
+         */
+        virtual float estimate(const DataPoint* x);
+        
+        /**
+         * Sample from the model.
+         */
+        virtual DataPoint* sample();
+        
+    private:
+        /**
+         * The individual decision trees. 
+         */
+        std::vector<DensityTree*> trees;
     };
 }
 #endif

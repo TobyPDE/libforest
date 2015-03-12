@@ -69,7 +69,12 @@ namespace libf {
          * The default callback for this learner.
          */
         static int defaultCallback(DensityTree* tree, DensityTreeLearnerState* state);
-                
+        
+        /**
+         * Verbose callback for this learner.
+         */
+        static int verboseCallback(DensityTree* forest, DensityTreeLearnerState* state);   
+        
         /**
          * Actions for the callback function.
          */
@@ -88,6 +93,83 @@ namespace libf {
     private:
         void updateLeafNodeGaussian(Gaussian & gaussian, EfficientCovarianceMatrix & covariance);
         
+    };
+    
+    /**
+     * This class holds the current state of the random forest learning
+     * algorithm.
+     */
+    class DensityForestLearnerState : public AbstractLearnerState {
+    public:
+        DensityForestLearnerState() : AbstractLearnerState(),
+                tree(0),
+                numTrees(0) {}
+        
+        /**
+         * The current tree
+         */
+        int tree;
+        /**
+         * Number of learned trees.
+         */
+        int numTrees;
+    };
+    
+    /**
+     * This is an offline random forest learner. 
+     */
+    class DensityForestLearner : public AbstractRandomForestLearner<DensityForest, DensityForestLearnerState>,
+            public UnsupervisedLearner<DensityForest> {
+    public:
+        
+        /**
+         * The default callback for this learner.
+         */
+        static int defaultCallback(DensityForest* forest, DensityForestLearnerState* state);
+        
+        /**
+         * Verbose callback for this learner.
+         */
+        static int verboseCallback(DensityForest* forest, DensityForestLearnerState* state);
+         
+        /**
+         * These are the actions of the learning algorithm that are passed
+         * to the callback functions.
+         */
+        const static int ACTION_START_TREE = 1;
+        const static int ACTION_FINISH_TREE = 2;
+        const static int ACTION_START_FOREST = 3;
+        const static int ACTION_FINISH_FOREST = 4;
+        
+        DensityForestLearner() : AbstractRandomForestLearner(),
+                treeLearner(0) {}
+        
+        /**
+         * Sets the decision tree learner
+         */
+        void setTreeLearner(DensityTreeLearner* _treeLearner)
+        {
+            treeLearner = _treeLearner;
+        }
+        
+        /**
+         * Returns the decision tree learner
+         */
+        DensityTreeLearner* getTreeLearner() const
+        {
+            return treeLearner;
+        }
+        
+        /**
+         * Learns a forests. 
+         */
+        virtual DensityForest* learn(const DataStorage* storage);
+
+    protected:
+        /**
+         * The tree learner
+         */
+        DensityTreeLearner* treeLearner;
     };
 }
 

@@ -373,15 +373,18 @@ float GMMDensityAccuracyTool::measure(Estimator* estimator, std::vector<Gaussian
             p_x += weights[m]*gaussians[m].evaluate(x);
         }
         
-        kl += p_x*fastlog2(p_x/p_x_hat);
+        if (p_x > 0)
+        {
+            kl += fastlog2(p_x_hat/p_x);
+        }
     }
     
-    return kl;
+    return kl/N;
 }
 
-void GMMDensityAccuracyTool::print(float accuracy)
+void GMMDensityAccuracyTool::print(float kl)
 {
-    printf("Accuracy: %2.2f%% (Error: %2.2f%%)\n", accuracy*100, (1-accuracy)*100);
+    printf("Divergence: %2.2f%%\n", kl);
 }
 
 void GMMDensityAccuracyTool::measureAndPrint(Estimator* estimator, std::vector<Gaussian> & gaussians,

@@ -53,6 +53,45 @@ cv::Mat visualizeGaussians(int H, int W, std::vector<Gaussian> gaussians, std::v
         }
     }
     
+    assert(p_max > 0);
+    
+    for (int i = 0; i < H; i++)
+    {
+        for (int j = 0; j < W; j++)
+        {
+            image.at<float>(i, j) = image.at<float>(i, j)/p_max * 255;
+        }
+    }
+    
+    return image;
+}
+
+cv::Mat visualizeTree(int H, int W, DensityTree* tree)
+{    
+    cv::Mat image(H, W, CV_32FC1, cv::Scalar(0));
+    float p_max = 0;
+    
+    for (int i = 0; i < H; i++)
+    {
+        for (int j = 0; j < W; j++)
+        {
+            DataPoint x(2);
+            x.at(0) = i;
+            x.at(1) = j;
+            
+            float p_x = tree->estimate(&x);
+            
+            if (p_x > p_max)
+            {
+                p_max = p_x;
+            }
+            
+            image.at<float>(i, j) = p_x;
+        }
+    }
+    
+    assert(p_max > 0);
+    
     for (int i = 0; i < H; i++)
     {
         for (int j = 0; j < W; j++)
@@ -100,6 +139,7 @@ int main(int argc, const char** argv)
     boost::program_options::options_description desc("Allowed options");
     desc.add_options()
         ("help", "produce help message")
+        ("num-components", boost::program_options::value<int>()->default_value(2), "number of Gaussian components")
         ("num-samples", boost::program_options::value<int>()->default_value(10000),"number of samples for training")
         ("num-features", boost::program_options::value<int>()->default_value(10), "number of features to use (set to dimensionality of data to learn deterministically)")
         ("max-depth", boost::program_options::value<int>()->default_value(10), "maximum depth of trees");
@@ -117,7 +157,7 @@ int main(int argc, const char** argv)
     }
     
     // Number of components.
-    const int M = 2;
+    const int M = parameters["num-components"].as<int>();
     const int H = 400;
     const int W = 400;
     
@@ -130,12 +170,12 @@ int main(int argc, const char** argv)
     
     for (int m = 0; m < M; m++)
     {
-//        do
-//        {
-//            weights[m] = randFloat(0, 1);
-//        }
-//        while (weights[m] == 0);
-        weights[m] = 1./M;
+        do
+        {
+            weights[m] = randFloat(0.5, 1);
+        }
+        while (weights[m] == 0);
+//        weights[m] = 1./M;
         weights_sum +=weights[m];
         
         float v0 = randFloat(25, H/4);
@@ -184,7 +224,10 @@ int main(int argc, const char** argv)
     DensityTree* tree = learner.learn(&storage);
     
     GMMDensityAccuracyTool accuracyTool;
-    accuracyTool.measureAndPrint(tree, gaussians, weights, N);
+    accuracyTool.measureAndPrint(tree, gaussians, weights, 10*N);
+    
+    cv::Mat image_tree = visualizeTree(H, W, tree);
+    cv::imwrite("tree.png", image_tree);
     
     UnlabeledDataStorage storage_tree;
     for (int n = 0; n < N; n++)
@@ -194,8 +237,8 @@ int main(int argc, const char** argv)
 //                << std::cout << storage_tree.getDataPoint(n)->at(1) << std::endl;
     }
     
-    cv::Mat image_tree = visualizeSamples(H, W, storage_tree);
-    cv::imwrite("tree_samples.png", image_tree);
+    cv::Mat image_samples_tree = visualizeSamples(H, W, storage_tree);
+    cv::imwrite("tree_samples.png", image_samples_tree);
     
     delete tree;
     return 0;

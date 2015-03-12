@@ -229,7 +229,7 @@ DecisionTree* OnlineDecisionTreeLearner::learn(const DataStorage* storage, Decis
         // - if the number of examples is too small
         // - if the maximum depth is reached
         if (nodeStatistics.getMass() < minSplitExamples || nodeStatistics.isPure() 
-                || depth > maxDepth)
+                || depth >= maxDepth)
         {
             // Do not split, update leaf histogram according to new sample.
             updateLeafNodeHistogram(tree->getHistogram(leaf), nodeStatistics, smoothingParameter);
