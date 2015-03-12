@@ -9,6 +9,7 @@ The following list includes important references used for implementations within
 * Variable Importance:
 
 > G. Louppe, L. Wehenkel, A. Sutera, P. Geurts. Understanding Variable Importance in Forests of Randomized Trees. Advances in Neural Information Processing Systems, 2013.
+
 > G. Louppe. Understanding Random Forests. PhD thesis, Universite de Liege, Belgium, 2014.
 
 * Density Forests:
