@@ -21,7 +21,8 @@ void DensityTreeLearner::updateLeafNodeGaussian(Gaussian & gaussian, EfficientCo
 {
     gaussian.setMean(covariance.getMean());
     gaussian.setCovariance(covariance.getCovariance());
-
+    gaussian.setDataSupport(covariance.getMass());
+    
     assert(gaussian.getMean().rows() > 0);
     assert(gaussian.getCovariance().rows() > 0);
     assert(gaussian.getCovariance().cols() > 0);
@@ -67,7 +68,7 @@ DensityTree* DensityTreeLearner::learn(const UnlabeledDataStorage* storage)
     FeatureComparator cp;
     cp.storage = storage;
     
-    std::vector<int> features(N);
+    std::vector<int> features(D);
     for (int f = 0; f < D; f++) 
     {
         features[f] = f;
@@ -111,18 +112,17 @@ DensityTree* DensityTreeLearner::learn(const UnlabeledDataStorage* storage)
         //  If the number of examples is too small
         //  If the training examples are all of the same class
         //  If the maximum depth is reached
-        if (covariance.getMass() < minSplitExamples || tree->getDepth(leaf) > maxDepth)
+        if (covariance.getMass() < minSplitExamples || tree->getDepth(leaf) >= maxDepth)
         {
             state.action = ACTION_NOT_SPLIT_NODE;
             state.maxDepth = maxDepth;
             
             evokeCallback(tree, 0, &state);
-        
-            trainingExamples[leaf].clear();
             
             // Resize and initialize the leaf node histogram.
             updateLeafNodeGaussian(tree->getGaussian(leaf), covariance);
             
+            trainingExamples[leaf].clear();
             continue;
         }
         
@@ -135,7 +135,7 @@ DensityTree* DensityTreeLearner::learn(const UnlabeledDataStorage* storage)
         std::shuffle(features.begin(), features.end(), std::default_random_engine(rd()));
         
         // Optimize over all features
-        for (int f = 0; f < numFeatures; f++)
+        for (int f = 1; f < numFeatures; f++)
         {
             const int feature = features[f];
             
@@ -149,39 +149,39 @@ DensityTree* DensityTreeLearner::learn(const UnlabeledDataStorage* storage)
             float leftFeatureValue = storage->getDataPoint(trainingExamples[leaf][0])->at(feature);
             
             // The training samples are our thresholds to optimize over.
-            for (int m = 1; m < N_leaf; m++)
+            for (int m = 1; m < N_leaf - 1; m++)
             {
                 const int n = trainingExamples[leaf][m];
                 
                 // Shift threshold one sample to the right.
                 leftCovariance.addOne(storage->getDataPoint(n));
                 rightCovariance.subOne(storage->getDataPoint(n));
+                assert(leftCovariance.getMass() + rightCovariance.getMass() == covariance.getMass());
                 
                 float rightFeatureValue = storage->getDataPoint(n)->at(feature);
                 assert(rightFeatureValue >= leftFeatureValue);
                 
-                if (rightFeatureValue - leftFeatureValue < 1e-6f)
-                {
-                    leftFeatureValue = rightFeatureValue;
-                    continue;
-                }
+//                if (rightFeatureValue - leftFeatureValue < 1e-6f)
+//                {
+//                    leftFeatureValue = rightFeatureValue;
+//                    continue;
+//                }
                 
                 // Only try if enough samples would be in the new children.
-                if (leftCovariance.getMass() > minChildSplitExamples
-                        && rightCovariance.getMass() > minChildSplitExamples)
-                {
-                    // Get the objective function
+//                if (leftCovariance.getMass() > minChildSplitExamples
+//                        && rightCovariance.getMass() > minChildSplitExamples)
+//                {
+                    // Get the objective value.
                     const float localObjective = leftCovariance.getEntropy()/N_leaf
                             + rightCovariance.getEntropy()/N_leaf;
                     
                     if (localObjective < bestObjective)
-                    {std::cout << f << " " << m << " " << N_leaf << std::endl;
-                        // Get the threshold value
+                    {
                         bestThreshold = (leftFeatureValue + rightFeatureValue)/2;
                         bestFeature = feature;
                         bestObjective = localObjective;
                     }
-                }
+//                }
                 
                 leftFeatureValue = rightFeatureValue;
             }
@@ -196,10 +196,9 @@ DensityTree* DensityTreeLearner::learn(const UnlabeledDataStorage* storage)
             evokeCallback(tree, 0, &state);
             
             // Don't split
-            trainingExamples[leaf].clear();
-           
             updateLeafNodeGaussian(tree->getGaussian(leaf), covariance);
             
+            trainingExamples[leaf].clear();
             continue;
         }
         
@@ -211,31 +210,26 @@ DensityTree* DensityTreeLearner::learn(const UnlabeledDataStorage* storage)
         const int rightChild = leftChild + 1;
         
         // Set up the data lists for the child nodes
-        trainingExamples.push_back(std::vector<int>());
-        trainingExamples.push_back(std::vector<int>());
-        
-        std::vector<int> & leftTrainingExamples = trainingExamples[leftChild];
-        std::vector<int> & rightTrainingExamples = trainingExamples[rightChild];
+        trainingExamples[leftChild] = std::vector<int>();
+        trainingExamples[rightChild] = std::vector<int>();
         
         // Sort the points
         for (int m = 0; m < N_leaf; m++)
         {
             const int n = trainingExamples[leaf][m];
             assert(n >= 0 && n < storage->getSize());
+            
             const float featureValue = storage->getDataPoint(n)->at(bestFeature);
             
             if (featureValue < bestThreshold)
             {
-                leftTrainingExamples.push_back(n);
+                trainingExamples[leftChild].push_back(n);
             }
             else
             {
-                rightTrainingExamples.push_back(n);
+                trainingExamples[rightChild].push_back(n);
             }
         }
-        
-        assert(leftTrainingExamples.size() > 0);
-        assert(rightTrainingExamples.size() > 0);
         
         state.action = ACTION_SPLIT_NODE;
         state.depth = depth;
@@ -252,6 +246,22 @@ DensityTree* DensityTreeLearner::learn(const UnlabeledDataStorage* storage)
 }
 
 int DensityTreeLearner::defaultCallback(DensityTree* tree, DensityTreeLearnerState* state)
+{
+    switch (state->action) {
+        case DensityTreeLearner::ACTION_START_TREE:
+            std::cout << "Start decision tree training" << "\n";
+            break;
+        case DensityTreeLearner::ACTION_SPLIT_NODE:
+            std::cout << std::setw(15) << std::left << "Split node:"
+                    << "depth = " << std::setw(3) << std::right << state->depth
+                    << ", objective = " << std::setw(6) << std::left
+                    << std::setprecision(4) << state->objective << "\n";
+            break;
+    }
+    return 0;
+}
+
+int DensityTreeLearner::verboseCallback(DensityTree* tree, DensityTreeLearnerState* state)
 {
     switch (state->action) {
         case DensityTreeLearner::ACTION_START_TREE:
@@ -286,5 +296,86 @@ int DensityTreeLearner::defaultCallback(DensityTree* tree, DensityTreeLearnerSta
             std::cout << "UNKNOWN ACTION CODE " << state->action << "\n";
             break;
     }
+    return 0;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+/// DensityForestLearner
+////////////////////////////////////////////////////////////////////////////////
+
+DensityForest* DensityForestLearner::learn(const DataStorage* storage)
+{
+    // Set up the empty random forest
+    DensityForest* forest = new DensityForest();
+    
+    // Set up the state for the call backs
+    DensityForestLearnerState state;
+    state.numTrees = this->getNumTrees();
+    state.tree = 0;
+    state.action = ACTION_START_FOREST;
+    
+    evokeCallback(forest, 0, &state);
+    
+    int treeStartCounter = 0; 
+    int treeFinishCounter = 0; 
+    #pragma omp parallel for num_threads(numThreads)
+    for (int i = 0; i < numTrees; i++)
+    {
+        #pragma omp critical
+        {
+            state.tree = ++treeStartCounter;
+            state.action = ACTION_START_TREE;
+            
+            evokeCallback(forest, treeStartCounter - 1, &state);
+        }
+        
+        // Learn the tree
+        DensityTree* tree = treeLearner->learn(storage);
+        // Add it to the forest
+        #pragma omp critical
+        {
+            state.tree = ++treeFinishCounter;
+            state.action = ACTION_FINISH_TREE;
+            
+            evokeCallback(forest, treeFinishCounter - 1, &state);
+            
+            forest->addTree(tree);
+        }
+    }
+    
+    state.tree = 0;
+    state.action = ACTION_FINISH_FOREST;
+    
+    evokeCallback(forest, 0, &state);
+    
+    return forest;
+}
+
+int DensityForestLearner::defaultCallback(DensityForest* forest, DensityForestLearnerState* state)
+{
+    switch (state->action) {
+        case RandomForestLearner::ACTION_START_FOREST:
+            std::cout << "Start random forest training" << "\n";
+            break;
+        case RandomForestLearner::ACTION_START_TREE:
+            std::cout << std::setw(15) << std::left << "Start tree " 
+                    << std::setw(4) << std::right << state->tree 
+                    << " out of " 
+                    << std::setw(4) << state->numTrees << "\n";
+            break;
+        case RandomForestLearner::ACTION_FINISH_TREE:
+            std::cout << std::setw(15) << std::left << "Finish tree " 
+                    << std::setw(4) << std::right << state->tree 
+                    << " out of " 
+                    << std::setw(4) << state->numTrees << "\n";
+            break;
+        case RandomForestLearner::ACTION_FINISH_FOREST:
+            std::cout << "Finished forest in " << state->getPassedTime().count()/1000000. << "s\n";
+            break;
+        default:
+            std::cout << "UNKNOWN ACTION CODE " << state->action << "\n";
+            break;
+    }
+    
     return 0;
 }

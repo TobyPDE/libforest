@@ -38,7 +38,8 @@ Gaussian::Gaussian(Eigen::VectorXf _mean, Eigen::MatrixXf _covariance) :
         mean(_mean), 
         covariance(_covariance),
         cachedInverse(false),
-        cachedDeterminant(false)
+        cachedDeterminant(false),
+        dataSupport(0) 
 {
     const int rows = _covariance.rows();
     const int cols = _covariance.cols();
@@ -207,26 +208,98 @@ int DensityTree::findLeafNode(const DataPoint* x) const
     return node;
 }
 
+float DensityTree::getPartitionFunction(int D)
+{
+    if (!cachedPartitionFunction)
+    {
+        const int N = 100 * pow(10, D);
+        const int nodes = static_cast<int>(leftChild.size());
+        
+        for (int node = 0; node < nodes; node++)
+        {
+            if (leftChild[node] == 0)
+            {
+                int count = 0;
+                for (int n = 0; n < N; n++)
+                {
+                    DataPoint* x = gaussians[node].sample();
+                    
+                    int leaf = findLeafNode(x);
+                    if (leaf == node)
+                    {
+                        count++;
+                    }
+                    
+                    delete x;
+                }
+                
+                float volume = ((float) count)/N;
+                partitionFunction += gaussians[node].getDataSupport()/volume;
+            }
+        }
+        
+        cachedPartitionFunction = true;
+    }
+    
+    return partitionFunction;
+}
+
 float DensityTree::estimate(const DataPoint* x)
 {
     int node = findLeafNode(x);
-    return this->gaussians[node].evaluate(x);
+    
+    // Get the normalizer for our distribution.
+    const float Z = getPartitionFunction(x->getDimensionality());
+    
+    return this->gaussians[node].evaluate(x);//Z;
 }
 
 DataPoint* DensityTree::sample()
 {
     // We begin by sampling a random path in the tree.
-    int node = 0;
+    int node = std::rand()%leftChild.size();
     while (leftChild[node] > 0)
     {
-        int r = std::rand()%2;
-        node = node + r + 1;
-        
-        assert(r < static_cast<int>(leftChild.size()));
+        node = std::rand()%leftChild.size();
     }
     
     assert(leftChild[node] == 0);
     
     // Now sample from the final Gaussian.
     return gaussians[node].sample();
+}
+
+////////////////////////////////////////////////////////////////////////////////
+/// DensityForest
+////////////////////////////////////////////////////////////////////////////////
+
+float DensityForest::estimate(const DataPoint* x)
+{
+    const int T = static_cast<int>(trees.size());
+    
+    float p_x = 0;
+    for (int t = 0; t < T; t++)
+    {
+        p_x += getTree(t)->estimate(x);
+    }
+    
+    return p_x/T;
+}
+
+DataPoint* DensityForest::sample()
+{
+    int t = std::rand()%trees.size();
+    DensityTree* tree = getTree(t);
+    
+    // We begin by sampling a random path in the tree.
+    int node = std::rand()%tree->getNumNodes();
+    while (tree->getLeftChild(node) > 0)
+    {
+        node = std::rand()%tree->getNumNodes();
+    }
+    
+    assert(tree->getLeftChild(node) == 0);
+    
+    // Now sample from the final Gaussian.
+    return tree->getGaussian(node).sample();
 }

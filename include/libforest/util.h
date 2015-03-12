@@ -655,8 +655,8 @@ namespace libf {
 //                {
 //                    covarianceDeterminant *= trueCovariance(i, i);
 //                }
-//                
-//                cachedDeterminant = true;
+                
+                cachedDeterminant = true;
             }
 
             return covarianceDeterminant;

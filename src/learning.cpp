@@ -134,7 +134,7 @@ DecisionTree* DecisionTreeLearner::learn(const DataStorage* dataStorage)
         //  If the number of examples is too small
         //  If the training examples are all of the same class
         //  If the maximum depth is reached
-        if (hist.getMass() < minSplitExamples || hist.isPure() || tree->getDepth(node) > maxDepth)
+        if (hist.getMass() < minSplitExamples || hist.isPure() || tree->getDepth(node) >= maxDepth)
         {
             // Resize and initialize the leaf node histogram
             updateLeafNodeHistogram(tree->getHistogram(node), hist, smoothingParameter, useBootstrap);
@@ -437,7 +437,6 @@ int RandomForestLearner::defaultCallback(RandomForest* forest, RandomForestLearn
     
     return 0;
 }
-
 
 ////////////////////////////////////////////////////////////////////////////////
 /// BoostedRandomForestLearner

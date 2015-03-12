@@ -335,7 +335,7 @@ namespace libf {
     /**
      * This is an offline random forest learner. 
      */
-    class OnlineRandomForestLearner : public AbstractRandomForestLearner<OnlineRandomForestLearnerState>,
+    class OnlineRandomForestLearner : public AbstractRandomForestLearner<RandomForest, OnlineRandomForestLearnerState>,
             public OnlineLearner<RandomForest> {
     public:
         
