@@ -12,6 +12,8 @@
 namespace libf {
     class DataStorage;
     class Classifier;
+    class Estimator;
+    class Gaussian;
     class RandomForest;
     class RandomForestLearner;
     
@@ -113,6 +115,27 @@ namespace libf {
          * importance where the image has size rows x rows.
          */
         void measureAndSave(RandomForestLearner* learner, boost::filesystem::path file, int rows) const;
+    };
+    
+    class GMMDensityAccuracyTool {
+    public:
+        
+        /**
+         * Measures the density accuracy using the Kulback-Leibler divergence on a discretegrid.
+         */
+        float measure(Estimator* estimator, std::vector<Gaussian> & gaussians,
+                const std::vector<float> & weights, int N);
+        
+        /**
+         * Print the Kulback-Leibler divergence.
+         */
+        void print(float kl);
+        
+        /**
+         * Measure and print the accuracy in terms of the Kulback-Leibler divergence.
+         */
+        void measureAndPrint(Estimator* estimator, std::vector<Gaussian> & gaussians,
+                const std::vector<float> & weights, int N);
     };
 }
 

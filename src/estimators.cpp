@@ -51,14 +51,14 @@ Gaussian::Gaussian(Eigen::VectorXf _mean, Eigen::MatrixXf _covariance, float _co
     transform = solver.eigenvectors()*solver.eigenvalues().cwiseSqrt().asDiagonal();
 }
 
-void Gaussian::setCovariance(Eigen::MatrixXf _covariance)
+void Gaussian::setCovariance(const Eigen::MatrixXf _covariance)
 {
     const int rows = _covariance.rows();
     const int cols = _covariance.cols();
     
     assert(rows == cols);
     
-    covariance = Eigen::MatrixXf(_covariance);
+    covariance = _covariance;
     
     Eigen::SelfAdjointEigenSolver<Eigen::MatrixXf> solver(covariance);
     transform = solver.eigenvectors()*solver.eigenvalues().cwiseSqrt().asDiagonal();
@@ -142,4 +142,29 @@ float DensityTree::estimate(const DataPoint* x)
 {
     int node = findLeafNode(x);
     return this->gaussians[node].evaluate(x);
+}
+
+DataPoint* DensityTree::sample()
+{
+    // We begin by sampling a random path in the tree.
+    int node = 0;
+    while (leftChild[node] > 0)
+    {
+        int r = std::rand()%2;
+        node = node + r;
+        
+        assert(r < static_cast<int>(leftChild.size()));
+    }
+    
+    assert(leftChild[node] == 0);
+    
+    // Now sample from the final Gaussian.
+    return gaussians[node].sample();
+}
+
+void DensityTree::addNode(int depth)
+{
+    Tree::addNode(depth);
+    
+    gaussians.push_back(Gaussian());
 }

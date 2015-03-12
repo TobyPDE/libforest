@@ -34,6 +34,11 @@ namespace libf {
          * Estimate the probability of a datapoint.
          */
         virtual float estimate(const DataPoint* x) = 0;
+        
+        /**
+         * Sample from the estimator.
+         */
+        virtual DataPoint* sample() = 0;
     };
     
     /**
@@ -66,10 +71,10 @@ namespace libf {
         
         Gaussian operator=(const Gaussian & other)
         {
-            mean = Eigen::VectorXf(other.mean);
-            covariance = Eigen::MatrixXf(other.covariance);
+//            mean = other.mean;
+            covariance = other.covariance;
 
-            transform = Eigen::MatrixXf(other.transform);
+            transform = other.transform;
             
             cachedInverse = false;
             cachedDeterminant = false;
@@ -88,11 +93,19 @@ namespace libf {
         DataPoint* sample();
         
         /**
+         * Get dimensionality of gaussian.
+         */
+        int getDimensionality()
+        {
+            return mean.rows();
+        }
+        
+        /**
          * Sets the mean.
          */
-        void setMean(Eigen::VectorXf _mean)
+        void setMean(const Eigen::VectorXf _mean)
         {
-            mean = Eigen::VectorXf(_mean);
+            mean = _mean;
         }
         
         /**
@@ -106,7 +119,7 @@ namespace libf {
         /**
          * Sets the covariance matrix.
          */
-        void setCovariance(Eigen::MatrixXf _covariance);
+        void setCovariance(const Eigen::MatrixXf _covariance);
         
         /**
          * Returns the covariance matrix.
@@ -191,16 +204,16 @@ namespace libf {
         virtual float estimate(const DataPoint* x);
         
         /**
-         * Reads the classifier from a stream
+         * Sample from the model.
          */
-        virtual void read(std::istream & stream);
-        
-        /**
-         * Writes the classifier to a stream
-         */
-        virtual void write(std::ostream & stream) const;
+        virtual DataPoint* sample();
         
     private:
+        /**
+         * Adds a plain new node.
+         */
+        virtual void addNode(int depth);
+        
         /**
          * The Gaussians at the leafs.
          */

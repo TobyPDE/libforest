@@ -576,7 +576,7 @@ namespace libf {
         {
             if (!cachedDeterminant)
             {
-                covarianceDeterminant = getCovariance().determinant();
+                covarianceDeterminant = covariance.determinant();
             }
 
             return covarianceDeterminant;

@@ -1,6 +1,7 @@
 #include "libforest/tools.h"
 #include "libforest/data.h"
 #include "libforest/classifiers.h"
+#include "libforest/estimators.h"
 #include "libforest/learning.h"
 #include "libforest/io.h"
 #include "libforest/util.h"
@@ -344,4 +345,48 @@ void PixelImportanceTool::measureAndSave(RandomForestLearner* learner, boost::fi
     }
     
     cv::imwrite(file.string(), image);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+/// PixelImportanceTool
+////////////////////////////////////////////////////////////////////////////////
+
+float GMMDensityAccuracyTool::measure(Estimator* estimator, std::vector<Gaussian> & gaussians,
+        const std::vector<float> & weights, int N)
+{
+    assert(weights.size() == gaussians.size());
+    assert(gaussians.size() > 0);
+    
+    const int M = weights.size();
+    
+    float kl = 0;
+    for (int n = 0; n < N; n++)
+    {
+        int m = std::rand()%M;
+        DataPoint* x = gaussians[m].sample();
+
+        float p_x = 0;
+        float p_x_hat = estimator->estimate(x);
+        
+        for (m = 0; m < M; m++)
+        {
+            p_x += weights[m]*gaussians[m].evaluate(x);
+        }
+        
+        kl += p_x*fastlog2(p_x/p_x_hat);
+    }
+    
+    return kl;
+}
+
+void GMMDensityAccuracyTool::print(float accuracy)
+{
+    printf("Accuracy: %2.2f%% (Error: %2.2f%%)\n", accuracy*100, (1-accuracy)*100);
+}
+
+void GMMDensityAccuracyTool::measureAndPrint(Estimator* estimator, std::vector<Gaussian> & gaussians,
+        const std::vector<float> & weights, int N)
+{
+    float accuracy = measure(estimator, gaussians, weights, N);
+    print(accuracy);
 }
