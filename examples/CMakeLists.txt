@@ -30,3 +30,6 @@ include_directories(../include ${EIGEN3_INCLUDE_DIR} ${Boost_INCLUDE_DIRS})
 
 add_executable(cli_density_tree density_tree.cpp)
 target_link_libraries(cli_density_tree libforest ${Boost_LIBRARIES} ${OpenCV_LIBRARIES})
+
+add_executable(cli_density_forest density_forest.cpp)
+target_link_libraries(cli_density_forest libforest ${Boost_LIBRARIES} ${OpenCV_LIBRARIES})

@@ -210,8 +210,8 @@ DensityTree* DensityTreeLearner::learn(const UnlabeledDataStorage* storage)
         const int rightChild = leftChild + 1;
         
         // Set up the data lists for the child nodes
-        trainingExamples[leftChild] = std::vector<int>();
-        trainingExamples[rightChild] = std::vector<int>();
+        trainingExamples.push_back(std::vector<int>());
+        trainingExamples.push_back(std::vector<int>());
         
         // Sort the points
         for (int m = 0; m < N_leaf; m++)
@@ -303,7 +303,7 @@ int DensityTreeLearner::verboseCallback(DensityTree* tree, DensityTreeLearnerSta
 /// DensityForestLearner
 ////////////////////////////////////////////////////////////////////////////////
 
-DensityForest* DensityForestLearner::learn(const DataStorage* storage)
+DensityForest* DensityForestLearner::learn(const UnlabeledDataStorage* storage)
 {
     // Set up the empty random forest
     DensityForest* forest = new DensityForest();

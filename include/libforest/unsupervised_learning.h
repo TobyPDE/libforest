@@ -126,11 +126,6 @@ namespace libf {
          * The default callback for this learner.
          */
         static int defaultCallback(DensityForest* forest, DensityForestLearnerState* state);
-        
-        /**
-         * Verbose callback for this learner.
-         */
-        static int verboseCallback(DensityForest* forest, DensityForestLearnerState* state);
          
         /**
          * These are the actions of the learning algorithm that are passed
@@ -163,7 +158,7 @@ namespace libf {
         /**
          * Learns a forests. 
          */
-        virtual DensityForest* learn(const DataStorage* storage);
+        virtual DensityForest* learn(const UnlabeledDataStorage* storage);
 
     protected:
         /**

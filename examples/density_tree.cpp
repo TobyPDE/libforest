@@ -172,7 +172,7 @@ int main(int argc, const char** argv)
     {
         do
         {
-            weights[m] = randFloat(0.5, 1);
+            weights[m] = randFloat(0.1, 1);
         }
         while (weights[m] == 0);
 //        weights[m] = 1./M;
@@ -233,8 +233,6 @@ int main(int argc, const char** argv)
     for (int n = 0; n < N; n++)
     {
         storage_tree.addDataPoint(tree->sample());
-//        std::cout << storage_tree.getDataPoint(n)->at(0) << " " 
-//                << std::cout << storage_tree.getDataPoint(n)->at(1) << std::endl;
     }
     
     cv::Mat image_samples_tree = visualizeSamples(H, W, storage_tree);
