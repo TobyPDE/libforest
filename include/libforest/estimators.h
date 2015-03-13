@@ -48,26 +48,279 @@ namespace libf {
     };
     
     /**
-     * Kernel interface.
+     * Univariate kernel interface.
      */
     class Kernel {
     public:
+        /**
+         * Constructor.
+         */
         Kernel() {};
+        
+        /**
+         * Destructor.
+         */
         virtual ~Kernel() {};
+        
+        /**
+         * Evaluate the kernel in the given dimension.
+         */
+        virtual float evaluate(DataPoint* x, int d) = 0;
+        
+        /**
+         * Returns the coefficient for the rule of thumb bandwidth selection
+         * calculated as
+         * 
+         *  2 ((pi^(1/2) * (v!)^3 * R(k))/(2*v * (2*v)! kappa_v^2(k)))^(1/(2*2 + 1))
+         * 
+         * where v is the order (int this case v = 2), kappa_v(k) = int(x^2 k(x) dx),
+         * and k is the kernel.
+         */
+        virtual float getRuleOfThumbCoefficient() = 0;
+    };
+    
+    /**
+     * Univariate Gaussian kernel.
+     */
+    class GaussianKernel : public Kernel {
+    public:
+        /**
+         * Evaluate the kernel in the given dimension.
+         */
+        virtual float evaluate(DataPoint* x, int d)
+        {
+            assert(d >= 0 && d < x->getDimensionality());
+            return std::sqrt(2*M_PI) * std::exp(- 1.f/2.f * x->at(d)*x->at(d));
+        }
+        
+        /**
+         * Get coefficient for rule of thumb bandwidth selection.
+         */
+        float getRuleOfThumbCoefficient()
+        {
+            // See table 4 in:
+            //  B. E. Hansen.
+            //  Lecture Notes on Nonparametrics.
+            //  University of Wisconsin
+            return 1.06f;
+        }
+    };
+    
+    /**
+     * Univariate Epanechnikov kernel.
+     */
+    class EpanechnikovKernel : public Kernel {
+    public:
+        /**
+         * Evaluate the kernel in the given dimension.
+         */
+        virtual float evaluate(DataPoint* x, int d)
+        {
+            assert(d >= 0 && d < x->getDimensionality());
+            
+            float K_x = 1 - x->at(d)*x->at(d);
+            if (K_x > 0)
+            {
+                return 3.f/4.f * K_x;
+            }
+            else
+            {
+                return 0;
+            }
+        }
+        
+        /**
+         * Get coefficient for rule of thumb bandwidth selection.
+         */
+        float getRuleOfThumbCoefficient()
+        {
+            // See table 4 in:
+            //  B. E. Hansen.
+            //  Lecture Notes on Nonparametrics.
+            //  University of Wisconsin
+            return 2.34f;
+        }
+    };
+    
+    /**
+     * Univariate biweight kernel.
+     */
+    class BiweightKernel : public Kernel {
+    public:
+        /**
+         * Evaluate the kernel in the given dimension.
+         */
+        virtual float evaluate(DataPoint* x, int d)
+        {
+            assert(d >= 0 && d < x->getDimensionality());
+            
+            float K_x = 1 - x->at(d)*x->at(d);
+            if (K_x > 0)
+            {
+                return 15.f/16.f * K_x*K_x;
+            }
+            else
+            {
+                return 0;
+            }
+        }
+        
+        /**
+         * Get coefficient for rule of thumb bandwidth selection.
+         */
+        float getRuleOfThumbCoefficient()
+        {
+            // See table 4 in:
+            //  B. E. Hansen.
+            //  Lecture Notes on Nonparametrics.
+            //  University of Wisconsin
+            return 2.78f;
+        }
+    };
+    
+    /**
+     * Univariate triweight kernel.
+     */
+    class TriweightKernel : public Kernel {
+    public:
+        /**
+         * Evaluate the kernel in the given dimension.
+         */
+        virtual float evaluate(DataPoint* x, int d)
+        {
+            assert(d >= 0 && d < x->getDimensionality());
+            
+            float K_x = 1 - x->at(d)*x->at(d);
+            if (K_x > 0)
+            {
+                return 35.f/32.f * K_x*K_x*K_x;
+            }
+            else
+            {
+                return 0;
+            }
+        }
+        
+        /**
+         * Get coefficient for rule of thumb bandwidth selection.
+         */
+        float getRuleOfThumbCoefficient()
+        {
+            // See table 4 in:
+            //  B. E. Hansen.
+            //  Lecture Notes on Nonparametrics.
+            //  University of Wisconsin
+            return 3.15f;
+        }
+    };
+    
+    /**
+     * Multivariate kernel interface.
+     */
+    class MultivariateKernel {
+    public:
+        /**
+         * Constructor.
+         */
+        MultivariateKernel() {};
+        
+        /**
+         * Destructor.
+         */
+        virtual ~MultivariateKernel() {};
         
         /**
          * Evaluate the kernel.
          */
         virtual float evaluate(DataPoint* x) = 0;
+        
+        /**
+         * Returns the coefficient for the rule of thumb bandwidth selection
+         * calculated as
+         * 
+         *  2 ((pi^(1/2) * (v!)^3 * R(k))/(2*v * (2*v)! kappa_v^2(k)))^(1/(2*2 + 1))
+         * 
+         * where v is the order (int this case v = 2), kappa_v(k) = int(x^2 k(x) dx),
+         * and k is the kernel.
+         */
+        virtual float getRuleOfThumbCoefficient() = 0;
+        
+        /**
+         * For Maximal Smoothing Principle bandwidth selection we compute
+         * 
+         *  R(k) = int(k^2(x) dx)
+         * 
+         * using Monte Carlo integration with Gaussian proposal distribution.
+         */
+        float calculateSquareIntegral(int D);
+        
+        /**
+         * For Maximal Smoothing Principle bandwidth selection we compute
+         * 
+         *  kappa_2(k) = int(x^2 k(x) dx)
+         * 
+         * using Monte Carlo integration with Gaussian proposal distribution.
+         */
+        float calculateSecondMoment(int D);
     };
     
     /**
-     * Simple Gaussian kernel for density estimation.
+     * Construct a multivariate kernel as product of univariate kernels.
      */
-    class GaussianKernel : public Kernel {
+    class ProductKernel : public MultivariateKernel {
     public:
         /**
-         * Evaluate kernel for a given datapoint.
+         * Constructs a product kernel given the univariate kernel.
+         */
+        ProductKernel(Kernel* _kernel) :
+                kernel(_kernel) {};
+        
+        /**
+         * Destructor.
+         */
+        ~ProductKernel()
+        {
+            delete kernel;
+        }
+        
+        /**
+         * Evaluate the kernel.
+         */
+        virtual float evaluate(DataPoint* x)
+        {
+            const int D = x->getDimensionality();
+            
+            float K_x = 1;
+            for (int d = 0; d < D; d++)
+            {
+                K_x *= kernel->evaluate(x, d);
+            }
+            
+            return K_x;
+        }
+        
+        /**
+         * Returns the coefficient for the rule of thumb bandwidth selection.
+         */
+        virtual float getRuleOfThumbCoefficient()
+        {
+            return kernel->getRuleOfThumbCoefficient();
+        }
+        
+    private:
+        /**
+         * Underlying univariate kernel.
+         */
+        Kernel* kernel;
+    };
+    
+    /**
+     * Multivariate Gaussian kernel for density estimation.
+     */
+    class MultivariateGaussianKernel : public MultivariateKernel {
+    public:
+        /**
+         * Evaluate kernel for a given data point.
          */
         virtual float evaluate(DataPoint* x)
         {
@@ -81,6 +334,115 @@ namespace libf {
             
             return std::sqrt(std::pow(2*M_PI, D)) * std::exp(- 1./2. * inner);
         }
+        
+        /**
+         * Get coefficient for rule of thumb bandwidth selection.
+         */
+        float getRuleOfThumbCoefficient()
+        {
+            // See table 4 in:
+            //  B. E. Hansen.
+            //  Lecture Notes on Nonparametrics.
+            //  University of Wisconsin
+            return 1.06f;
+        }
+    };
+    
+    /**
+     * Multivariate Epanechnikov Kernel as described in
+     * 
+     *  P. B. Stark.
+     *  Statistics 240 Lecture Notes, Part 10: Density Estimation.
+     *  University of California Berkeley, 2008.
+     */
+    class MultivariateEpanechnikovKernel : public MultivariateKernel {
+    public:
+        /**
+         * Constructor.
+         */
+        MultivariateEpanechnikovKernel() : MultivariateKernel(),
+                cachedSphereVolume(false),
+                sphereVolume(0),
+                cachedD(0) {};
+        
+        /**
+         * Evaluate kernel for a given data point.
+         */
+        virtual float evaluate(DataPoint* x)
+        {
+            const int D = x->getDimensionality();
+            
+            float inner = 0;
+            for (int i = 0; i < D; i++)
+            {
+                inner += x->at(i)*x->at(i);
+            }
+            
+            float K_x = 1 - inner;
+            if (K_x > 0)
+            {
+                // The volume of a n dim unit ball.
+                // @see http://en.wikipedia.org/wiki/Volume_of_an_n-ball
+                float V_D = 0;
+                
+                if (cachedSphereVolume && cachedD == D)
+                {
+                    V_D = sphereVolume;
+                }
+                else
+                {
+                    if (D%2 == 0)
+                    {
+                        const int k = D/2;
+                        V_D = pow(M_PI, k)/Util::factorial(k);
+                    }
+                    else
+                    {
+                        const int k = D/2; // Note that this rounds off!
+                        V_D = (pow(2, k + 1) * pow(M_PI, k))/(Util::doubleFactorial(D));
+                    }
+                    
+                    cachedSphereVolume = true;
+                    sphereVolume = V_D;
+                    cachedD = D;
+                }
+                
+                assert(V_D > 0);
+                
+                return (D + 2)/(2.*V_D) * K_x;
+            }
+            else
+            {
+                return 0;
+            }
+        }
+        
+        /**
+         * Get coefficient for rule of thumb bandwidth selection.
+         */
+        float getRuleOfThumbCoefficient()
+        {
+            // See table 4 in:
+            //  B. E. Hansen.
+            //  Lecture Notes on Nonparametrics.
+            //  University of Wisconsin
+            return 2.34f;
+        }
+        
+    private:
+        /**
+         * The volume of the D-dimensional sphere is cached.
+         */
+        bool cachedSphereVolume;
+        /**
+         * The cached volume of a cachedD-dim sphere.
+         */
+        float sphereVolume;
+        /**
+         * Dimension of the cached sphere volume.
+         */
+        int cachedD;
+        
     };
     
     /**
@@ -94,89 +456,158 @@ namespace libf {
          * 
          *  B. A. Turlach.
          *  Bandwidth Selection in Kernel Density Estimation: A Review.
-         *  CORE and Institut de Statistique.
+         *  CORE and Institut de Statistique, Universite Catholique the Louvain.
+         * 
+         * Or:
+         * 
+         *  M. C. Jones, J. S. Marron, S. J. Sheather.
+         *  A Brief Survey of Bandwidth Selection for Density Estimation.
+         *  Journal of the American Statistical Association, 91(433), 1996.
          */
         static const int BANDWIDTH_RULE_OF_THUMB = 0;
         static const int BANDWIDTH_RULE_OF_THUMB_INTERQUARTILE = 1;
+        static const int BANDWIDTH_MAXIMAL_SMOOTHING_PRINCIPLE = 2;
+        
         /**
          * Constructs a kernel density estimator given the data with default
          * Gaussian kernel.
          */
         KernelDensityEstimator(UnlabeledDataStorage* _storage) : 
-                kernel(new GaussianKernel()),
-                bandwidthSelectionMethod(BANDWIDTH_RULE_OF_THUMB)
-        {
-            storage = _storage;
-        }
+                kernel(new MultivariateGaussianKernel()),
+                bandwidthSelectionMethod(BANDWIDTH_RULE_OF_THUMB),
+                bandwidth(_storage->getDimensionality()),
+                storage(_storage) {};
         
         /**
          * Create a kernel density estimator with the given data and kernel.
          */
-        KernelDensityEstimator(UnlabeledDataStorage* _storage, Kernel* _kernel) : 
+        KernelDensityEstimator(UnlabeledDataStorage* _storage, MultivariateKernel* _kernel) : 
                 kernel(_kernel),
-                bandwidthSelectionMethod(BANDWIDTH_RULE_OF_THUMB)
-        {
-            storage = _storage;
-        }
+                bandwidthSelectionMethod(BANDWIDTH_RULE_OF_THUMB), 
+                bandwidth(_storage->getDimensionality()),
+                storage(_storage) {};
         
         /**
-         * Sets bandwidth selection method.
+         * Sets a single bandwidth for all dimensions.
          */
-        void setBandwidthSelectionMethod(int _bandwidthSelectionMethod)
+        void setBandwidth(float _bandwidth)
         {
-            switch (_bandwidthSelectionMethod)
+            const int D = storage->getDimensionality();
+            
+            bandwidth = Eigen::VectorXf(D);
+            for (int d = 0; d < D; d++)
             {
-                case BANDWIDTH_RULE_OF_THUMB:
-                    bandwidthSelectionMethod = _bandwidthSelectionMethod;
-                    break;
-                default:
-                    bandwidthSelectionMethod = BANDWIDTH_RULE_OF_THUMB;
-                    break;
+                bandwidth(d) = _bandwidth;
             }
         }
         
         /**
-         * Returns the bandwidth selection method.
+         * Sets the bandwidth vector.
          */
-        int getBandwidthSelectionMethod()
+        void setBandwidth(Eigen::VectorXf _bandwidth)
         {
-            return bandwidthSelectionMethod;
+            assert(_bandwidth.rows() == storage->getDimensionality());
+            bandwidth = _bandwidth;
+        }
+        
+        /**
+         * Returns the bandwidth vector.
+         */
+        Eigen::VectorXf getBandwidth()
+        {
+            return bandwidth;
+        }
+        
+        /**
+         * Selects the bandwidth according to the given bandwidth selection method.
+         */
+        Eigen::VectorXf selectBandwidth(int bandWidthSelectionMethod)
+        {
+            bandwidth = Eigen::VectorXf(storage->getDimensionality());
+            switch (bandWidthSelectionMethod)
+            {
+                case BANDWIDTH_RULE_OF_THUMB:
+                    selectBandwidthRuleOfThumb();
+                    break;
+                case BANDWIDTH_RULE_OF_THUMB_INTERQUARTILE:
+                    selectBandwidthRuleOfThumbInterquartile();
+                    break;
+                case BANDWIDTH_MAXIMAL_SMOOTHING_PRINCIPLE:
+                    selectBandwidthMaximalSmoothingPrinciple();
+                    break;
+                default:
+                    assert(false);
+                    break;
+            }
+            
+            return bandwidth;
         }
         
         /**
          * Destructor.
          */
-        virtual ~KernelDensityEstimator() {};
+        virtual ~KernelDensityEstimator()
+        {
+            delete kernel;
+        };
         
         /**
          * Estimate the probability of a datapoint.
          */
-        virtual float estimate(const DataPoint* x) = 0;
+        virtual float estimate(const DataPoint* x);
         
     private:
         /**
-         * Calculate the variance of the datainoen dimension.
+         * Calculate the variance of the data in one dimension.
          */
         float calculateVariance(int d);
         
         /**
+         * Calculate the interquartile range along a dimension.
+         */
+        float calculateInterquartileRange(int d);
+        
+        /**
          * Select the bandwidth using the naive Gaussian method, see:
          * 
-         *  R. J. Hyndman, X Zhang, M. L. King.
-         *  Bandwidth Selection for Multivariate Kernel Density Estimation Using MCMC.
-         *  Econometric Society Australasian Meetings, 2004.
+         *  B. A. Turlach.
+         *  Bandwidth Selection in Kernel Density Estimation: A Review.
+         *  CORE and Institut de Statistique, Universite Catholique the Louvain.
          */
-        Eigen::VectorXf selectBandwidthRuleOfThumb();
+        void selectBandwidthRuleOfThumb();
+        
+        /**
+         * Select the bandwidth using the naive Gaussian rule of thumb, but using
+         * the interquartile range isntead of the variance as measure of spread,
+         * see:
+         * 
+         *  B. A. Turlach.
+         *  Bandwidth Selection in Kernel Density Estimation: A Review.
+         *  CORE and Institut de Statistique, Universite Catholique the Louvain.
+         */
+        void selectBandwidthRuleOfThumbInterquartile();
+        
+        /**
+         * Select the bandwidths according to the Maximal Smoothing Priciple:
+         * 
+         *  B. A. Turlach.
+         *  Bandwidth Selection in Kernel Density Estimation: A Review.
+         *  CORE and Institut de Statistique, Universite Catholique the Louvain.
+         */
+        void selectBandwidthMaximalSmoothingPrinciple();
         
         /**
          * Used kernel.
          */
-        Kernel* kernel;
-        
+        MultivariateKernel* kernel;
         /**
          * Bandwidth selection method.
          */
         int bandwidthSelectionMethod;
+        /**
+         * The used bandwidth in each dimension.
+         */
+        Eigen::VectorXf bandwidth;
         /**
          * Data storage to base estimation on.
          */

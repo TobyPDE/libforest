@@ -136,6 +136,47 @@ namespace libf {
         }
     
         /**
+         * Non recursive calculation of the factorial k!.
+         */
+        static int factorial(int k)
+        {
+            assert(k >= 0);
+            
+            if (k == 0)
+            {
+                return 1;
+            }
+            else
+            {
+                int factorial = 1;
+                for (int i = 2; i < k + 1; i++)
+                {
+                    factorial *= i;
+                }
+
+                return factorial;
+            }
+        }
+        
+        /**
+         * Non-recursive calculation of the double factorial for odd numbers k:
+         *  
+         * k!! = 1*3*5*...*k
+         */
+        static int doubleFactorial(int k)
+        {
+            assert(k%2 == 1);
+            
+            int factorial = 1;
+            for (int i = 3; i < k + 1; i += 2)
+            {
+                factorial *= i;
+            }
+            
+            return factorial;
+        }
+        
+        /**
          * Dumps a vector to standard out. The elements of the vector must be
          * accepted by std::cout <<. This function is only for debug purposes. 
          * 

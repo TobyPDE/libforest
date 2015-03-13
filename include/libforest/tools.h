@@ -117,7 +117,11 @@ namespace libf {
         void measureAndSave(RandomForestLearner* learner, boost::filesystem::path file, int rows) const;
     };
     
-    class GMMDensityAccuracyTool {
+    /*
+     * Used to assess the quality of a density estimation given the true
+     * Gaussian mixture density.
+     */
+    class GaussianKullbackLeiblerTool {
     public:
         
         /**
@@ -136,6 +140,29 @@ namespace libf {
          */
         void measureAndPrint(Estimator* estimator, std::vector<Gaussian> & gaussians,
                 const std::vector<float> & weights, int N);
+        
+    };
+    
+    class GaussianSquaredErrorTool {
+    public:
+        
+        /**
+         * Measures the density accuracy in terms for squared error.
+         */
+        float measure(Estimator* estimator, std::vector<Gaussian> & gaussians,
+                const std::vector<float> & weights, int N);
+        
+        /**
+         * Print the squared error.
+         */
+        void print(float se);
+        
+        /**
+         * Measure and print the accuracy in terms of the squared error
+         */
+        void measureAndPrint(Estimator* estimator, std::vector<Gaussian> & gaussians,
+                const std::vector<float> & weights, int N);
+        
     };
 }
 

@@ -348,10 +348,10 @@ void PixelImportanceTool::measureAndSave(RandomForestLearner* learner, boost::fi
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-/// PixelImportanceTool
+/// GaussianKullbackLeiblerTool
 ////////////////////////////////////////////////////////////////////////////////
 
-float GMMDensityAccuracyTool::measure(Estimator* estimator, std::vector<Gaussian> & gaussians,
+float GaussianKullbackLeiblerTool::measure(Estimator* estimator, std::vector<Gaussian> & gaussians,
         const std::vector<float> & weights, int N)
 {
     assert(weights.size() == gaussians.size());
@@ -382,14 +382,58 @@ float GMMDensityAccuracyTool::measure(Estimator* estimator, std::vector<Gaussian
     return kl/N;
 }
 
-void GMMDensityAccuracyTool::print(float kl)
+void GaussianKullbackLeiblerTool::print(float kl)
 {
-    printf("Divergence: %2.2f%%\n", kl);
+    printf("Divergence: %2.2f\n", kl);
 }
 
-void GMMDensityAccuracyTool::measureAndPrint(Estimator* estimator, std::vector<Gaussian> & gaussians,
+void GaussianKullbackLeiblerTool::measureAndPrint(Estimator* estimator, std::vector<Gaussian> & gaussians,
         const std::vector<float> & weights, int N)
 {
-    float accuracy = measure(estimator, gaussians, weights, N);
-    print(accuracy);
+    float kl = measure(estimator, gaussians, weights, N);
+    print(kl);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+/// GaussianSquaredErrorTool
+////////////////////////////////////////////////////////////////////////////////
+
+float GaussianSquaredErrorTool::measure(Estimator* estimator, std::vector<Gaussian> & gaussians,
+        const std::vector<float> & weights, int N)
+{
+    assert(weights.size() == gaussians.size());
+    assert(gaussians.size() > 0);
+    
+    const int M = weights.size();
+    
+    float se = 0;
+    for (int n = 0; n < N; n++)
+    {
+        int m = std::rand()%M;
+        DataPoint* x = gaussians[m].sample();
+
+        float p_x = 0;
+        float p_x_hat = estimator->estimate(x);
+        
+        for (m = 0; m < M; m++)
+        {
+            p_x += weights[m]*gaussians[m].evaluate(x);
+        }
+        
+        se += (p_x - p_x_hat)*(p_x - p_x_hat);
+    }
+    
+    return se/N;
+}
+
+void GaussianSquaredErrorTool::print(float se)
+{
+    printf("Error: %2.4f\n", se);
+}
+
+void GaussianSquaredErrorTool::measureAndPrint(Estimator* estimator, std::vector<Gaussian> & gaussians,
+        const std::vector<float> & weights, int N)
+{
+    float se = measure(estimator, gaussians, weights, N);
+    print(se);
 }
