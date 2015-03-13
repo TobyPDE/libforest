@@ -186,12 +186,12 @@ int main(int argc, const char** argv)
     
     for (int m = 0; m < M; m++)
     {
-        do
-        {
-            weights[m] = randFloat(0.1, 1);
-        }
-        while (weights[m] == 0);
-//        weights[m] = 1./M;
+//        do
+//        {
+//            weights[m] = randFloat(0.1, 1);
+//        }
+//        while (weights[m] == 0);
+        weights[m] = 1./M;
         weights_sum +=weights[m];
         
         float v0 = randFloat(25, H/4);

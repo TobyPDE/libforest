@@ -25,9 +25,14 @@ namespace libf {
     public:
         
         /**
-         * Learns a classifier online (updates a given classifier).
+         * Learns a classifier.
          */
-        virtual T* learn(const DataStorage* storage, T* model = 0) = 0;
+        virtual T* learn(const DataStorage* storage) = 0;
+        
+        /**
+         * Updates a classifier online.
+         */
+        virtual T* learn(const DataStorage* storage, T* model) = 0;
 
     };
     
@@ -268,9 +273,14 @@ namespace libf {
         }
         
         /**
+         * Learns a decision tree.
+         */
+        virtual DecisionTree* learn(const DataStorage* storage);
+        
+        /**
          * Updates the given decision tree on the given data.
          */
-        virtual DecisionTree* learn(const DataStorage* storage, DecisionTree* tree = 0);
+        virtual DecisionTree* learn(const DataStorage* storage, DecisionTree* tree);
         
     protected:
         /**
@@ -378,9 +388,14 @@ namespace libf {
         }
         
         /**
+         * Learns a decision forest.
+         */
+        virtual RandomForest* learn(const DataStorage* storage);
+        
+        /**
          * Learns a forests. 
          */
-        virtual RandomForest* learn(const DataStorage* storage, RandomForest* forest = 0);
+        virtual RandomForest* learn(const DataStorage* storage, RandomForest* forest);
 
     protected:
         /**

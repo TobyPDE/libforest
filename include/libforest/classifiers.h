@@ -43,39 +43,30 @@ namespace libf {
          * Returns the class posterior probability p(c|x).
          */
         virtual void classLogPosterior(const DataPoint* x, std::vector<float> & probabilities) const = 0;
-        
-        /**
-         * Reads the classifier from a stream
-         */
-        virtual void read(std::istream & stream) = 0;
-        
-        /**
-         * Writes the classifier to a stream
-         */
-        virtual void write(std::ostream & stream) const = 0;
+
     };
     
-    /**
-     * This class represents a decision tree.
-     */
-    class DecisionTree : public Classifier {
+    class Tree {
     public:
-        
         /**
-         * Creates a new decision tree
+         * Creates an empty density tree.
          */
-        DecisionTree();
-        
-        /**
-         * Creates a decision tree which maintains a set of statistics
-         * for each leaf node.
-         */
-        DecisionTree(bool _statistics);
+        Tree();
         
         /**
          * Destructor.
          */
-        ~DecisionTree() {};
+        virtual ~Tree() {};
+        
+        /**
+         * Splits a child node and returns the index of the left child. 
+         */
+        int splitNode(int node);
+        
+        /**
+         * Returns the leaf node for a specific data point
+         */
+        int findLeafNode(const DataPoint* x) const;
         
         /**
          * Sets the split feature for a node
@@ -145,19 +136,73 @@ namespace libf {
         }
         
         /**
+         * Reads the tree from a stream
+         */
+        virtual void read(std::istream & stream);
+        
+        /**
+         * Writes the tree to a stream
+         */
+        virtual void write(std::ostream & stream) const;
+        
+        /**
+         * Adds a new node. THis method needs to be implemented by all trees.
+         */
+        virtual void addNode(int depth);
+        
+    protected:
+        
+        /**
+         * Adds a new node. THis method needs to be implemented by all trees.
+         */
+        virtual void addNodeDerived(int depth) = 0;
+        
+        /**
+         * The depth of each node.
+         */
+        std::vector<int> depths;
+        /**
+         * The split feature at each node. 
+         */
+        std::vector<int> splitFeatures;
+        /**
+         * The threshold at each node
+         */
+        std::vector<float> thresholds;
+        /**
+         * The left child node of each node. If the left child node is 0, then 
+         * this is a leaf node. The right child node is left + 1. 
+         */
+        std::vector<int> leftChild;
+        
+    };
+    
+    /**
+     * This class represents a decision tree.
+     */
+    class DecisionTree : public Tree, public Classifier {
+    public:
+        
+        /**
+         * Creates a new decision tree
+         */
+        DecisionTree();
+        
+        /**
+         * Creates a decision tree which maintains a set of statistics
+         * for each leaf node.
+         */
+        DecisionTree(bool _statistics);
+        
+        /**
+         * Destructor.
+         */
+        ~DecisionTree() {};
+        
+        /**
          * Returns the class log posterior p(c | x).
          */
         virtual void classLogPosterior(const DataPoint* x, std::vector<float> & probabilities) const;
-        
-        /**
-         * Splits a child node and returns the index of the left child. 
-         */
-        int splitNode(int node);
-        
-        /**
-         * Returns the leaf node for a specific data point
-         */
-        int findLeafNode(const DataPoint* x) const;
         
         /**
          * Reads the tree from a stream
@@ -237,30 +282,13 @@ namespace libf {
             return rightChildStatistics[node];
         }
         
-    private:
+    protected:
         /**
          * Adds a plain new node.
          */
-        virtual void addNode(int depth);
+        virtual void addNodeDerived(int depth);
         
-        /**
-         * The depth of each node.
-         */
-        std::vector<int> depths;
-        /**
-         * The split feature at each node. 
-         */
-        std::vector<int> splitFeatures;
-        /**
-         * The threshold at each node
-         */
-        std::vector<float> thresholds;
-        /**
-         * The left child node of each node. If the left child node is 0, then 
-         * this is a leaf node. The right child node is left + 1. 
-         */
-        std::vector<int> leftChild;
-        
+    private:
         /**
          * The histograms for each node. We only store actual histograms at 
          * leaf nodes. 

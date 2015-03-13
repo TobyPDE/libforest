@@ -763,7 +763,7 @@ namespace libf {
     /**
      * Density decision tree for unsupervised learning.
      */
-    class DensityTree : public Estimator, public Generator {
+    class DensityTree : public Tree, public Estimator, public Generator {
     public:
         
         /**
@@ -775,83 +775,6 @@ namespace libf {
          * Destructor.
          */
         virtual ~DensityTree() {};
-        
-        /**
-         * Splits a child node and returns the index of the left child. 
-         */
-        int splitNode(int node);
-        
-        /**
-         * Returns the leaf node for a specific data point
-         */
-        int findLeafNode(const DataPoint* x) const;
-        
-        /**
-         * Sets the split feature for a node
-         */
-        void setSplitFeature(int node, int feature)
-        {
-            splitFeatures[node] = feature;
-        }
-        
-        /**
-         * Returns the split feature for a node
-         */
-        int getSplitFeature(int node) const
-        {
-            return splitFeatures[node];
-        }
-        
-        /**
-         * Sets the threshold for a node
-         */
-        void setThreshold(int node, float threshold)
-        {
-            thresholds[node] = threshold;
-        }
-        
-        /**
-         * Returns the threshold for a node
-         */
-        float getThreshold(int node) const
-        {
-            return thresholds[node];
-        }
-        
-        /**
-         * Returns the total number of nodes
-         */
-        int getNumNodes() const
-        {
-            return static_cast<int>(leftChild.size());
-        }
-        
-        /**
-         * Returns true if the given node is a leaf node
-         */
-        bool isLeafNode(int node) const 
-        {
-            assert(node >= 0 && node <= static_cast<int>(leftChild.size()));
-            return leftChild[node] == 0;
-        }
-        
-        /**
-         * Returns the left child for a node
-         */
-        int getLeftChild(int node) const
-        {
-            assert(node >= 0 && node <= static_cast<int>(leftChild.size()));
-            return leftChild[node];
-        }
-        
-        /**
-         * Get depth of a node.
-         */
-        int getDepth(int node)
-        {
-            assert(node >= 0 && node <= static_cast<int>(depths.size()));
-            return depths[node];
-        }
         
         /**
          * Get the Gaussian of a specific leaf.
@@ -871,34 +794,17 @@ namespace libf {
          */
         virtual DataPoint* sample();
         
+    protected:
+        /**
+         * Adds a plain new node.
+         */
+        virtual void addNodeDerived(int depth);;
+        
     private:
         /**
          * Compute and cache the partition function.
          */
         float getPartitionFunction(int D);
-        
-        /**
-         * Adds a plain new node.
-         */
-        virtual void addNode(int depth);
-        
-        /**
-         * The depth of each node.
-         */
-        std::vector<int> depths;
-        /**
-         * The split feature at each node. 
-         */
-        std::vector<int> splitFeatures;
-        /**
-         * The threshold at each node
-         */
-        std::vector<float> thresholds;
-        /**
-         * The left child node of each node. If the left child node is 0, then 
-         * this is a leaf node. The right child node is left + 1. 
-         */
-        std::vector<int> leftChild;
         
         /**
          * The Gaussians at the leafs.
