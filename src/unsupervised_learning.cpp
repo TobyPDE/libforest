@@ -37,6 +37,7 @@ DensityTree* DensityTreeLearner::learn(const UnlabeledDataStorage* storage)
     
     // Set up a new density tree. 
     DensityTree* tree = new DensityTree();
+    tree->addNode(0);
     
     // Set up the state for the callbacks.
     DensityTreeLearnerState state;

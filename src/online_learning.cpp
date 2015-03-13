@@ -91,7 +91,16 @@ void OnlineDecisionTreeLearner::updateSplitStatistics(std::vector<EfficientEntro
     }
 }
 
-DecisionTree* OnlineDecisionTreeLearner::learn(const DataStorage* storage, DecisionTree* tree) {
+DecisionTree* OnlineDecisionTreeLearner::learn(const DataStorage* storage)
+{
+    DecisionTree * tree = new DecisionTree();
+    tree->addNode(0);
+    
+    return learn(storage, tree);
+}
+
+DecisionTree* OnlineDecisionTreeLearner::learn(const DataStorage* storage, DecisionTree* tree)
+{
     
     // Get the number of training examples and the dimensionality of the data set
     const int D = storage->getDimensionality();
@@ -101,21 +110,19 @@ DecisionTree* OnlineDecisionTreeLearner::learn(const DataStorage* storage, Decis
     assert(numFeatures <= D);
     assert(thresholdGenerator.getSize() == D);
     
+    // The tree must have at least the root note!
+    assert(tree->getNumNodes() > 0);
+    
     // Saves the sum of impurity decrease achieved by each feature
     importance = std::vector<float>(D, 0.f);
     
     OnlineDecisionTreeLearnerState state;
     state.action = ACTION_START_TREE;
-        
-    // Set up a new tree if no existing tree is given.
-    if (!tree)
-    {
-        tree = new DecisionTree(true);
-    }
     
     evokeCallback(tree, 0, &state);
     
     // Set up a list of all available features.
+    numFeatures = std::min(numFeatures, D);
     std::vector<int> features(D);
     for (int f = 0; f < D; f++)
     {
@@ -159,6 +166,7 @@ DecisionTree* OnlineDecisionTreeLearner::learn(const DataStorage* storage, Decis
             {
                 // Try the first feature.
                 nodeFeatures[f] = features[f];
+                assert(nodeFeatures[f] >= 0 && nodeFeatures[f] < D);
                 
                 // This may be a trivial feature, so search for the next non/trivial
                 // feature; make sure that all chosen features are different.
@@ -284,6 +292,9 @@ DecisionTree* OnlineDecisionTreeLearner::learn(const DataStorage* storage, Decis
             continue;
         }
         
+        assert(bestFeature >= 0 && nodeFeatures[bestFeature] >= 0 
+                && nodeFeatures[bestFeature] < D);
+        
         // We split this node!
         tree->setThreshold(leaf, nodeThresholds[bestFeature][bestThreshold]); // Save the actual threshold value.
         tree->setSplitFeature(leaf, nodeFeatures[bestFeature]); // Save the index of the feature.
@@ -385,20 +396,24 @@ int OnlineDecisionTreeLearner::verboseCallback(DecisionTree* tree, OnlineDecisio
 /// RandomForestLearner
 ////////////////////////////////////////////////////////////////////////////////
 
+RandomForest* OnlineRandomForestLearner::learn(const DataStorage* storage)
+{
+    RandomForest * forest = new RandomForest();
+    return learn(storage, forest);
+}
+
 RandomForest* OnlineRandomForestLearner::learn(const DataStorage* storage, RandomForest* forest)
 {
     const int D = storage->getDimensionality();
-    
-    if (!forest)
-    {
-        forest = new RandomForest();
-    }
     
     for (int i = 0; i < numTrees; i++)
     {
         if (i >= forest->getSize())
         {
-            forest->addTree(new DecisionTree(true));
+            DecisionTree* tree = new DecisionTree(true);
+            tree->addNode(0);
+            
+            forest->addTree(tree);
         }
     }
     

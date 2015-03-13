@@ -59,6 +59,7 @@ DecisionTree* DecisionTreeLearner::learn(const DataStorage* dataStorage)
     
     // Set up a new tree. 
     DecisionTree* tree = new DecisionTree();
+    tree->addNode(0);
     
     // Set up the state for the call backs
     DecisionTreeLearnerState state;
@@ -496,6 +497,7 @@ BoostedRandomForest* BoostedRandomForestLearner::learn(const DataStorage* storag
             {
                 index++;
             }
+            
             treeData.addDataPoint(storage->getDataPoint(index), storage->getClassLabel(index), false);
         }
         
