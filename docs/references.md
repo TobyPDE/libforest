@@ -24,6 +24,8 @@ The following list includes important references used for implementations within
 
 > B. E. Hansen. Lecture Notes on Nonparametrics. University of Wisconsin, 2009.
 
+> P. B. Stark. Statistics 240 Lecture Notes, part 10: Density Estimation. University of California Berkeley, 2008.
+
 > M. C. Jones, J. S. Marron, S. J. Sheather. A Brief Survey of Bandwidth Selection for Density Estimation. Journal of the American Statistical Association, 91(433), 1996.
 
 > B. A. Turlach. Bandwidth Selection in Kernel Density Estimation: A Review. C.O.R.E. and Intitut de Statistique, Universite Catholique de Louvain, Belgium.

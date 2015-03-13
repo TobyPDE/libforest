@@ -25,10 +25,10 @@ cv::Mat visualizeGaussians(int H, int W, std::vector<Gaussian> gaussians, std::v
 {
     assert(weights.size() == gaussians.size());
     const int M = weights.size();
-    
+
     cv::Mat image(H, W, CV_32FC1, cv::Scalar(0));
     float p_max = 0;
-    
+
     for (int i = 0; i < H; i++)
     {
         for (int j = 0; j < W; j++)
@@ -36,25 +36,25 @@ cv::Mat visualizeGaussians(int H, int W, std::vector<Gaussian> gaussians, std::v
             DataPoint x(2);
             x.at(0) = i;
             x.at(1) = j;
-            
+
             float p_x = 0;
-            
+
             for (int m = 0; m < M; m++)
             {
                 p_x += weights[m]*gaussians[m].evaluate(&x);
             }
-            
+
             if (p_x > p_max)
             {
                 p_max = p_x;
             }
-            
+
             image.at<float>(i, j) = p_x;
         }
     }
-    
+
     assert(p_max > 0);
-    
+
     for (int i = 0; i < H; i++)
     {
         for (int j = 0; j < W; j++)
@@ -62,15 +62,15 @@ cv::Mat visualizeGaussians(int H, int W, std::vector<Gaussian> gaussians, std::v
             image.at<float>(i, j) = image.at<float>(i, j)/p_max * 255;
         }
     }
-    
+
     return image;
 }
 
-cv::Mat visualizeTree(int H, int W, DensityTree* tree)
+cv::Mat visualizeKDE(int H, int W, DensityTree* tree)
 {    
     cv::Mat image(H, W, CV_32FC1, cv::Scalar(0));
     float p_max = 0;
-    
+
     for (int i = 0; i < H; i++)
     {
         for (int j = 0; j < W; j++)
@@ -78,20 +78,20 @@ cv::Mat visualizeTree(int H, int W, DensityTree* tree)
             DataPoint x(2);
             x.at(0) = i;
             x.at(1) = j;
-            
+
             float p_x = tree->estimate(&x);
-            
+
             if (p_x > p_max)
             {
                 p_max = p_x;
             }
-            
+
             image.at<float>(i, j) = p_x;
         }
     }
-    
+
     assert(p_max > 0);
-    
+
     for (int i = 0; i < H; i++)
     {
         for (int j = 0; j < W; j++)
@@ -99,90 +99,81 @@ cv::Mat visualizeTree(int H, int W, DensityTree* tree)
             image.at<float>(i, j) = image.at<float>(i, j)/p_max * 255;
         }
     }
-    
+
     return image;
 }
 
 cv::Mat visualizeSamples(int H, int W, const UnlabeledDataStorage* storage)
 {
     cv::Mat image(H, W, CV_8UC1, cv::Scalar(255));
-    
+
     for (int n = 0; n < storage->getSize(); n++)
     {
         DataPoint* x = storage->getDataPoint(n);
-        
+
         int i = std::floor(x->at(0));
         int j = std::floor(x->at(1));
-        
+
         if (i >= 0 && i < H && j >= 0 && j < W)
         {
             image.at<unsigned char>(i, j) = 0;
         }
     }
-    
+
     return image;
 }
 
-cv::Mat visualizeColoredSamples(int H, int W, const UnlabeledDataStorage* storage, DensityTree* tree)
+cv::Mat visualizeKDE(int H, int W, KernelDensityEstimator* kde)
 {
-    cv::Mat image(H, W, CV_8UC3, cv::Scalar(255, 255, 255));
-    std::vector<cv::Vec3b> colors(tree->getNumNodes(), cv::Vec3b(0, 0, 0));
+    cv::Mat image(H, W, CV_32FC1, cv::Scalar(0));
+    float p_max = 0;
     
-    for (int n = 0; n < storage->getSize(); n++)
+    for (int i = 0; i < H; i++)
     {
-        DataPoint* x = storage->getDataPoint(n);
-        int leaf = tree->findLeafNode(x);
-        
-        while (colors[leaf][0] == 0 && colors[leaf][1] == 0 && colors[leaf][2] == 0)
+        for (int j = 0; j < W; j++)
         {
-            colors[leaf][0] = std::rand()%256;
-            colors[leaf][1] = std::rand()%256;
-            colors[leaf][2] = std::rand()%256;
-        }
-        
-        int i = std::floor(x->at(0));
-        int j = std::floor(x->at(1));
-        
-        if (i >= 0 && i < H && j >= 0 && j < W)
-        {
-            image.at<cv::Vec3b>(i, j) = colors[leaf];
+            DataPoint x(2);
+            x.at(0) = i;
+            x.at(1) = j;
+
+            float p_x = kde->estimate(&x);
+
+            if (p_x > p_max)
+            {
+                p_max = p_x;
+            }
+            
+            if (i >= 0 && i < H && j >= 0 && j < W)
+            {
+                image.at<float>(i, j) = p_x;
+            }
         }
     }
     
+    assert(p_max > 0);
+
+    for (int i = 0; i < H; i++)
+    {
+        for (int j = 0; j < W; j++)
+        {
+            image.at<float>(i, j) = image.at<float>(i, j)/p_max * 255;
+        }
+    }
+
     return image;
 }
-
 /**
- * Example of training a density tree on a 2D mixture of Gaussians.
- * 
- * Usage:
- * $ ./examples/cli_density_tree --help
- * Allowed options:
- *   --help                                produce help message
- *   --num-components arg (=2)             number of Gaussian components
- *   --num-samples arg (=10000)            number of samples for training
- *   --num-features arg (=10)              number of features to use (set to 
- *                                         dimensionality of data to learn 
- *                                         deterministically)
- *   --max-depth arg (=10)                 maximum depth of trees
- *   --min-split-examples arg (=2000)      minimum number of samples required for 
- *                                         a split
- *   --min-child-split-examples arg (=1000)
- *                                         minimum examples needed in the children
- *                                         for a split
- *   --seed arg (=1426272026)              seed used for std::srand
+ * Example of kernel density estimation on 2D mixture of Gaussians.
  */
 int main(int argc, const char** argv)
 {
     boost::program_options::options_description desc("Allowed options");
     desc.add_options()
         ("help", "produce help message")
-        ("num-components", boost::program_options::value<int>()->default_value(2), "number of Gaussian components")
-        ("num-samples", boost::program_options::value<int>()->default_value(10000),"number of samples for training")
-        ("num-features", boost::program_options::value<int>()->default_value(10), "number of features to use (set to dimensionality of data to learn deterministically)")
-        ("max-depth", boost::program_options::value<int>()->default_value(10), "maximum depth of trees")
-        ("min-split-examples", boost::program_options::value<int>()->default_value(2000), "minimum number of samples required for a split")
-        ("min-child-split-examples", boost::program_options::value<int>()->default_value(1000), "minimum examples needed in the children for a split")
+        ("num-components", boost::program_options::value<int>()->default_value(1), "number of Gaussian components")
+        ("num-samples", boost::program_options::value<int>()->default_value(1000),"number of samples for training")
+        ("bandwidth-selection-method", boost::program_options::value<int>()->default_value(0), "bandwidth selection method")
+        ("kernel", boost::program_options::value<int>()->default_value(0), "kernel")
         ("seed", boost::program_options::value<int>()->default_value(std::time(0)), "seed used for std::srand");
 
     boost::program_options::positional_options_description positionals;
@@ -199,8 +190,8 @@ int main(int argc, const char** argv)
     
     // Number of components.
     const int M = parameters["num-components"].as<int>();
-    const int H = 400;
-    const int W = 400;
+    const int H = 200;
+    const int W = 200;
     
     // New seed.
     std::srand(parameters["seed"].as<int>());
@@ -257,36 +248,56 @@ int main(int argc, const char** argv)
     cv::Mat image_samples = visualizeSamples(H, W, &storage);
     cv::imwrite("samples.png", image_samples);    
     
-    DensityTreeLearner learner;
-    learner.addCallback(DensityTreeLearner::defaultCallback, 1);
-    learner.setMaxDepth(parameters["max-depth"].as<int>());
-    learner.setNumFeatures(parameters["num-features"].as<int>());
-    learner.setMinSplitExamples(parameters["min-split-examples"].as<int>());
-    learner.setMinChildSplitExamples(parameters["min-child-split-examples"].as<int>());
-    
-    DensityTree* tree = learner.learn(&storage);
-    
-    GaussianKullbackLeiblerTool klTool;
-    klTool.measureAndPrint(tree, gaussians, weights, 10*N);
-    
-    GaussianSquaredErrorTool seTool;
-    seTool.measureAndPrint(tree, gaussians, weights, 10*N);
-    
-    cv::Mat image_tree = visualizeTree(H, W, tree);
-    cv::imwrite("tree.png", image_tree);
-    
-    cv::Mat image_colored_samples = visualizeColoredSamples(H, W, &storage, tree);
-    cv::imwrite("colored_samples.png", image_colored_samples);
-    
-    UnlabeledDataStorage storage_tree;
-    for (int n = 0; n < N; n++)
+    int bandWidthSelectionMethod = KernelDensityEstimator::BANDWIDTH_RULE_OF_THUMB;
+    switch(parameters["bandwidth-selection-method"].as<int>())
     {
-        storage_tree.addDataPoint(tree->sample());
+        case KernelDensityEstimator::BANDWIDTH_RULE_OF_THUMB:
+        case KernelDensityEstimator::BANDWIDTH_RULE_OF_THUMB_INTERQUARTILE:
+        case KernelDensityEstimator::BANDWIDTH_MAXIMAL_SMOOTHING_PRINCIPLE:
+            bandWidthSelectionMethod = parameters["bandwidth-selection-method"].as<int>();
+            break;
+        default:
+            std::cout << "Invalid bandwidth selection method." << std::endl;
+            return 1;
     }
     
-    cv::Mat image_samples_tree = visualizeSamples(H, W, &storage_tree);
-    cv::imwrite("tree_samples.png", image_samples_tree);
+    MultivariateKernel* kernel;
+    switch (parameters["kernel"].as<int>())
+    {
+        case 0:
+            kernel = new MultivariateGaussianKernel();
+            break;
+        case 1:
+            kernel = new MultivariateEpanechnikovKernel();
+            break;
+        case 2:
+            kernel = new ProductKernel(new GaussianKernel());
+            break;
+        case 3:
+            kernel = new ProductKernel(new EpanechnikovKernel());
+            break;
+        case 4:
+            kernel = new ProductKernel(new BiweightKernel());
+            break;
+        case 5:
+            kernel = new ProductKernel(new TriweightKernel());
+            break;
+        default:
+            std::cout << "Invalid kernel." << std::endl;
+            return 1;
+    }
     
-    delete tree;
+    KernelDensityEstimator kde(&storage, kernel);
+    kde.selectBandwidth(bandWidthSelectionMethod);
+    
+    GaussianKullbackLeiblerTool klTool;
+    klTool.measureAndPrint(&kde, gaussians, weights, 10*N);
+    
+    GaussianSquaredErrorTool seTool;
+    seTool.measureAndPrint(&kde, gaussians, weights, 10*N);
+    
+    cv::Mat image_kde = visualizeKDE(H, W, &kde);
+    cv::imwrite("kde.png", image_kde);
+    
     return 0;
 }

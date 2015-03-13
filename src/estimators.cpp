@@ -31,6 +31,174 @@ boost::variate_generator< boost::mt19937&, boost::normal_distribution<float> > r
 using namespace libf;
 
 ////////////////////////////////////////////////////////////////////////////////
+/// KernelDensityEstimator
+////////////////////////////////////////////////////////////////////////////////
+
+float MultivariateKernel::calculateSquareIntegral(int D)
+{
+    const int N = 100 * pow(10, D);
+    Gaussian gaussian(Eigen::VectorXf::Zero(D), Eigen::MatrixXf::Identity(D, D));
+    
+    float expectation = 0;
+    for (int n = 0; n < N; n++)
+    {
+        DataPoint* x = gaussian.sample();
+        float p_x = gaussian.evaluate(x);
+        float k_x = evaluate(x);
+        
+        expectation += k_x*k_x/p_x;
+    }
+    
+    return expectation/N;
+}
+
+float MultivariateKernel::calculateSecondMoment(int D)
+{
+    const int N = 100 * pow(10, D);
+    Gaussian gaussian(Eigen::VectorXf::Zero(D), Eigen::MatrixXf::Identity(D, D));
+    
+    float expectation = 0;
+    for (int n = 0; n < N; n++)
+    {
+        DataPoint* x = gaussian.sample();
+        
+        float p_x = gaussian.evaluate(x);
+        float k_x = evaluate(x);
+        
+        float inner = 0;
+        for (int d = 0; d < D; d++)
+        {
+            inner += x->at(d)*x->at(d);
+        }
+        
+        expectation += inner*k_x/p_x;
+    }
+    
+    return expectation/N;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+/// KernelDensityEstimator
+////////////////////////////////////////////////////////////////////////////////
+
+float KernelDensityEstimator::estimate(const DataPoint* x)
+{
+    const int D = storage->getDimensionality();
+    const int N = storage->getSize();
+    
+    assert(bandwidth.rows() == D);
+    
+    float p_x = 0;
+    DataPoint x_bar(D);
+    
+    for (int n = 0; n < N; n++)
+    {
+        for (int d = 0; d < D; d++)
+        {
+            x_bar.at(d) = (storage->getDataPoint(n)->at(d) - x->at(d))/bandwidth(d);
+        }
+        
+        p_x += kernel->evaluate(&x_bar);
+    }
+    
+    float H = 1;
+    for (int d = 0; d < D; d++)
+    {
+        H *= bandwidth(d);
+    }
+    
+    return p_x/(N*H);
+}
+
+float KernelDensityEstimator::calculateVariance(int d)
+{
+    const int N = storage->getSize();
+    const int D = storage->getDimensionality();
+    
+    assert(d >= 0 && d < D);
+    
+    float mean = 0;
+    float variance = 0;
+    
+    for (int n = 0; n < N; n++)
+    {
+        float value = storage->getDataPoint(n)->at(d);
+        
+        mean += value;
+        variance += value*value;
+    }
+    
+    mean /= N;
+    variance /= N;
+    variance -= mean*mean;
+    
+    return variance;
+}
+
+float KernelDensityEstimator::calculateInterquartileRange(int d)
+{
+    const float N = storage->getSize();
+    
+    std::vector<float> points(N);
+    for (int n = 0; n < N; n++)
+    {
+        points[n] = storage->getDataPoint(n)->at(d);
+    }
+    
+    std::sort(points.begin(), points.end());
+    
+    float Q_1 = points[std::floor(points.size()*1./4.)];
+    float Q_3 = points[std::floor(points.size()*3./4.)];
+    
+    assert(Q_3 > Q_1);
+    
+    return Q_3 - Q_1;
+}
+
+void KernelDensityEstimator::selectBandwidthRuleOfThumb()
+{
+    const float C = kernel->getRuleOfThumbCoefficient();
+    const int N = storage->getSize();
+    const int D = storage->getDimensionality();
+    
+    bandwidth = Eigen::VectorXf(D);
+    for (int d = 0; d < D; d++)
+    {
+        bandwidth(d) = C * std::sqrt(calculateVariance(d)) * std::pow(N, -1.f/5.f);
+    }
+}
+
+void KernelDensityEstimator::selectBandwidthRuleOfThumbInterquartile()
+{
+    const float C = kernel->getRuleOfThumbCoefficient();
+    const int N = storage->getSize();
+    const int D = storage->getDimensionality();
+    
+    bandwidth = Eigen::VectorXf(D);
+    for (int d = 0; d < D; d++)
+    {
+        bandwidth(d) = C * std::min(std::sqrt(calculateVariance(d)), calculateInterquartileRange(d)/1.34f) 
+                * std::pow(N, -1.f/5.f);
+    }
+}
+
+void KernelDensityEstimator::selectBandwidthMaximalSmoothingPrinciple()
+{
+    const int N = storage->getSize();
+    const int D = storage->getDimensionality();
+    
+    float R = kernel->calculateSquareIntegral(D);
+    float kappa = kernel->calculateSecondMoment(D);
+    
+    bandwidth = Eigen::VectorXf(D);
+    for (int d = 0; d < D; d++)
+    {
+        bandwidth(d) = 3 * pow(35.f, -1.f/5.f) * std::sqrt(calculateVariance(d))
+                * std::pow(R/(kappa*kappa), 1.f/5.f) * std::pow(N, -1.f/5.f);
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////
 /// Gaussian
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -251,7 +419,7 @@ float DensityTree::estimate(const DataPoint* x)
     // Get the normalizer for our distribution.
     const float Z = getPartitionFunction(x->getDimensionality());
     
-    return this->gaussians[node].evaluate(x);//Z;
+    return this->gaussians[node].evaluate(x)/Z;
 }
 
 DataPoint* DensityTree::sample()

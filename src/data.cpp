@@ -58,6 +58,7 @@ DataPoint & DataPoint::operator=(const DataPoint & other)
             data[i] = other.data[i];
         }
     }
+    
     return *this;
 }
 
