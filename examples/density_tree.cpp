@@ -103,13 +103,13 @@ cv::Mat visualizeTree(int H, int W, DensityTree* tree)
     return image;
 }
 
-cv::Mat visualizeSamples(int H, int W, const UnlabeledDataStorage & storage)
+cv::Mat visualizeSamples(int H, int W, const UnlabeledDataStorage* storage)
 {
     cv::Mat image(H, W, CV_8UC1, cv::Scalar(255));
     
-    for (int n = 0; n < storage.getSize(); n++)
+    for (int n = 0; n < storage->getSize(); n++)
     {
-        DataPoint* x = storage.getDataPoint(n);
+        DataPoint* x = storage->getDataPoint(n);
         
         int i = std::floor(x->at(0));
         int j = std::floor(x->at(1));
@@ -117,6 +117,35 @@ cv::Mat visualizeSamples(int H, int W, const UnlabeledDataStorage & storage)
         if (i >= 0 && i < H && j >= 0 && j < W)
         {
             image.at<unsigned char>(i, j) = 0;
+        }
+    }
+    
+    return image;
+}
+
+cv::Mat visualizeColoredSamples(int H, int W, const UnlabeledDataStorage* storage, DensityTree* tree)
+{
+    cv::Mat image(H, W, CV_8UC3, cv::Scalar(255, 255, 255));
+    std::vector<cv::Vec3b> colors(tree->getNumNodes(), cv::Vec3b(0, 0, 0));
+    
+    for (int n = 0; n < storage->getSize(); n++)
+    {
+        DataPoint* x = storage->getDataPoint(n);
+        int leaf = tree->findLeafNode(x);
+        
+        while (colors[leaf][0] == 0 && colors[leaf][1] == 0 && colors[leaf][2] == 0)
+        {
+            colors[leaf][0] = std::rand()%256;
+            colors[leaf][1] = std::rand()%256;
+            colors[leaf][2] = std::rand()%256;
+        }
+        
+        int i = std::floor(x->at(0));
+        int j = std::floor(x->at(1));
+        
+        if (i >= 0 && i < H && j >= 0 && j < W)
+        {
+            image.at<cv::Vec3b>(i, j) = colors[leaf];
         }
     }
     
@@ -142,7 +171,10 @@ int main(int argc, const char** argv)
         ("num-components", boost::program_options::value<int>()->default_value(2), "number of Gaussian components")
         ("num-samples", boost::program_options::value<int>()->default_value(10000),"number of samples for training")
         ("num-features", boost::program_options::value<int>()->default_value(10), "number of features to use (set to dimensionality of data to learn deterministically)")
-        ("max-depth", boost::program_options::value<int>()->default_value(10), "maximum depth of trees");
+        ("max-depth", boost::program_options::value<int>()->default_value(10), "maximum depth of trees")
+        ("min-split-examples", boost::program_options::value<int>()->default_value(2000), "minimum number of samples required for a split")
+        ("min-child-split-examples", boost::program_options::value<int>()->default_value(1000), "minimum examples needed in the children for a split")
+        ("seed", boost::program_options::value<int>()->default_value(std::time(0)), "seed used for std::srand");
 
     boost::program_options::positional_options_description positionals;
     
@@ -162,7 +194,7 @@ int main(int argc, const char** argv)
     const int W = 400;
     
     // New seed.
-    std::srand(std::time(0));
+    std::srand(parameters["seed"].as<int>());
     
     std::vector<Gaussian> gaussians;
     std::vector<float> weights(M);
@@ -213,13 +245,15 @@ int main(int argc, const char** argv)
         storage.addDataPoint(gaussians[m].sample());
     }
     
-    cv::Mat image_samples = visualizeSamples(H, W, storage);
+    cv::Mat image_samples = visualizeSamples(H, W, &storage);
     cv::imwrite("samples.png", image_samples);    
     
     DensityTreeLearner learner;
     learner.addCallback(DensityTreeLearner::defaultCallback, 1);
     learner.setMaxDepth(parameters["max-depth"].as<int>());
     learner.setNumFeatures(parameters["num-features"].as<int>());
+    learner.setMinSplitExamples(parameters["min-split-examples"].as<int>());
+    learner.setMinChildSplitExamples(parameters["min-child-split-examples"].as<int>());
     
     DensityTree* tree = learner.learn(&storage);
     
@@ -229,13 +263,16 @@ int main(int argc, const char** argv)
     cv::Mat image_tree = visualizeTree(H, W, tree);
     cv::imwrite("tree.png", image_tree);
     
+    cv::Mat image_colored_samples = visualizeColoredSamples(H, W, &storage, tree);
+    cv::imwrite("colored_samples.png", image_colored_samples);
+    
     UnlabeledDataStorage storage_tree;
     for (int n = 0; n < N; n++)
     {
         storage_tree.addDataPoint(tree->sample());
     }
     
-    cv::Mat image_samples_tree = visualizeSamples(H, W, storage_tree);
+    cv::Mat image_samples_tree = visualizeSamples(H, W, &storage_tree);
     cv::imwrite("tree_samples.png", image_samples_tree);
     
     delete tree;

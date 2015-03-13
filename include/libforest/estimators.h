@@ -52,8 +52,12 @@ namespace libf {
      */
     class Kernel {
     public:
+        Kernel() {};
+        virtual ~Kernel() {};
+        
         /**
          * Evaluate the kernel.
+         */
         virtual float evaluate(DataPoint* x) = 0;
     };
     
@@ -65,17 +69,17 @@ namespace libf {
         /**
          * Evaluate kernel for a given datapoint.
          */
-        float evaluate(DataPoint* x)
+        virtual float evaluate(DataPoint* x)
         {
             const int D = x->getDimensionality();
             
             float inner = 0;
-            for (int i = 0; i < x->getDimensionality(); i++)
+            for (int i = 0; i < D; i++)
             {
                 inner += x->at(i)*x->at(i);
             }
             
-            return std::sqrt(std::pow(2*M_PI, x->getDimensionality())) * std::exp(- 1./2. * inner);
+            return std::sqrt(std::pow(2*M_PI, D)) * std::exp(- 1./2. * inner);
         }
     };
     
@@ -98,8 +102,8 @@ namespace libf {
          * Constructs a kernel density estimator given the data with default
          * Gaussian kernel.
          */
-        KernelDensityEstimator(const UnlabeledDataStorage* _storage) : 
-                kernel(GaussianKernel()),
+        KernelDensityEstimator(UnlabeledDataStorage* _storage) : 
+                kernel(new GaussianKernel()),
                 bandwidthSelectionMethod(BANDWIDTH_RULE_OF_THUMB)
         {
             storage = _storage;
@@ -108,7 +112,7 @@ namespace libf {
         /**
          * Create a kernel density estimator with the given data and kernel.
          */
-        KernelDensityEstimator(const UnlabeledDataStorage* _storage, Kernel _kernel) : 
+        KernelDensityEstimator(UnlabeledDataStorage* _storage, Kernel* _kernel) : 
                 kernel(_kernel),
                 bandwidthSelectionMethod(BANDWIDTH_RULE_OF_THUMB)
         {
@@ -154,6 +158,7 @@ namespace libf {
          * Calculate the variance of the datainoen dimension.
          */
         float calculateVariance(int d);
+        
         /**
          * Select the bandwidth using the naive Gaussian method, see:
          * 
@@ -166,7 +171,7 @@ namespace libf {
         /**
          * Used kernel.
          */
-        Kernel kernel;
+        Kernel* kernel;
         
         /**
          * Bandwidth selection method.
