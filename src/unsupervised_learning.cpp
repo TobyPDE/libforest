@@ -161,16 +161,16 @@ DensityTree* DensityTreeLearner::learn(const UnlabeledDataStorage* storage)
                 float rightFeatureValue = storage->getDataPoint(n)->at(feature);
                 assert(rightFeatureValue >= leftFeatureValue);
                 
-//                if (rightFeatureValue - leftFeatureValue < 1e-6f)
-//                {
-//                    leftFeatureValue = rightFeatureValue;
-//                    continue;
-//                }
+                if (rightFeatureValue - leftFeatureValue < 1e-6f)
+                {
+                    leftFeatureValue = rightFeatureValue;
+                    continue;
+                }
                 
                 // Only try if enough samples would be in the new children.
-//                if (leftCovariance.getMass() > minChildSplitExamples
-//                        && rightCovariance.getMass() > minChildSplitExamples)
-//                {
+                if (leftCovariance.getMass() > minChildSplitExamples
+                        && rightCovariance.getMass() > minChildSplitExamples)
+                {
                     // Get the objective value.
                     const float localObjective = leftCovariance.getEntropy()/N_leaf
                             + rightCovariance.getEntropy()/N_leaf;
@@ -181,14 +181,14 @@ DensityTree* DensityTreeLearner::learn(const UnlabeledDataStorage* storage)
                         bestFeature = feature;
                         bestObjective = localObjective;
                     }
-//                }
+                }
                 
                 leftFeatureValue = rightFeatureValue;
             }
         }
         
         // Did we find good split values?
-        if (bestFeature < 0)
+        if (bestFeature < 0 && bestObjective >= 10)
         {
             state.action = ACTION_NO_SPLIT_NODE;
             state.objective = bestObjective;

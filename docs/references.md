@@ -16,6 +16,14 @@ The following list includes important references used for implementations within
 
 > A. Criminisi, J. Shotton. Density Forests. In Decision Forests for Computer Vision and Medical Image Analysis, Springer, 2013.
 
-* KL Divergence:
+* Kullback-Leibler Divergence:
 
 > F. Perez-Cruz. Kullback-Leibler DIvergence Estimation of Continuous Distributions. International Symposium on Information Theory, 2008.
+
+* Kernel Density Estimation:
+
+> B. E. Hansen. Lecture Notes on Nonparametrics. University of Wisconsin, 2009.
+
+> M. C. Jones, J. S. Marron, S. J. Sheather. A Brief Survey of Bandwidth Selection for Density Estimation. Journal of the American Statistical Association, 91(433), 1996.
+
+> B. A. Turlach. Bandwidth Selection in Kernel Density Estimation: A Review. C.O.R.E. and Intitut de Statistique, Universite Catholique de Louvain, Belgium.
