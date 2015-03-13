@@ -23,6 +23,9 @@ namespace libf {
     class DataStorage;
     class DataPoint;
     
+    /**
+     * An estimator can be used to estimate the probability of a data point.
+     */
     class Estimator {
     public:
         /**
@@ -30,10 +33,150 @@ namespace libf {
          */
         virtual float estimate(const DataPoint* x) = 0;
         
+    };
+    
+    /**
+     * A generator can be used to sample from a distribution.
+     */
+    class Generator {
+    public:
         /**
          * Sample from the estimator.
          */
         virtual DataPoint* sample() = 0;
+        
+    };
+    
+    /**
+     * Kernel interface.
+     */
+    class Kernel {
+    public:
+        /**
+         * Evaluate the kernel.
+        virtual float evaluate(DataPoint* x) = 0;
+    };
+    
+    /**
+     * Simple Gaussian kernel for density estimation.
+     */
+    class GaussianKernel : public Kernel {
+    public:
+        /**
+         * Evaluate kernel for a given datapoint.
+         */
+        float evaluate(DataPoint* x)
+        {
+            const int D = x->getDimensionality();
+            
+            float inner = 0;
+            for (int i = 0; i < x->getDimensionality(); i++)
+            {
+                inner += x->at(i)*x->at(i);
+            }
+            
+            return std::sqrt(std::pow(2*M_PI, x->getDimensionality())) * std::exp(- 1./2. * inner);
+        }
+    };
+    
+    /**
+     * Simple kernel density estimation.
+     */
+    class KernelDensityEstimator : public Estimator {
+    public:
+        
+        /**
+         * E.g. see: 
+         * 
+         *  B. A. Turlach.
+         *  Bandwidth Selection in Kernel Density Estimation: A Review.
+         *  CORE and Institut de Statistique.
+         */
+        static const int BANDWIDTH_RULE_OF_THUMB = 0;
+        static const int BANDWIDTH_RULE_OF_THUMB_INTERQUARTILE = 1;
+        /**
+         * Constructs a kernel density estimator given the data with default
+         * Gaussian kernel.
+         */
+        KernelDensityEstimator(const UnlabeledDataStorage* _storage) : 
+                kernel(GaussianKernel()),
+                bandwidthSelectionMethod(BANDWIDTH_RULE_OF_THUMB)
+        {
+            storage = _storage;
+        }
+        
+        /**
+         * Create a kernel density estimator with the given data and kernel.
+         */
+        KernelDensityEstimator(const UnlabeledDataStorage* _storage, Kernel _kernel) : 
+                kernel(_kernel),
+                bandwidthSelectionMethod(BANDWIDTH_RULE_OF_THUMB)
+        {
+            storage = _storage;
+        }
+        
+        /**
+         * Sets bandwidth selection method.
+         */
+        void setBandwidthSelectionMethod(int _bandwidthSelectionMethod)
+        {
+            switch (_bandwidthSelectionMethod)
+            {
+                case BANDWIDTH_RULE_OF_THUMB:
+                    bandwidthSelectionMethod = _bandwidthSelectionMethod;
+                    break;
+                default:
+                    bandwidthSelectionMethod = BANDWIDTH_RULE_OF_THUMB;
+                    break;
+            }
+        }
+        
+        /**
+         * Returns the bandwidth selection method.
+         */
+        int getBandwidthSelectionMethod()
+        {
+            return bandwidthSelectionMethod;
+        }
+        
+        /**
+         * Destructor.
+         */
+        virtual ~KernelDensityEstimator() {};
+        
+        /**
+         * Estimate the probability of a datapoint.
+         */
+        virtual float estimate(const DataPoint* x) = 0;
+        
+    private:
+        /**
+         * Calculate the variance of the datainoen dimension.
+         */
+        float calculateVariance(int d);
+        /**
+         * Select the bandwidth using the naive Gaussian method, see:
+         * 
+         *  R. J. Hyndman, X Zhang, M. L. King.
+         *  Bandwidth Selection for Multivariate Kernel Density Estimation Using MCMC.
+         *  Econometric Society Australasian Meetings, 2004.
+         */
+        Eigen::VectorXf selectBandwidthRuleOfThumb();
+        
+        /**
+         * Used kernel.
+         */
+        Kernel kernel;
+        
+        /**
+         * Bandwidth selection method.
+         */
+        int bandwidthSelectionMethod;
+        /**
+         * Data storage to base estimation on.
+         */
+        UnlabeledDataStorage* storage;
+        
     };
     
     /**
@@ -136,7 +279,14 @@ namespace libf {
         }
         
     private:
+        /**
+         * Get a data point as vector.
+         */
         Eigen::VectorXf asEigenVector(const DataPoint* x);
+        
+        /**
+         * A vector as data point.
+         */
         DataPoint* asDataPoint(const Eigen::VectorXf & y);
         
         /**
@@ -171,12 +321,13 @@ namespace libf {
          * Number of data points used for this gaussian.
          */
         int dataSupport;
+        
     };
     
     /**
      * Density decision tree for unsupervised learning.
      */
-    class DensityTree :public Estimator {
+    class DensityTree : public Estimator, public Generator {
     public:
         
         /**
