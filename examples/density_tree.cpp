@@ -269,8 +269,8 @@ int main(int argc, const char** argv)
     GaussianKullbackLeiblerTool klTool;
     klTool.measureAndPrint(tree, gaussians, weights, 10*N);
     
-    GaussianSquaredErrorTool seTool;
-    seTool.measureAndPrint(tree, gaussians, weights, 10*N);
+//    GaussianSquaredErrorTool seTool;
+//    seTool.measureAndPrint(tree, gaussians, weights, 10*N);
     
     cv::Mat image_tree = visualizeTree(H, W, tree);
     cv::imwrite("tree.png", image_tree);

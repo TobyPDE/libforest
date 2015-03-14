@@ -122,7 +122,10 @@ float KernelDensityEstimator::calculateVariance(int d)
     
     for (int n = 0; n < N; n++)
     {
-        float value = storage->getDataPoint(n)->at(d);
+        DataPoint* x = storage->getDataPoint(n);
+        
+        assert(x->getDimensionality() > 0);
+        float value = x->at(d);
         
         mean += value;
         variance += value*value;
@@ -161,6 +164,9 @@ void KernelDensityEstimator::selectBandwidthRuleOfThumb()
     const int N = storage->getSize();
     const int D = storage->getDimensionality();
     
+    assert(N > 0);
+    assert(D > 0);
+    
     bandwidth = Eigen::VectorXf(D);
     for (int d = 0; d < D; d++)
     {
@@ -174,6 +180,9 @@ void KernelDensityEstimator::selectBandwidthRuleOfThumbInterquartile()
     const int N = storage->getSize();
     const int D = storage->getDimensionality();
     
+    assert(N > 0);
+    assert(D > 0);
+    
     bandwidth = Eigen::VectorXf(D);
     for (int d = 0; d < D; d++)
     {
@@ -186,6 +195,9 @@ void KernelDensityEstimator::selectBandwidthMaximalSmoothingPrinciple()
 {
     const int N = storage->getSize();
     const int D = storage->getDimensionality();
+    
+    assert(N > 0);
+    assert(D > 0);
     
     float R = kernel->calculateSquareIntegral(D);
     float kappa = kernel->calculateSecondMoment(D);
@@ -311,11 +323,7 @@ DataPoint* Gaussian::asDataPoint(const Eigen::VectorXf & x)
 ////////////////////////////////////////////////////////////////////////////////
 
 DensityTree::DensityTree() : Tree()
-{    
-    splitFeatures.reserve(LIBF_GRAPH_BUFFER_SIZE);
-    thresholds.reserve(LIBF_GRAPH_BUFFER_SIZE);
-    leftChild.reserve(LIBF_GRAPH_BUFFER_SIZE);
-    depths.reserve(LIBF_GRAPH_BUFFER_SIZE);
+{
     gaussians.reserve(LIBF_GRAPH_BUFFER_SIZE);
 }
 
@@ -338,6 +346,8 @@ float DensityTree::getPartitionFunction(int D)
                 int count = 0;
                 for (int n = 0; n < N; n++)
                 {
+                    // This is basically Monte Carlo integration, where 
+                    // the proposal distribution is our target distribution.
                     DataPoint* x = gaussians[node].sample();
                     
                     int leaf = findLeafNode(x);
@@ -422,4 +432,74 @@ DataPoint* DensityForest::sample()
     
     // Now sample from the final Gaussian.
     return tree->getGaussian(node).sample();
+}
+
+////////////////////////////////////////////////////////////////////////////////
+/// KernelDensityTree
+////////////////////////////////////////////////////////////////////////////////
+
+KernelDensityTree::KernelDensityTree() : Tree()
+{
+    estimators.reserve(LIBF_GRAPH_BUFFER_SIZE);
+    gaussians.reserve(LIBF_GRAPH_BUFFER_SIZE);
+}
+
+void KernelDensityTree::addNodeDerived(int depth)
+{
+    estimators.push_back(KernelDensityEstimator());
+    gaussians.push_back(Gaussian());
+}
+
+float KernelDensityTree::getPartitionFunction(int D)
+{
+    if (!cachedPartitionFunction)
+    {
+        const int N = 100 * pow(10, D);
+        const int nodes = static_cast<int>(leftChild.size());
+        
+        for (int node = 0; node < nodes; node++)
+        {
+            if (leftChild[node] == 0)
+            {
+                float count = 0;
+                for (int n = 0; n < N; n++)
+                {
+                    // This is basically Monte Carlo integration. We use
+                    // the Gaussian at each leaf as proposal distribution.
+                    DataPoint* x = gaussians[node].sample();
+                    
+                    int leaf = findLeafNode(x);
+                    if (leaf == node)
+                    {
+                        // But our density is given by the kernel estimation.
+                        float p_x = estimators[node].estimate(x);
+                        float N_x = gaussians[node].evaluate(x);
+                        
+                        count += p_x/N_x;
+                    }
+                    
+                    delete x;
+                }
+                
+                float volume = count/N;
+                partitionFunction += gaussians[node].getDataSupport()/volume;
+            }
+        }
+        
+        cachedPartitionFunction = true;
+    }
+    
+    return partitionFunction;
+}
+
+float KernelDensityTree::estimate(const DataPoint* x)
+{
+    assert(leftChild.size() > 0);
+    
+    int node = findLeafNode(x);
+    
+    // Get the normalizer for our distribution.
+    const float Z = getPartitionFunction(x->getDimensionality());
+    
+    return estimators[node].estimate(x)/Z;
 }

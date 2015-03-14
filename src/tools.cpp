@@ -428,7 +428,7 @@ float GaussianSquaredErrorTool::measure(Estimator* estimator, std::vector<Gaussi
 
 void GaussianSquaredErrorTool::print(float se)
 {
-    printf("Error: %2.4f\n", se);
+    printf("Error: %2.6f\n", se);
 }
 
 void GaussianSquaredErrorTool::measureAndPrint(Estimator* estimator, std::vector<Gaussian> & gaussians,
