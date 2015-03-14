@@ -6,8 +6,8 @@
 #  GTest_FOUND       - True if GTest found.
 
 find_path (GTest_INCLUDE_DIR gtest/
-    PATHS ${GTest_ROOT_DIR} ~/gtest-1.7.0/include)
-find_library (GTest_LIBRARIES NAMES fftw3f
-    PATHS ${GTest_ROOT_DIR} ~/gtest-1.7.0/include)
+    PATHS ${GTest_ROOT_DIR} ~/gtest-1.7.0/include/)
+find_library (GTest_LIBRARIES NAMES gtest libgtest gtest_main libgtest_main
+    PATHS ${GTest_ROOT_DIR} ~/gtest-1.7.0/)
 
 mark_as_advanced (GTest_INCLUDE_DIR GTest_LIBRARIES)
