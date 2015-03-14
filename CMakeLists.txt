@@ -78,9 +78,12 @@ target_link_libraries(libforest
 # TODO: Make this a CMake option or remove it completely from the build process
 add_subdirectory(examples)
 
+message(STATUS "GTest_INCLUDE_DIR=${GTest_INCLUDE_DIR}")
+message(STATUS "GTest_LIBRARIES=${GTest_LIBRARIES}")
+
 # Build the test suite
-add_executable(test
+add_executable(test_util
                     tests/util.cpp)
-target_link_libraries(test
+target_link_libraries(test_util
                     libforest 
                     ${GTEST_LIBRARIES})
