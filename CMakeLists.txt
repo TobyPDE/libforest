@@ -82,8 +82,8 @@ message(STATUS "GTest_INCLUDE_DIR=${GTest_INCLUDE_DIR}")
 message(STATUS "GTest_LIBRARIES=${GTest_LIBRARIES}")
 
 # Build the test suite
-add_executable(test_util
-                    tests/util.cpp)
-target_link_libraries(test_util
-                    libforest 
-                    ${GTEST_LIBRARIES})
+#add_executable(test_util
+#                    tests/util.cpp)
+#target_link_libraries(test_util
+#                    libforest 
+#                    ${GTEST_LIBRARIES})
