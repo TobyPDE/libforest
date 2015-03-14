@@ -248,6 +248,7 @@ namespace libf {
          */
         void addDataPoint(DataPoint* point, bool free = true)
         {
+            assert(point->getDimensionality() > 0);
             dataPoints.push_back(point);
             freeFlags.push_back(free);
         }

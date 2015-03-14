@@ -250,8 +250,8 @@ int main(int argc, const char** argv)
     GaussianKullbackLeiblerTool klTool;
     klTool.measureAndPrint(forest, gaussians, weights, 10*N);
     
-    GaussianSquaredErrorTool seTool;
-    seTool.measureAndPrint(forest, gaussians, weights, 10*N);
+//    GaussianSquaredErrorTool seTool;
+//    seTool.measureAndPrint(forest, gaussians, weights, 10*N);
     
     cv::Mat image_forest = visualizeForest(H, W, forest);
     cv::imwrite("forest.png", image_forest);

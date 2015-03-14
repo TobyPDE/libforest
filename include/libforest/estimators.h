@@ -469,13 +469,32 @@ namespace libf {
         static const int BANDWIDTH_MAXIMAL_SMOOTHING_PRINCIPLE = 2;
         
         /**
+         * Constructor.
+         */
+        KernelDensityEstimator() : 
+                kernel(new MultivariateGaussianKernel()),
+                bandwidthSelectionMethod(BANDWIDTH_RULE_OF_THUMB),
+                bandwidth(1),
+                storage(0) {};
+        
+        /**
+         * Contructs a kernel density estimator using the given kernel
+         * and an empty data storage.
+         */
+        KernelDensityEstimator(MultivariateKernel* _kernel) : 
+                kernel(_kernel),
+                bandwidthSelectionMethod(BANDWIDTH_RULE_OF_THUMB),
+                bandwidth(1),
+                storage(0) {};
+        
+        /**
          * Constructs a kernel density estimator given the data with default
          * Gaussian kernel.
          */
         KernelDensityEstimator(UnlabeledDataStorage* _storage) : 
                 kernel(new MultivariateGaussianKernel()),
                 bandwidthSelectionMethod(BANDWIDTH_RULE_OF_THUMB),
-                bandwidth(_storage->getDimensionality()),
+                bandwidth(1),
                 storage(_storage) {};
         
         /**
@@ -484,9 +503,30 @@ namespace libf {
         KernelDensityEstimator(UnlabeledDataStorage* _storage, MultivariateKernel* _kernel) : 
                 kernel(_kernel),
                 bandwidthSelectionMethod(BANDWIDTH_RULE_OF_THUMB), 
-                bandwidth(_storage->getDimensionality()),
+                bandwidth(1),
                 storage(_storage) {};
         
+        /**
+         * Destructor.
+         */
+        virtual ~KernelDensityEstimator() {};
+                
+        /**
+         * Sets the kernel to use for density estimation.
+         */
+        void setKernel(MultivariateKernel* _kernel)
+        {
+            kernel = _kernel;
+        }
+
+        /**
+         * Returns the kernel used for density estimation.
+         */
+        MultivariateKernel* getKernel()
+        {
+            return kernel;
+        }
+                
         /**
          * Sets a single bandwidth for all dimensions.
          */
@@ -544,12 +584,20 @@ namespace libf {
         }
         
         /**
-         * Destructor.
+         * Sets the data storage to use for density estimation.
          */
-        virtual ~KernelDensityEstimator()
+        void setDataStorage(UnlabeledDataStorage* _storage)
         {
-            delete kernel;
-        };
+            storage = _storage;
+        }
+        
+        /**
+         * Returns the data storage to use for density estimation.
+         */
+        UnlabeledDataStorage* getDataStorage()
+        {
+            return storage;
+        }
         
         /**
          * Estimate the probability of a datapoint.
@@ -886,6 +934,73 @@ namespace libf {
          * The individual decision trees. 
          */
         std::vector<DensityTree*> trees;
+    };
+    
+    /**
+     * A kernel density tree.
+     */
+    class KernelDensityTree : public Tree, public Estimator {
+    public:
+        /**
+         * Constructor.
+         */
+        KernelDensityTree();
+        
+        /**
+         * Destructor.
+         */
+        ~KernelDensityTree() {};
+        
+        Gaussian & getGaussian(int node)
+        {
+            assert(node >= 0 && node < static_cast<int>(leftChild.size()));
+            return gaussians[node];
+        }
+        
+        KernelDensityEstimator & getEstimator(int node)
+        {
+            assert(node >= 0 && node < static_cast<int>(leftChild.size()));
+            return estimators[node];
+        }
+        
+        /**
+         * Estimate probability of a point.
+         */
+        virtual float estimate(const DataPoint*);
+        
+    protected:
+        /**
+         * Add a node.
+         */
+        virtual void addNodeDerived(int depth);
+        
+    private:
+        /**
+         * Get the partition function.
+         */
+        float getPartitionFunction(int D);
+        
+        /**
+         * The Gaussians at the leafs.
+         */
+        std::vector<Gaussian> gaussians;
+        /**
+         * The leaf node kernel density estimators.
+         */
+        std::vector<KernelDensityEstimator> estimators;
+        /**
+         * Kernel used for kernel density estimation.
+         */
+        MultivariateKernel* kernel;
+        /**
+         * Partition function.
+         */
+        float partitionFunction;
+        /**
+         * The partition function is cached.
+         */
+        bool cachedPartitionFunction;
+        
     };
 }
 #endif
