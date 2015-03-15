@@ -16,6 +16,8 @@ namespace libf {
      * Forward declarations
      */
     class ReferenceDataStorage;
+    class DataWriter;
+    class DataReader;
     
     /**
      * We use eigen3 vectors for data points. This allows us to build quickly
@@ -27,7 +29,7 @@ namespace libf {
     /**
      * This is the label for points without a label
      */
-#define LIBF_NO_LABEL -1
+#define LIBF_NO_LABEL -9999
     
     /**
      * This is a class label map. The internal data storage works using integer
@@ -35,42 +37,20 @@ namespace libf {
      * transformed from strings to integers. This map stores the relation 
      * between them.
      * 
-     * Please note: All labels have to be in the map before the integer class
-     * labels can be computed. 
+     * How this map works:
+     * - All string class labels get a preliminary class label when they are added
+     * - Once all labels have been added, the final integer class label are computed
+     * 
+     * This has a reason: We want the integer class labels to be independent of 
+     * the order in which they are read. In order for this to work, we have to
+     * know all class labels. 
      */
     class ClassLabelMap {
     public:
         /**
-         * Returns the integer class label for a given string class label
-         */
-        int getClassLabel(const std::string & label) const
-        {
-            return labelMap.find(label)->second;
-        }
-        
-        /**
-         * Returns the string class label for a given integer class label.
-         */
-        const std::string & getClassLabel(int label) const
-        {
-            return inverseLabelMap[label];
-        }
-        
-        /**
-         * Adds a string class label and returns a primarily integer class label. 
-         */
-        int addClassLabel(const std::string & label)
-        {
-            if (labelMap.find(label) == labelMap.end())
-            {
-                inverseLabelMap.push_back(label);
-                labelMap[label] = static_cast<int>(inverseLabelMap.size() - 1);
-            }
-            return labelMap[label];
-        }
-        
-        /**
          * Returns the number of classes.
+         * 
+         * @return The total number of classes
          */
         int getClassCount() const
         {
@@ -78,18 +58,66 @@ namespace libf {
         }
         
         /**
-         * Computes the integer class labels and return a mapping from the 
-         * primarily class labels to the final class labels. 
+         * Returns the integer class label for a given string class label
+         * 
+         * @param label The class label to return the integer label for
+         * @return The corresponding int class label
+         */
+        int getClassLabel(const std::string & label) const
+        {
+            BOOST_ASSERT_MSG(labelMap.find(label) != labelMap.end(), "Invalid string class label.");
+            return labelMap.find(label)->second;
+        }
+        
+        /**
+         * Returns the string class label for a given integer class label.
+         * 
+         * @param label The label to return the string class label for
+         * @return The string class label
+         */
+        const std::string & getClassLabel(int label) const
+        {
+            BOOST_ASSERT_MSG(0 <= label && label < getClassCount(), "Invalid integer class label.");
+            return inverseLabelMap[label];
+        }
+        
+        /**
+         * Adds a string class label and returns a primarily integer class label. 
+         * 
+         * @param label The new class label 
+         * @return The preliminary int class label of the newly added label
+         */
+        int addClassLabel(const std::string & label)
+        {
+            // Did we already see the label before?
+            if (labelMap.find(label) == labelMap.end())
+            {
+                // Nope, add it 
+                inverseLabelMap.push_back(label);
+                labelMap[label] = static_cast<int>(inverseLabelMap.size() - 1);
+            }
+            return labelMap[label];
+        }
+        
+        /**
+         * Computes the final integer class labels and returns a mapping from the 
+         * preliminary class labels to the final class labels. 
+         * 
+         * @param intLabelMap A map [preliminary label] -> [final label]
          */
         void computeIntClassLabels(std::vector<int> & intLabelMap);
         
         /**
          * Writes the class label map to a stream. 
+         * 
+         * @param stream The stream to write the map to
          */
         void write(std::ostream & stream) const;
         
         /**
          * Reads the class label map from a file
+         * 
+         * @param stream The stream to read the map from
          */
         void read(std::istream & stream);
         
@@ -248,9 +276,12 @@ namespace libf {
         
         /**
          * Returns the i-th class label. 
+         * Do not simply change the class label of a point. This function should
+         * only be used by library developers.
          * 
          * @param i The data point index
          * @return The class label of the i-th data point
+         * @internal
          */
         int & getClassLabel(int i) 
         {
@@ -281,10 +312,13 @@ namespace libf {
         }
         
         /**
-         * Returns the i-th vector from the storage
+         * Returns the i-th vector from the storage. 
+         * Do not alter the size of a data point. This will break the data 
+         * storage. 
          * 
          * @param i The index of the data point to return
          * @return the i-th data point
+         * @internal
          */
         DataPoint & getDataPoint(int i)
         {
@@ -324,7 +358,7 @@ namespace libf {
          */
         void addDataPoint(const DataPoint & point, int label)
         {
-            BOOST_ASSERT_MSG(label >= 0, "The class labels must be consecutive and non-negative.");
+            BOOST_ASSERT_MSG(label >= 0 || label == LIBF_NO_LABEL, "The class labels must be consecutive and non-negative.");
             // Check if the dimensionality is correct
             BOOST_ASSERT_MSG(getSize() == 0 || getDataPoint(0).size() == point.size(), "The dimensionality of the new point does not match the one of the existing points.");
             
@@ -381,6 +415,10 @@ namespace libf {
      * from another data storage. We use this in order to perform efficient
      * bootstrap sampling. Obviously, this one only works as long as the other
      * storage is still alive. 
+     * 
+     * This should only be used by library developers. 
+     * 
+     * @internal
      */
     class ReferenceDataStorage : public AbstractDataStorage {
     public:
@@ -510,21 +548,8 @@ namespace libf {
          * 
          * @param stream The stream to read the data from
          * @param dataStorage The data storage to add the read data points to
-         * @param classLabelMap The class label map that shall be used
          */
-        virtual void read(std::istream & stream, DataStorage::ptr dataStorage, ClassLabelMap & classLabelMap);
-        
-        /**
-         * Reads a dataset from a stream.
-         * 
-         * @param stream The stream to read the data from
-         * @param dataStorage The data storage to add the read data points to
-         */
-        virtual void read(std::istream & stream, DataStorage::ptr dataStorage)
-        {
-            ClassLabelMap map;
-            read(stream, dataStorage, map);
-        }
+        virtual void read(std::istream & stream, DataStorage::ptr dataStorage);
         
         /**
          * Sets whether or not class labels shall be read from the file. 
@@ -589,6 +614,14 @@ namespace libf {
         
     private:
         /**
+         * Parses a single line.
+         * 
+         * @param line The string of the line
+         * @param result All entries of the line
+         */
+        void parseLine(const std::string & line, std::vector<float> & result) const;
+        
+        /**
          * If true, class labels are read from the file. 
          */
         bool readClassLabels;
@@ -608,6 +641,7 @@ namespace libf {
     class LIBSVMDataReader : public AbstractDataReader {
     public:
         using AbstractDataReader::read;
+        LIBSVMDataReader() : convertBinaryLabels(false) {}
         
         virtual ~LIBSVMDataReader() {}
         
@@ -619,6 +653,26 @@ namespace libf {
          */
         virtual void read(std::istream & stream, DataStorage::ptr dataStorage);
         
+        /**
+         * Sets whether or not binary labels shall be converted from -1 and 1
+         * to 0 and 1.
+         * 
+         * @param _convertBinaryLabels If true, the labels are converted. 
+         */
+        void setConvertBinaryLabels(bool _convertBinaryLabels)
+        {
+            convertBinaryLabels = _convertBinaryLabels;
+        }
+        
+        /**
+         * Returns whether or not binary labels shall be converted. 
+         * 
+         * @return If true, binary labels are converted
+         */
+        bool getConvertBinaryLabels() const
+        {
+            return convertBinaryLabels;
+        }
     private:
         /**
          * Parses a single line and feeds.
@@ -627,6 +681,11 @@ namespace libf {
          * @param result The class label is stored in first, the dimension:feature list is stored in second
          */
         void parseLine(const std::string & line, std::pair<int, std::vector< std::pair<int, float> > > & result) const;
+        
+        /**
+         * If true, the labels -1 and 1 are converted to 0 and 1
+         */
+        bool convertBinaryLabels;
     };
     
     /**
@@ -637,13 +696,14 @@ namespace libf {
     public:
         using AbstractDataReader::read;
         
-        LibforestDataReader() : readClassLabels(true) {}
+        LibforestDataReader() {}
         
         /**
          * Reads a labeled dataset from a stream.
          */
         virtual void read(std::istream & stream, DataStorage::ptr dataStorage);
         
+    private:
         /**
          * Reads a single data point from a stream
          * 
@@ -651,32 +711,6 @@ namespace libf {
          * @param v The data point where the data shall be saved into
          */
         void readDataPoint(std::istream & stream, DataPoint & v);
-        
-        /**
-         * Sets whether or not class labels shall be read from the file. 
-         * 
-         * @param _readClassLabels Whether of not class labels shall be read. True => Read labels
-         */
-        void setReadClassLabels(bool _readClassLabels)
-        {
-            readClassLabels = _readClassLabels;
-        }
-        
-        /**
-         * Returns whether or not class labels shall be read from the file. 
-         * 
-         * @return True if class labels are read
-         */
-        bool getReadClassLabels() const
-        {
-            return readClassLabels;
-        }
-        
-    private:
-        /**
-         * If true, class labels are read from the file. 
-         */
-        bool readClassLabels;
     };
     
     /**
@@ -794,13 +828,14 @@ namespace libf {
     public:
         using AbstractDataWriter::write;
         
-        LibforestDataWriter() : writeClassLabels(true) {}
+        LibforestDataWriter() {}
         
         /**
          * Writes the data to a stream. 
          */
         virtual void write(std::ostream & stream, DataStorage::ptr dataStorage);
         
+    private:
         /**
          * Writes a single data point to a stream
          * 
@@ -808,32 +843,6 @@ namespace libf {
          * @param v The data point where the data shall be saved into
          */
         void writeDataPoint(std::ostream & stream, DataPoint & v);
-        
-        /**
-         * Sets whether or not class labels shall be written to the file. 
-         * 
-         * @param _writeClassLabels Whether of not class labels shall be read. True => Read labels
-         */
-        void setWriteClassLabels(bool _writeClassLabels)
-        {
-            writeClassLabels = _writeClassLabels;
-        }
-        
-        /**
-         * Returns whether or not class labels shall be written to the file. 
-         * 
-         * @return True if class labels are read
-         */
-        bool getWriteClassLabels() const
-        {
-            return writeClassLabels;
-        }
-        
-    private:
-        /**
-         * If true, class labels are written to the file. 
-         */
-        bool writeClassLabels;
     };
     
     /**
@@ -854,7 +863,7 @@ namespace libf {
          * @param stream The data stream 
          * @param v The data point where the data shall be saved into
          */
-        void writeDataPoint(std::ostream & stream, DataPoint & v);
+        void writeDataPoint(std::ostream & stream, const DataPoint & v);
     };
 }
 

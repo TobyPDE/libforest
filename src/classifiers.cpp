@@ -179,11 +179,13 @@ void DecisionTree::read(std::istream& stream)
     
     readBinary(stream, statistics);
     if (statistics) {
-        readBinary(stream, nodeStatistics);
-        readBinary(stream, leftChildStatistics);
-        readBinary(stream, rightChildStatistics);
-        readBinary(stream, nodeThresholds);
-        readBinary(stream, nodeFeatures);
+        // TODO: This does not work. The readBinary function has to be overloaded
+        // to support those types
+        // readBinary(stream, nodeStatistics);
+        // readBinary(stream, leftChildStatistics);
+        // readBinary(stream, rightChildStatistics);
+        // readBinary(stream, nodeThresholds);
+        // readBinary(stream, nodeFeatures);
     }
 }
 
@@ -194,11 +196,13 @@ void DecisionTree::write(std::ostream& stream) const
     
     writeBinary(stream, statistics);
     if (statistics) {
-        writeBinary(stream, nodeStatistics);
-        writeBinary(stream, leftChildStatistics);
-        writeBinary(stream, rightChildStatistics);
-        writeBinary(stream, nodeThresholds);
-        writeBinary(stream, nodeFeatures);
+        // TODO: This does not work. The writeBinary function has to be overloaded
+        // to support those types
+        // writeBinary(stream, nodeStatistics);
+        // writeBinary(stream, leftChildStatistics);
+        // writeBinary(stream, rightChildStatistics);
+        // writeBinary(stream, nodeThresholds);
+        // writeBinary(stream, nodeFeatures);
     }
 }
 
