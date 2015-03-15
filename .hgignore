@@ -1,5 +1,6 @@
 syntax:glob
 # Created by https://www.gitignore.io
+nbproject/
 todo/
 .DS_Store
 ### C++ ###
