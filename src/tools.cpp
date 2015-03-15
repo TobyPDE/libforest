@@ -1,6 +1,7 @@
 #include "libforest/tools.h"
 #include "libforest/data.h"
 #include "libforest/classifiers.h"
+#include "libforest/estimators.h"
 #include "libforest/learning.h"
 #include "libforest/io.h"
 #include "libforest/util.h"
@@ -283,8 +284,10 @@ void VariableImportanceTool::measure(RandomForestLearner* learner, std::vector<f
 
 void VariableImportanceTool::print(const std::vector<float> & result) const
 {
+    const int F = static_cast<int>(result.size());
+    
     float max = 0;
-    for (int f = 0; f < result.size(); f++)
+    for (int f = 0; f < F; f++)
     {
         if (result[f] > max)
         {
@@ -292,7 +295,7 @@ void VariableImportanceTool::print(const std::vector<float> & result) const
         }
     }
     
-    for (int f = 0; f < result.size(); ++f)
+    for (int f = 0; f < F; ++f)
     {
         if (result[f] > 0)
         {
@@ -316,11 +319,13 @@ void VariableImportanceTool::measureAndPrint(RandomForestLearner* learner) const
 
 void PixelImportanceTool::measureAndSave(RandomForestLearner* learner, boost::filesystem::path file, int rows) const
 {
-    cv::Mat image(rows, rows, CV_8UC3, cv::Scalar(255, 255, 255));
     const std::vector<float> result = learner->getImportance();
+    const int F = static_cast<int>(result.size());
+    
+    cv::Mat image(rows, rows, CV_8UC3, cv::Scalar(255, 255, 255));
     
     float max = 0;
-    for (int i = 0; i < result.size(); i++)
+    for (int i = 0; i < F; i++)
     {
         if (result[i] > max)
         {
@@ -385,4 +390,95 @@ void ClassStatisticsTool::measureAndPrint(AbstractDataStorage::ptr storage) cons
     std::vector<float> result;
     measure(storage, result);
     print(result);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+/// GaussianKullbackLeiblerTool
+////////////////////////////////////////////////////////////////////////////////
+
+float GaussianKullbackLeiblerTool::measure(Estimator* estimator, std::vector<Gaussian> & gaussians,
+        const std::vector<float> & weights, int N)
+{
+    assert(weights.size() == gaussians.size());
+    assert(gaussians.size() > 0);
+    
+    const int M = weights.size();
+    
+    float kl = 0;
+    for (int n = 0; n < N; n++)
+    {
+        int m = std::rand()%M;
+        DataPoint* x = gaussians[m].sample();
+
+        float p_x = 0;
+        float p_x_hat = estimator->estimate(x);
+        
+        for (m = 0; m < M; m++)
+        {
+            p_x += weights[m]*gaussians[m].evaluate(x);
+        }
+        
+        if (p_x > 0)
+        {
+            kl += fastlog2(p_x_hat/p_x);
+        }
+    }
+    
+    return kl/N;
+}
+
+void GaussianKullbackLeiblerTool::print(float kl)
+{
+    printf("Divergence: %2.2f\n", kl);
+}
+
+void GaussianKullbackLeiblerTool::measureAndPrint(Estimator* estimator, std::vector<Gaussian> & gaussians,
+        const std::vector<float> & weights, int N)
+{
+    float kl = measure(estimator, gaussians, weights, N);
+    print(kl);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+/// GaussianSquaredErrorTool
+////////////////////////////////////////////////////////////////////////////////
+
+float GaussianSquaredErrorTool::measure(Estimator* estimator, std::vector<Gaussian> & gaussians,
+        const std::vector<float> & weights, int N)
+{
+    assert(weights.size() == gaussians.size());
+    assert(gaussians.size() > 0);
+    
+    const int M = weights.size();
+    
+    float se = 0;
+    for (int n = 0; n < N; n++)
+    {
+        int m = std::rand()%M;
+        DataPoint* x = gaussians[m].sample();
+
+        float p_x = 0;
+        float p_x_hat = estimator->estimate(x);
+        
+        for (m = 0; m < M; m++)
+        {
+            p_x += weights[m]*gaussians[m].evaluate(x);
+        }
+        
+        se += (p_x - p_x_hat)*(p_x - p_x_hat);
+    }
+    
+    return se/N;
+}
+
+void GaussianSquaredErrorTool::print(float se)
+{
+    printf("Error: %2.6f\n", se);
+}
+
+void GaussianSquaredErrorTool::measureAndPrint(Estimator* estimator, std::vector<Gaussian> & gaussians,
+        const std::vector<float> & weights, int N)
+{
+    float se = measure(estimator, gaussians, weights, N);
+    print(se);
 }

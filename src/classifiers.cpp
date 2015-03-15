@@ -6,7 +6,6 @@
 #include <iostream>
 #include <string>
 #include <cmath>
-#include <Eigen/LU>
 
 using namespace libf;
 
@@ -36,66 +35,31 @@ int Classifier::classify(const DataPoint & x) const
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-/// DecisionTree
+/// Tree
 ////////////////////////////////////////////////////////////////////////////////
 
-DecisionTree::DecisionTree()
+Tree::Tree()
 {
-    // Indicates that we do not need to maintain statistics.
-    statistics = false;
-    
     splitFeatures.reserve(LIBF_GRAPH_BUFFER_SIZE);
     thresholds.reserve(LIBF_GRAPH_BUFFER_SIZE);
     leftChild.reserve(LIBF_GRAPH_BUFFER_SIZE);
-    histograms.reserve(LIBF_GRAPH_BUFFER_SIZE);
     depths.reserve(LIBF_GRAPH_BUFFER_SIZE);
     
     // Add at least the root node with index 0
-    addNode(0);
+    // addNode(0);
 }
 
-DecisionTree::DecisionTree(bool _statistics)
-{
-    statistics = _statistics;
-    
-    splitFeatures.reserve(LIBF_GRAPH_BUFFER_SIZE);
-    thresholds.reserve(LIBF_GRAPH_BUFFER_SIZE);
-    leftChild.reserve(LIBF_GRAPH_BUFFER_SIZE);
-    histograms.reserve(LIBF_GRAPH_BUFFER_SIZE);
-    depths.reserve(LIBF_GRAPH_BUFFER_SIZE);
-    
-    if (statistics)
-    {
-        nodeStatistics.reserve(LIBF_GRAPH_BUFFER_SIZE);
-        leftChildStatistics.reserve(LIBF_GRAPH_BUFFER_SIZE);
-        rightChildStatistics.reserve(LIBF_GRAPH_BUFFER_SIZE);
-        nodeThresholds.reserve(LIBF_GRAPH_BUFFER_SIZE);
-        nodeFeatures.reserve(LIBF_GRAPH_BUFFER_SIZE);
-    }
-    
-    // Important to add the first node after enabling statistics!
-    addNode(0);
-}
-
-void DecisionTree::addNode(int depth)
+void Tree::addNode(int depth)
 {
     splitFeatures.push_back(0);
     thresholds.push_back(0);
     leftChild.push_back(0);
-    histograms.push_back(std::vector<float>());
     depths.push_back(depth);
     
-    if (statistics)
-    {
-        nodeStatistics.push_back(EfficientEntropyHistogram());
-        leftChildStatistics.push_back(std::vector<EfficientEntropyHistogram>());
-        rightChildStatistics.push_back(std::vector<EfficientEntropyHistogram>());
-        nodeThresholds.push_back(std::vector< std::vector<float> >());
-        nodeFeatures.push_back(std::vector<int>());
-    }
+    addNodeDerived(depth);
 }
 
-int DecisionTree::splitNode(int node)
+int Tree::splitNode(int node)
 {
     // Make sure this is a valid node ID
     BOOST_ASSERT_MSG(0 <= node && node < static_cast<int>(splitFeatures.size()), "Invalid node index.");
@@ -124,6 +88,8 @@ int DecisionTree::findLeafNode(const DataPoint & x) const
     // Follow the tree until we hit a leaf node
     while (leftChild[node] != 0)
     {
+        BOOST_ASSERT(splitFeatures[node] >= 0 && splitFeatures[node] < x.rows());
+        
         // Check the threshold
         if (x(splitFeatures[node]) < thresholds[node])
         {
@@ -140,6 +106,65 @@ int DecisionTree::findLeafNode(const DataPoint & x) const
     return node;
 }
 
+void Tree::read(std::istream& stream)
+{
+    // Write the attributes to the file
+    readBinary(stream, splitFeatures);
+    readBinary(stream, thresholds);
+    readBinary(stream, leftChild);
+}
+
+void Tree::write(std::ostream& stream) const
+{
+    // Write the attributes to the file
+    writeBinary(stream, splitFeatures);
+    writeBinary(stream, thresholds);
+    writeBinary(stream, leftChild);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+/// DecisionTree
+////////////////////////////////////////////////////////////////////////////////
+
+DecisionTree::DecisionTree() : Tree()
+{
+    // Indicates that we do not need to maintain statistics.
+    statistics = false;
+    
+    // Note that it doe snot matter that Tree already adds a node
+    // before reserving the space!
+    histograms.reserve(LIBF_GRAPH_BUFFER_SIZE);
+}
+
+DecisionTree::DecisionTree(bool _statistics) : Tree()
+{
+    histograms.reserve(LIBF_GRAPH_BUFFER_SIZE);
+    
+    statistics = _statistics;
+    if (statistics)
+    {
+        nodeStatistics.reserve(LIBF_GRAPH_BUFFER_SIZE);
+        leftChildStatistics.reserve(LIBF_GRAPH_BUFFER_SIZE);
+        rightChildStatistics.reserve(LIBF_GRAPH_BUFFER_SIZE);
+        nodeThresholds.reserve(LIBF_GRAPH_BUFFER_SIZE);
+        nodeFeatures.reserve(LIBF_GRAPH_BUFFER_SIZE);
+    }
+}
+
+void DecisionTree::addNodeDerived(int depth)
+{
+    histograms.push_back(std::vector<float>());
+    
+    if (statistics)
+    {
+        nodeStatistics.push_back(EfficientEntropyHistogram());
+        leftChildStatistics.push_back(std::vector<EfficientEntropyHistogram>());
+        rightChildStatistics.push_back(std::vector<EfficientEntropyHistogram>());
+        nodeThresholds.push_back(std::vector< std::vector<float> >());
+        nodeFeatures.push_back(std::vector<int>());
+    }
+}
+
 void DecisionTree::classLogPosterior(const DataPoint & x, std::vector<float> & probabilities) const
 {
     // Get the leaf node
@@ -149,10 +174,7 @@ void DecisionTree::classLogPosterior(const DataPoint & x, std::vector<float> & p
 
 void DecisionTree::read(std::istream& stream)
 {
-    // Write the attributes to the file
-    readBinary(stream, splitFeatures);
-    readBinary(stream, thresholds);
-    readBinary(stream, leftChild);
+    Tree::read(stream);
     readBinary(stream, histograms);
     
     readBinary(stream, statistics);
@@ -167,10 +189,7 @@ void DecisionTree::read(std::istream& stream)
 
 void DecisionTree::write(std::ostream& stream) const
 {
-    // Write the attributes to the file
-    writeBinary(stream, splitFeatures);
-    writeBinary(stream, thresholds);
-    writeBinary(stream, leftChild);
+    Tree::write(stream);
     writeBinary(stream, histograms);
     
     writeBinary(stream, statistics);
@@ -181,171 +200,6 @@ void DecisionTree::write(std::ostream& stream) const
         writeBinary(stream, nodeThresholds);
         writeBinary(stream, nodeFeatures);
     }
-}
-
-
-////////////////////////////////////////////////////////////////////////////////
-/// Gaussian
-////////////////////////////////////////////////////////////////////////////////
-
-Gaussian::Gaussian(Eigen::VectorXf _mean, Eigen::MatrixXf _covariance) :
-        mean(_mean), 
-        covariance(_covariance),
-        cachedInverse(false),
-        cachedDeterminant(false),
-        randN(rng, norm)
-{
-    const int rows = _covariance.rows();
-    const int cols = _covariance.cols();
-    
-    assert(rows == cols);
-    assert(rows == _mean.rows());
-    
-    Eigen::SelfAdjointEigenSolver<Eigen::MatrixXf> solver(covariance);
-    transform = solver.eigenvectors()*solver.eigenvalues().cwiseSqrt().asDiagonal();
-}
-
-Gaussian::Gaussian(Eigen::VectorXf _mean, Eigen::MatrixXf _covariance, float _covarianceDeterminant) :
-        mean(_mean), 
-        covariance(_covariance),
-        cachedInverse(false),
-        cachedDeterminant(true),
-        covarianceDeterminant(_covarianceDeterminant),
-        randN(rng, norm)
-{
-    const int rows = _covariance.rows();
-    const int cols = _covariance.cols();
-    
-    assert(rows == cols);
-    assert(rows == _mean.rows());
-    
-    Eigen::SelfAdjointEigenSolver<Eigen::MatrixXf> solver(covariance);
-    transform = solver.eigenvectors()*solver.eigenvalues().cwiseSqrt().asDiagonal();
-}
-
-void Gaussian::setCovariance(Eigen::MatrixXf & _covariance)
-{
-    const int rows = _covariance.rows();
-    const int cols = _covariance.cols();
-    
-    assert(rows == cols);
-    
-    covariance = Eigen::MatrixXf(_covariance);
-    
-    Eigen::SelfAdjointEigenSolver<Eigen::MatrixXf> solver(covariance);
-    transform = solver.eigenvectors()*solver.eigenvalues().cwiseSqrt().asDiagonal();
-    
-    cachedInverse = false;
-    cachedDeterminant = false;
-}
-
-void Gaussian::sample(DataPoint & x)
-{
-    const int rows = mean.rows();
-    
-    Eigen::VectorXf randNVector(rows);
-    for (int i = 0; i < rows; i++)
-    {
-        randNVector(i) = randN();
-    }
-    
-    x = transform * randNVector + mean;
-}
-
-float Gaussian::evaluate(const DataPoint & x)
-{
-    assert(x.rows() == mean.rows());
-    assert(x.rows() == covariance.rows());
-    
-    // Invert the covariance matrix if not cached.
-    if (!cachedInverse)
-    {
-        covarianceInverse = covariance.inverse();
-        cachedInverse = true;
-    }
-    
-    // @see http://eigen.tuxfamily.org/dox-devel/group__LU__Module.html
-    if (!cachedDeterminant)
-    {
-        covarianceDeterminant = covariance.determinant();
-        cachedDeterminant = true;
-    }
-    
-    Eigen::VectorXf offset = x - mean;
-    
-    float p = 1/std::sqrt(pow(2*M_PI, mean.rows())*covarianceDeterminant)
-            * std::exp(- (1./2.) * offset.transpose()*covarianceInverse*offset);
-    
-    return p;
-}
-
-////////////////////////////////////////////////////////////////////////////////
-/// EfficientCovarianceMatrix
-////////////////////////////////////////////////////////////////////////////////
-
-void EfficientCovarianceMatrix::addOne(const DataPoint & x)
-{
-    assert(x.rows() == mean.rows());
-    assert(x.rows() == covariance.rows());
-    
-    for (int i = 0; i < x.rows(); i++)
-    {
-        // Update runnign estimate of mean.
-        mean(i) += x(i);
-        
-        for (int j = 0; j < x.rows(); j++)
-        {
-            // Update runnign estimate of covariance.
-            covariance(i, j) += x(i)*x(j);
-        }
-    }
-    
-    mass += 1;
-}
-
-void EfficientCovarianceMatrix::subOne(const DataPoint & x)
-{
-    assert(x.rows() == mean.rows());
-    assert(x.rows() == covariance.rows());
-    
-    for (int i = 0; i < x.rows(); i++)
-    {
-        // Update runnign estimate of mean.
-        mean(i) -= x(i);
-        
-        for (int j = 0; j < x.rows(); j++)
-        {
-            // Update runnign estimate of covariance.
-            covariance(i, j) -= x(i)*x(j);
-        }
-    }
-    
-    mass += 1;
-}
-
-float EfficientCovarianceMatrix::getEntropy()
-{
-    return ENTROPY(mass)*ENTROPY(getDeterminant());
-}
-
-float EfficientCovarianceMatrix::getDeterminant()
-{
-    if (!cachedDeterminant)
-    {
-        covarianceDeterminant = getCovariance().determinant();
-    }
-    
-    return covarianceDeterminant;
-}
-
-Eigen::MatrixXf & EfficientCovarianceMatrix::getCovariance()
-{
-    if (!cachedTrueCovariance)
-    {
-        trueCovariance = (covariance - mean*mean.transpose())/mass;
-    }
-    
-    return trueCovariance;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -365,8 +219,10 @@ void RandomForest::classLogPosterior(const DataPoint & x, std::vector<float> & p
         std::vector<float> currentHist;
         trees[i]->classLogPosterior(x, currentHist);
         
+        BOOST_ASSERT(currentHist.size() > 0);
+        
         // Accumulate the votes
-        for (int  c = 0; c < currentHist.size(); c++)
+        for (size_t c = 0; c < currentHist.size(); c++)
         {
             probabilities[c] += currentHist[c];
         }

@@ -75,7 +75,6 @@ int main(int argc, const char** argv)
     }
     
     bool useBootstrap = parameters.find("use-bootstrap") != parameters.end();
-    bool computeMDI = parameters.find("compute-mdi") != parameters.end();
     
     DataStorage storage;
     DataStorage storageT;
