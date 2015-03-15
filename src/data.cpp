@@ -1,9 +1,12 @@
 #include "libforest/data.h"
 #include "libforest/io.h"
 #include "libforest/util.h"
+#include "libforest/tools.h"
 #include <fstream>
 #include <iterator>
 #include <boost/tokenizer.hpp>
+#include <boost/spirit/include/qi.hpp>
+#include <boost/fusion/adapted/std_pair.hpp>
 #include <cstdlib>
 #include <random>
 #include <iostream>
@@ -11,91 +14,7 @@
 
 using namespace libf;
 
-std::random_device rd;
-
-////////////////////////////////////////////////////////////////////////////////
-/// DataPoint
-////////////////////////////////////////////////////////////////////////////////
-
-DataPoint::DataPoint(int newD, float x)
-{
-    D = newD;
-    data = new float[D];
-    // Initialize the point
-    for (int i = 0; i < D; i++)
-    {
-        data[i] = x;
-    }
-}
-
-DataPoint::DataPoint(const DataPoint & other)
-{
-    D = other.D;
-    data = new float[D];
-    for (int i = 0; i < D; i++)
-    {
-        data[i] = other.data[i];
-    }
-}
-
-void DataPoint::resize(int newD)
-{
-    freeData();
-    D = newD;
-    data = new float[D];
-}
-
-DataPoint & DataPoint::operator=(const DataPoint & other)
-{
-    // Do nothing at self assignments. 
-    if (this != &other)
-    {
-        // Resize this vector
-        resize(other.D);
-        // Copy the data
-        for (int i = 0; i < D; i++)
-        {
-            data[i] = other.data[i];
-        }
-    }
-    return *this;
-}
-
-void DataPoint::freeData()
-{
-    if (data != 0)
-    {
-        delete[] data;
-        data = 0;
-    }
-}
-
-void DataPoint::read(std::istream& stream)
-{
-    // Read the dimensionality
-    readBinary(stream, D);
-    
-    // Create the vector
-    freeData();
-    data = new float[D];
-    
-    for (int d = 0; d < D; d++)
-    {
-        readBinary(stream, data[d]);
-    }
-}
-
-void DataPoint::write(std::ostream& stream) const
-{
-    // Write the dimensionality
-    writeBinary(stream, D);
-    
-    // Write the vector
-    for (int d = 0; d < D; d++)
-    {
-        writeBinary(stream, data[d]);
-    }
-}
+static std::random_device rd;
 
 ////////////////////////////////////////////////////////////////////////////////
 /// ClassLabelMap
@@ -160,59 +79,85 @@ void ClassLabelMap::read(std::istream& stream)
 /// AbstractDataStorage
 ////////////////////////////////////////////////////////////////////////////////
 
-AbstractDataStorage::AbstractDataStorage(const AbstractDataStorage & other)
+bool AbstractDataStorage::containsUnlabeledPoints() const
 {
-    // Copy all arrays
-    dataPoints = other.dataPoints;
-    freeFlags = other.freeFlags;
-    
-    // Set all free flags to false as this is not the owner of the data points
-    for (size_t i = 0; i < freeFlags.size(); i++)
+    // Go through the storage and check for unlabeled points
+    for (int n = 0; n < getSize(); n++)
     {
-        freeFlags[i] = false;
-    }
-}
-
-AbstractDataStorage & AbstractDataStorage::operator=(const AbstractDataStorage & other)
-{
-    if (this != &other)
-    {
-        free();
-        dataPoints = other.dataPoints;
-        freeFlags = other.freeFlags;
-
-        // Set all free flags to false as this is not the owner of the data points
-        for (size_t i = 0; i < freeFlags.size(); i++)
+        if (getClassLabel(n) == NO_LABEL)
         {
-            freeFlags[i] = false;
+            return true;
         }
     }
-    
-    return *this;
+    return false;
 }
 
-void AbstractDataStorage::permute(const std::vector<int>& permutation)
+        
+int AbstractDataStorage::getDimensionality() const
 {
-    // We cannot permute in-place
-    std::vector< DataPoint* > dataPointsCopy(dataPoints);
-    std::vector<bool> freeFlagsCopy(freeFlags);
+    if (getSize() == 0)
+    {
+        // There are no data points
+        return 0;
+    }
+    else
+    {
+        // Take the dimensionality of the first data point
+        // By the constraints, this is the dimensionality of all data 
+        // points
+        return getDataPoint(0).rows();
+    }
+}
+
+AbstractDataStorage::ptr AbstractDataStorage::excerpt(int begin, int end) const
+{
+    BOOST_ASSERT_MSG(begin >= 0 && begin <= end, "Invalid indices.");
+    BOOST_ASSERT_MSG(end < getSize(), "Invalid indices.");
     
-    // Permute the original arrays
-    Util::permute(permutation, dataPointsCopy, dataPoints);
-    Util::permute(permutation, freeFlagsCopy, freeFlags);
+    ReferenceDataStorage::ptr storage = std::make_shared<ReferenceDataStorage>(shared_from_this());
+    
+    // Add the data points
+    for (int n = begin; n <= end; n++)
+    {
+        storage->addDataPoint(n);
+    }
+    
+    return storage;
+}
+
+AbstractDataStorage::ptr AbstractDataStorage::bootstrap(int N, std::vector<bool> & sampled) const
+{
+    BOOST_ASSERT_MSG(N >= 0, "The number of bootstrap examples must be non-negative.");
+    
+    ReferenceDataStorage::ptr storage = std::make_shared<ReferenceDataStorage>(shared_from_this());
+    
+    // Set up a probability distribution
+    std::mt19937 g(rd());
+    
+    std::uniform_int_distribution<int> distribution(0, getSize() - 1);
+    
+    // Initialize the flag array
+    sampled.resize(getSize(), false);
+    
+    // Add the points
+    for (int i = 0; i < N; i++)
+    {
+        // Select some point
+        const int n = distribution(g);
+        sampled[n] = true;
+        storage->addDataPoint(n);
+    }
+    
+    return storage;
 }
 
 void AbstractDataStorage::randPermute()
 {
     // Set up a random permutation
-    std::vector<int> permutation(getSize());
-    for (int i = 0; i < getSize(); i++)
-    {
-        permutation[i] = i;
-    }
+    std::vector<int> permutation;
+    Util::generateRandomPermutation(getSize(), permutation);    
     
-    std::shuffle(permutation.begin(), permutation.end(), std::default_random_engine(rd()));
-    
+    // Permute the storage.
     permute(permutation);
 }
 
@@ -220,184 +165,74 @@ void AbstractDataStorage::dumpInformation(std::ostream & stream)
 {
     stream << std::setw(30) << "Size" << ": " << getSize() << "\n";
     stream << std::setw(30) << "Dimensionality" << ": " << getDimensionality() << "\n";
-}
-
-void AbstractDataStorage::free()
-{
-    for (size_t i = 0; i < dataPoints.size(); i++)
-    {
-        if (freeFlags[i])
-        {
-            delete dataPoints[i];
-            dataPoints[i] = 0;
-        }
-    }
+    // Dump the class statistics of the storage
+    stream << std::setw(30) << "Class statistics" << "\n";
     
-    dataPoints.empty();
+    ClassStatisticsTool csTool;
+    csTool.measureAndPrint(shared_from_this());
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 /// DataStorage
 ////////////////////////////////////////////////////////////////////////////////
 
-DataStorage::DataStorage(const DataStorage & other) : AbstractDataStorage(other)
+void DataStorage::permute(const std::vector<int> & permutation)
 {
-    classLabels = other.classLabels;
-    classLabelMap = other.classLabelMap;
-    classcount = other.classcount;
-}
-
-DataStorage DataStorage::excerpt(int begin, int end)
-{
-    assert(begin >= 0 && begin <= end);
-    assert(end >= begin && end < dataPoints.size());
-    
-    DataStorage excerpt;
-    
-    excerpt.dataPoints = std::vector<DataPoint*>(end - begin + 1);
-    excerpt.freeFlags = std::vector<bool>(end - begin + 1);
-    excerpt.classLabels = std::vector<int>(end - begin + 1);
-    
-    int m = 0;
-    for (int n = begin; n <= end; n++, m++)
-    {
-        // The points do not belong to the excerpt.
-        excerpt.freeFlags[m] = false;
-        excerpt.dataPoints[m] = dataPoints[n];
-        excerpt.classLabels[m] = classLabels[n];
-    }
-    
-    excerpt.classLabelMap = classLabelMap;
-    excerpt.classcount = classcount;
-    
-    return excerpt;
-}
-
-DataStorage & DataStorage::operator=(const DataStorage & other)
-{
-    AbstractDataStorage::operator=(other);
-    
-    if (this != &other)
-    {
-        // free() is already called by parent.)
-        classLabels = other.classLabels;
-        classLabelMap = other.classLabelMap;
-        classcount = other.classcount;
-    }
-    
-    return *this;
-}
-
-void DataStorage::free()
-{
-    AbstractDataStorage::free();
-    classLabels.empty();
-    freeFlags.empty();
-}
-
-void DataStorage::permute(const std::vector<int>& permutation)
-{
-    AbstractDataStorage::permute(permutation);
-    
+    // We need to copy the class labels because the permutation cannot 
+    // be done in place
     std::vector<int> classLabelsCopy(classLabels);
     Util::permute(permutation, classLabelsCopy, classLabels);
-}
-
-void DataStorage::bootstrap(int N, DataStorage* dataStorage, std::vector<bool> & sampled) const
-{
-    // Set up a probability distribution
-    std::random_device rd;
-    std::mt19937 g(rd());
-    
-    std::uniform_int_distribution<int> distribution(0, getSize() - 1);
-    
-    // Initialize the flag array
-    sampled.resize(getSize());
-    for (int n = 0; n < getSize(); n++)
-    {
-        sampled[n] = false;
-    }
-    
-    // Add the points
-    for (int i = 0; i < N; i++)
-    {
-        // Select some point
-        const int point = distribution(g);
-        dataStorage->addDataPoint(getDataPoint(point), getClassLabel(point), false);
-        sampled[point] = true;
-    }
-    dataStorage->classLabelMap = classLabelMap;
-}
-
-void DataStorage::dumpInformation(std::ostream & stream)
-{
-    std::vector<int> intLabelMap;
-    getClassLabelMap().computeIntClassLabels(intLabelMap);
-    
-    AbstractDataStorage::dumpInformation(stream);
-    stream << std::setw(30) << "Classes" << ": " << getClasscount() << "\n";
+    std::vector<DataPoint> dataPointsCopy(dataPoints);
+    Util::permute(permutation, dataPointsCopy, dataPoints);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-/// DataProvider
+/// ReferenceDataStorage
 ////////////////////////////////////////////////////////////////////////////////
 
-void DataProvider::read(const std::string& filename, DataStorage* dataStorage)
+void ReferenceDataStorage::permute(const std::vector<int> & permutation)
 {
+    // We need to copy the class labels because the permutation cannot 
+    // be done in place
+    std::vector<int> dataPointIndicesCopy(dataPointIndices);
+    Util::permute(permutation, dataPointIndicesCopy, dataPointIndices);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+/// DataReader
+////////////////////////////////////////////////////////////////////////////////
+
+void AbstractDataReader::read(const std::string& filename, DataStorage::ptr dataStorage) throw(IOException)
+{
+    // Try to open the file
     std::ifstream stream(filename, std::ios::binary);
+    
+    // Check if we could open the file
     if (!stream.is_open())
     {
-        throw Exception("Could not open file.");
+        throw IOException("Could not open file.");
     }
     
+    // Read the actual data
     read(stream, dataStorage);
     
-    stream.close();
-}
-
-void DataProvider::read(const std::string& filename, UnlabeledDataStorage* dataStorage)
-{
-    std::ifstream stream(filename, std::ios::binary);
-    if (!stream.is_open())
-    {
-        throw Exception("Could not open file.");
-    }
-    
-    read(stream, dataStorage);
-    
+    // Close the stream
     stream.close();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-/// DataWriter
+/// CSVDataReader
 ////////////////////////////////////////////////////////////////////////////////
 
-void DataWriter::write(const std::string& filename, DataStorage* dataStorage)
-{
-    // Open the file
-    std::ofstream stream(filename, std::ios::binary);
-    if (!stream.is_open())
-    {
-        throw Exception("Could not open file.");
-    }
-    write(stream, dataStorage);
-    stream.close();
-}
-
-
-////////////////////////////////////////////////////////////////////////////////
-/// CSVDataProvider
-////////////////////////////////////////////////////////////////////////////////
-
-void CSVDataProvider::read(std::istream & stream, DataStorage* dataStorage)
+void CSVDataReader::read(std::istream & stream, DataStorage::ptr dataStorage, ClassLabelMap & classLabelMap)
 {
     // Tokenize the stream
     typedef boost::tokenizer< boost::escaped_list_separator<char> > Tokenizer;
 
     // @see http://www.boost.org/doc/libs/1_36_0/libs/tokenizer/escaped_list_separator.htm
-    std::string escape("\\");
-    std::string separator(columnSeparator);
-    std::string quote("\"");
+    const std::string escape("\\");
+    const std::string separator(columnSeparator);
+    const std::string quote("\"");
 
     boost::escaped_list_separator<char> els(escape, separator, quote);
     
@@ -420,31 +255,59 @@ void CSVDataProvider::read(std::istream & stream, DataStorage* dataStorage)
             isize--;
         }
         
+        // If we read class labels, the number of columns is one more than the
+        // number of dimensions
+        int dimensionality = isize;
+        if (readClassLabels)
+        {
+            dimensionality--;
+        }
+        
         // Load the data point
-        DataPoint* dataPoint = new DataPoint(isize - 1);
+        DataPoint dataPoint(dimensionality);
         int  label = 0;
+        
         for (int  i = 0; i < isize; i++)
         {
-            if (i == classColumnIndex)
+            // Do we read class labels?
+            if (readClassLabels)
             {
-                label = dataStorage->getClassLabelMap().addClassLabel(row[i]);
-            }
-            else if (i < classColumnIndex)
-            {
-                dataPoint->at(i) = atof(row[i].c_str());
+                // We do
+                // Is this the label column?
+                if (i == classLabelColumnIndex)
+                {
+                    // It is
+                    // Get a preliminary class label
+                    label = classLabelMap.addClassLabel(row[i]);
+                }
+                else if (i < classLabelColumnIndex)
+                {
+                    dataPoint(i) = atof(row[i].c_str());
+                }
+                else
+                {
+                    dataPoint(i - 1) = atof(row[i].c_str());
+                }
             }
             else
             {
-                dataPoint->at(i - 1) = atof(row[i].c_str());
+                dataPoint(i) = atof(row[i].c_str());
             }
         }
         
-        dataStorage->addDataPoint(dataPoint, label, true);
+        if (readClassLabels)
+        {
+            dataStorage->addDataPoint(dataPoint, label);
+        }
+        else
+        {
+            dataStorage->addDataPoint(dataPoint);
+        }
     }
     
     // Compute the integer class label
     std::vector<int> intLabelMap;
-    dataStorage->getClassLabelMap().computeIntClassLabels(intLabelMap);
+    classLabelMap.computeIntClassLabels(intLabelMap);
     
     // Update the class labels
     for (int i = 0; i < dataStorage->getSize(); i++)
@@ -453,46 +316,89 @@ void CSVDataProvider::read(std::istream & stream, DataStorage* dataStorage)
     }
 }
 
-void CSVDataProvider::read(std::istream & stream, UnlabeledDataStorage* dataStorage)
+
+////////////////////////////////////////////////////////////////////////////////
+/// LIBSVMDataReader
+////////////////////////////////////////////////////////////////////////////////
+
+void LIBSVMDataReader::read(std::istream& stream, DataStorage::ptr dataStorage)
 {
-    // Tokenize the stream
-    typedef boost::tokenizer< boost::escaped_list_separator<char> > Tokenizer;
-
-    // @see http://www.boost.org/doc/libs/1_36_0/libs/tokenizer/escaped_list_separator.htm
-    std::string escape("\\");
-    std::string separator(columnSeparator);
-    std::string quote("\"");
-
-    boost::escaped_list_separator<char> els(escape, separator, quote);
-    
-    std::vector< std::string > row;
     std::string line;
-
-    while (std::getline(stream,line))
+    
+    // First: Parse the entire thing
+    std::vector< std::pair<int, std::vector< std::pair<int, float> > > > lines;
+    
+    // Iterate over the data points and read them
+    while (std::getline(stream, line))
     {
-        // Tokenize the line
-        Tokenizer tok(line, els);
-        row.assign(tok.begin(), tok.end());
+        // Skip this line if it's empty or starts with a #
+        if (line.size() == 0 || line[0] == '#')
+        {
+            continue;
+        }
+        lines.push_back(std::pair<int, std::vector< std::pair<int, float> > >());
+        
+        parseLine(line, lines.back());
+    }
+    
+    // Determine the dimensionality
+    int dimensionality = 0;
+    for (size_t i = 0; i < lines.size(); i++)
+    {
+        for (size_t d = 0; d < lines[i].second.size(); d++)
+        {
+            dimensionality = std::max(dimensionality, static_cast<int>(lines[i].second[d].first));
+        }
+    }
+    
+    if (dimensionality == 0 && lines.size() > 0)
+    {
+        throw IOException("Invalid LIBSVM data set. No dimensions.");
+    }
+    
+    // Create the data points
+    // We do it like this to make the transformation in-place
+    while (lines.size() > 0)
+    {
+        DataPoint x = DataPoint::Zero(dimensionality);
+        
+        for (size_t d = 0; d < lines.back().second.size(); d++)
+        {
+            const int id = static_cast<int>(lines.back().second[d].first);
+            x(id) = lines.back().second[d].second;
+        }
+        
+        dataStorage->addDataPoint(x, lines.back().first);
+        
+        lines.pop_back();
+    }
+}
 
-        // Do not consider blank line
-        if (row.size() == 0) continue;
-        
-        int isize = static_cast<int>(row.size());
-        if (row[row.size() - 1].empty()) 
-        {
-            // We have an empty trailing column ...
-            isize--;
-        }
-        
-        // Load the data point
-        DataPoint* dataPoint = new DataPoint(isize - 1);
-        int  label = 0;
-        for (int  i = 0; i < isize; i++)
-        {
-            dataPoint->at(i) = atof(row[i].c_str());
-        }
-        
-        dataStorage->addDataPoint(dataPoint, true);
+void LIBSVMDataReader::parseLine(const std::string & line, std::pair<int, std::vector< std::pair<int, float> > > & result) const
+{
+    // Set up the iterators
+    std::string::const_iterator first = line.begin();
+    std::string::const_iterator last = line.end();
+    
+    using boost::spirit::qi::float_;
+    using boost::spirit::qi::int_;
+    using boost::spirit::qi::phrase_parse;
+    using boost::spirit::ascii::space;
+std::pair<int, std::vector< std::pair<int, float> > > result2;
+    // Parse the line using boost spirit
+    bool r = phrase_parse(
+        first, 
+        last, 
+        int_ >> *(int_ >> ':' >> float_),
+        space,
+        result2
+    );
+    result = result2;
+    
+    // There was a mismatch. This is not a valid LIBSVM file
+    if (first != last || !r)
+    {
+        throw IOException("Invalid LIBSVM line.");
     }
 }
 
@@ -500,7 +406,7 @@ void CSVDataProvider::read(std::istream & stream, UnlabeledDataStorage* dataStor
 /// LibforestDataProvider
 ////////////////////////////////////////////////////////////////////////////////
 
-void LibforestDataProvider::read(std::istream& stream, DataStorage* dataStorage)
+void LibforestDataReader::read(std::istream& stream, DataStorage::ptr dataStorage)
 {
     // Read the number of data points
     int N;
@@ -509,29 +415,109 @@ void LibforestDataProvider::read(std::istream& stream, DataStorage* dataStorage)
     // Read the data set
     for (int n = 0; n < N; n++)
     {
-        // Read the class label
-        int label;
-        readBinary(stream, label);
-        // Set up the data point
-        DataPoint* v = new DataPoint();
-        v->read(stream);
-        dataStorage->addDataPoint(v, label, true);
+        if (readClassLabels)
+        {
+            // Read the class label
+            int label;
+            readBinary(stream, label);
+            // Set up the data point
+            DataPoint v;
+            readDataPoint(stream, v);
+            dataStorage->addDataPoint(v, label);
+        }
+        else
+        {
+            // Set up the data point
+            DataPoint v;
+            readDataPoint(stream, v);
+            dataStorage->addDataPoint(v);
+        }
     }
 }
 
-void LibforestDataProvider::read(std::istream& stream, UnlabeledDataStorage* dataStorage)
+void LibforestDataReader::readDataPoint(std::istream& stream, DataPoint& v)
 {
-    // Read the number of data points
-    int N;
-    readBinary(stream, N);
+    // Read the dimensionality
+    int D;
+    readBinary(stream, D);
     
-    // Read the data set
-    for (int n = 0; n < N; n++)
+    // Resize the data point
+    v.resize(D);
+    
+    // Load the content
+    for (int d = 0; d < D; d++)
     {
-        // Set up the data point
-        DataPoint* v = new DataPoint();
-        v->read(stream);
-        dataStorage->addDataPoint(v, true);
+        readBinary(stream, v(d));
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+/// AbstractDataWriter
+////////////////////////////////////////////////////////////////////////////////
+
+void AbstractDataWriter::write(const std::string & filename, DataStorage::ptr dataStorage) throw(IOException)
+{
+    // Open the file
+    std::ofstream stream(filename, std::ios::binary);
+    if (!stream.is_open())
+    {
+        throw IOException("Could not open data file.");
+    }
+    write(stream, dataStorage);
+    stream.close();
+}
+
+////////////////////////////////////////////////////////////////////////////////
+/// CSVDataWriter
+////////////////////////////////////////////////////////////////////////////////
+
+void CSVDataWriter::write(std::ostream& stream, DataStorage::ptr dataStorage)
+{
+    for (size_t n = 0; n < dataStorage->getSize(); n++)
+    {
+        const DataPoint & v = dataStorage->getDataPoint(n);
+        
+        // Do we write class labels?
+        if (writeClassLabels)
+        {
+            // Yes we do, thus we have to take care of them
+            for (int d = 0; d < v.rows()+1; d++)
+            {
+                if (d < classLabelColumnIndex)
+                {
+                    stream << v(d);
+                }
+                else if (d == classLabelColumnIndex)
+                {
+                    stream << dataStorage->getClassLabel(d);
+                }
+                else
+                {
+                    stream << v(d-1);
+                }
+                
+                // Write the column separator?
+                if (d < v.rows())
+                {
+                    stream << columnSeparator;
+                }
+            }
+        }
+        else
+        {
+            // Do not write class labels
+            for (int d = 0; d < v.rows(); d++)
+            {
+                stream << v(d);
+                
+                // Write the column separator?
+                if (d < v.rows())
+                {
+                    stream << columnSeparator;
+                }
+            }
+        }
+        stream << std::endl;
     }
 }
 
@@ -539,14 +525,53 @@ void LibforestDataProvider::read(std::istream& stream, UnlabeledDataStorage* dat
 /// LibforestDataWriter
 ////////////////////////////////////////////////////////////////////////////////
 
-void LibforestDataWriter::write(std::ostream& stream, DataStorage* dataStorage)
+void LibforestDataWriter::write(std::ostream& stream, DataStorage::ptr dataStorage)
 {
     // Write the number of data points
     writeBinary(stream, dataStorage->getSize());
     // Write the content
     for (int n = 0; n < dataStorage->getSize(); n++)
     {
-        writeBinary(stream, dataStorage->getClassLabel(n));
-        dataStorage->getDataPoint(n)->write(stream);
+        if (writeClassLabels)
+        {
+            writeBinary(stream, dataStorage->getClassLabel(n));
+        }
+        writeDataPoint(stream, dataStorage->getDataPoint(n));
+    }
+}
+
+void LibforestDataWriter::writeDataPoint(std::ostream& stream, DataPoint& v)
+{
+    writeBinary(stream, v.rows());
+    for (int d = 0; d < v.rows(); d++)
+    {
+        writeBinary(stream, v(d));
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+/// LIBSVMDataWriter
+////////////////////////////////////////////////////////////////////////////////
+
+void LIBSVMDataWriter::write(std::ostream& stream, DataStorage::ptr dataStorage)
+{
+    stream << "# " << dataStorage->getSize() << " data points" << std::endl;
+    
+    for (int n = 0; n < dataStorage->getSize(); n++)
+    {
+        std::cout << dataStorage->getClassLabel(n) << " ";
+        writeDataPoint(stream, dataStorage->getDataPoint(n));
+        std::cout << std::endl;
+    }
+}
+
+void LIBSVMDataWriter::writeDataPoint(std::ostream& stream, DataPoint& v)
+{
+    for (int d = 0; d < v.rows(); d++)
+    {
+        if (std::abs(v(d)) > 1e-15)
+        {
+            std::cout << (d+1) << ':' << v(d) << ' ';
+        }
     }
 }

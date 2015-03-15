@@ -60,7 +60,7 @@ const char* colorCodeHighToLow(const float x, const float t1, const float t2)
 /// AccuracyTool
 ////////////////////////////////////////////////////////////////////////////////
 
-float AccuracyTool::measure(const Classifier* classifier, const DataStorage* storage) const
+float AccuracyTool::measure(Classifier::ptr classifier, AbstractDataStorage::ptr storage) const
 {
     // Classify all points
     std::vector<int> res;
@@ -84,7 +84,7 @@ void AccuracyTool::print(float accuracy) const
     printf("Accuracy: %2.2f%% (Error: %2.2f%%)\n", accuracy*100, (1-accuracy)*100);
 }
 
-void AccuracyTool::measureAndPrint(const Classifier* classifier, const DataStorage* storage) const
+void AccuracyTool::measureAndPrint(Classifier::ptr classifier, AbstractDataStorage::ptr storage) const
 {
     float accuracy = measure(classifier, storage);
     print(accuracy);
@@ -94,7 +94,7 @@ void AccuracyTool::measureAndPrint(const Classifier* classifier, const DataStora
 /// ConfusionMatrixTool
 ////////////////////////////////////////////////////////////////////////////////
 
-void ConfusionMatrixTool::measure(const Classifier* classifier, const DataStorage* storage, std::vector<std::vector<float> >& result) const
+void ConfusionMatrixTool::measure(Classifier::ptr classifier, AbstractDataStorage::ptr storage, std::vector<std::vector<float> >& result) const
 {
     const int C = storage->getClasscount();
     
@@ -180,7 +180,7 @@ void ConfusionMatrixTool::print(const std::vector<std::vector<float> >& result) 
     }
 }
 
-void ConfusionMatrixTool::measureAndPrint(const Classifier* classifier, const DataStorage* storage) const
+void ConfusionMatrixTool::measureAndPrint(Classifier::ptr classifier, AbstractDataStorage::ptr storage) const
 {
     std::vector< std::vector<float> > result;
     measure(classifier, storage, result);
@@ -191,7 +191,7 @@ void ConfusionMatrixTool::measureAndPrint(const Classifier* classifier, const Da
 /// CorrelationTool
 ////////////////////////////////////////////////////////////////////////////////
 
-void CorrelationTool::measure(const RandomForest* forest, const DataStorage* storage, std::vector<std::vector<float> >& result) const
+void CorrelationTool::measure(const RandomForest::ptr forest, AbstractDataStorage::ptr storage, std::vector<std::vector<float> >& result) const
 {
     const int T = forest->getSize();
     
@@ -264,7 +264,7 @@ void CorrelationTool::print(const std::vector<std::vector<float> >& result) cons
     }
 }
 
-void CorrelationTool::measureAndPrint(const RandomForest* classifier, const DataStorage* storage) const
+void CorrelationTool::measureAndPrint(const RandomForest::ptr classifier, AbstractDataStorage::ptr storage) const
 {
     std::vector< std::vector<float> > result;
     measure(classifier, storage, result);
@@ -340,4 +340,49 @@ void PixelImportanceTool::measureAndSave(RandomForestLearner* learner, boost::fi
     }
     
     cv::imwrite(file.string(), image);
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+/// ClassStatisticsTool
+////////////////////////////////////////////////////////////////////////////////
+
+void ClassStatisticsTool::measure(AbstractDataStorage::ptr storage, std::vector<float> & result) const
+{
+    // Count the points
+    result.resize(storage->getClasscount() + 1, 0.0f);
+    
+    for (int n = 0; n < storage->getSize(); n++)
+    {
+        if (storage->getClassLabel(n) != DataStorage::NO_LABEL)
+        {
+            result[storage->getClassLabel(n)] += 1.0f;
+        }
+        else
+        {
+            // This data point has no label
+            result[storage->getClasscount()] += 1.0f;
+        }
+    }
+    
+    // Normalize the distribution
+    for (size_t c = 0; c < result.size(); c++)
+    {
+        result[c] /= storage->getSize();
+    }
+}
+
+void ClassStatisticsTool::print(const std::vector<float> & result) const
+{
+    for (size_t c = 0; c < result.size(); c++)
+    {
+        printf("Class %3d: %4f%%\n", static_cast<int>(c), result[c]*100);
+    }
+}
+
+void ClassStatisticsTool::measureAndPrint(AbstractDataStorage::ptr storage) const
+{
+    std::vector<float> result;
+    measure(storage, result);
+    print(result);
 }

@@ -22,19 +22,19 @@ void DensityDecisionTreeLearner::updateLeafNodeGaussian(Gaussian gaussian, Effic
     gaussian = Gaussian(covariance.getMean(), covariance.getCovariance(), covariance.getDeterminant());
 }
 
-DensityDecisionTree* DensityDecisionTreeLearner::learn(const UnlabeledDataStorage* storage)
+DensityDecisionTree::ptr DensityDecisionTreeLearner::learn(AbstractDataStorage::ptr storage)
 {
     const int D = storage->getDimensionality();
     const int N = storage->getSize();
     
     // Set up a new density tree. 
-    DensityDecisionTree* tree = new DensityDecisionTree();
+    DensityDecisionTree::ptr tree = std::make_shared<DensityDecisionTree>();
     
     // Set up the state for the callbacks.
     DensityDecisionTreeLearnerState state;
     state.action = ACTION_START_TREE;
     
-    evokeCallback(tree, 0, &state);
+    evokeCallback(tree, 0, state);
     
     // Nodes we need to split.
     std::vector<int> splitStack;
@@ -115,7 +115,7 @@ DensityDecisionTree* DensityDecisionTreeLearner::learn(const UnlabeledDataStorag
             rightCovariance = covariance;
             
             // Initialize left feature value.
-            float leftFeatureValue = storage->getDataPoint(trainingExamples[leaf][0])->at(feature);
+            float leftFeatureValue = storage->getDataPoint(trainingExamples[leaf][0])(feature);
             
             // The training samples are our thresholds to optimize over.
             for (int m = 1; m < N; m++)
@@ -126,7 +126,7 @@ DensityDecisionTree* DensityDecisionTreeLearner::learn(const UnlabeledDataStorag
                 leftCovariance.addOne(storage->getDataPoint(n));
                 rightCovariance.subOne(storage->getDataPoint(n));
                 
-                const float rightFeatureValue = storage->getDataPoint(n)->at(feature);
+                const float rightFeatureValue = storage->getDataPoint(n)(feature);
                 if (std::abs(rightFeatureValue - leftFeatureValue) < 1e-6f)
                 {
                     leftFeatureValue = rightFeatureValue;
@@ -174,7 +174,7 @@ DensityDecisionTree* DensityDecisionTreeLearner::learn(const UnlabeledDataStorag
         for (int m = 0; m < N; m++)
         {
             const int n = trainingExamples[leaf][m];
-            const float featureValue = storage->getDataPoint(n)->at(bestFeature);
+            const float featureValue = storage->getDataPoint(n)(bestFeature);
             
             if (featureValue < bestThreshold)
             {
@@ -195,7 +195,7 @@ DensityDecisionTree* DensityDecisionTreeLearner::learn(const UnlabeledDataStorag
         state.depth = tree->getDepth(leaf);
         state.objective = bestObjective;
         
-        evokeCallback(tree, 0, &state);
+        evokeCallback(tree, 0, state);
         
         // Prepare to split the child nodes
         splitStack.push_back(leftChild);
@@ -205,20 +205,20 @@ DensityDecisionTree* DensityDecisionTreeLearner::learn(const UnlabeledDataStorag
     return tree;
 }
 
-int DensityDecisionTreeLearner::defaultCallback(DensityDecisionTree* tree, DensityDecisionTreeLearnerState* state)
+int DensityDecisionTreeLearner::defaultCallback(DensityDecisionTree::ptr tree, const DensityDecisionTreeLearnerState & state)
 {
-    switch (state->action) {
+    switch (state.action) {
         case DecisionTreeLearner::ACTION_START_TREE:
             std::cout << "Start decision tree training" << "\n";
             break;
         case DecisionTreeLearner::ACTION_SPLIT_NODE:
             std::cout << std::setw(15) << std::left << "Split node:"
-                    << "depth = " << std::setw(3) << std::right << state->depth
+                    << "depth = " << std::setw(3) << std::right << state.depth
                     << ", objective = " << std::setw(6) << std::left
-                    << std::setprecision(4) << state->objective << "\n";
+                    << std::setprecision(4) << state.objective << "\n";
             break;
         default:
-            std::cout << "UNKNOWN ACTION CODE " << state->action << "\n";
+            std::cout << "UNKNOWN ACTION CODE " << state.action << "\n";
             break;
     }
     return 0;

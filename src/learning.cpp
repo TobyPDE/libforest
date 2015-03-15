@@ -2,7 +2,6 @@
 #include "libforest/data.h"
 #include "libforest/classifiers.h"
 #include "libforest/util.h"
-#include "mcmc.h"
 
 #include <algorithm>
 #include <random>
@@ -33,35 +32,35 @@ inline void updateLeafNodeHistogram(std::vector<float> & leafNodeHistograms, con
     }
 }
 
-DecisionTree* DecisionTreeLearner::learn(const DataStorage* dataStorage)
+DecisionTree::ptr DecisionTreeLearner::learn(AbstractDataStorage::ptr dataStorage)
 {
-    DataStorage* storage;
+    AbstractDataStorage::ptr storage;
     // If we use bootstrap sampling, then this array contains the results of 
     // the sampler. We use it later in order to refine the leaf node histograms
     std::vector<bool> sampled;
     
     if (useBootstrap)
     {
-        storage = new DataStorage;
-        dataStorage->bootstrap(numBootstrapExamples, storage, sampled);
+        storage = dataStorage->bootstrap(numBootstrapExamples, sampled);
     }
     else
     {
-        storage = new DataStorage(*dataStorage);
+        storage = dataStorage;
     }
     
     // Get the number of training examples and the dimensionality of the data set
     const int D = storage->getDimensionality();
     const int C = storage->getClasscount();
     
-    // Set up a new tree. 
-    DecisionTree* tree = new DecisionTree();
+    // Set up a new tree. Note: We will convert the tree to a shared pointer at
+    // The end in order to speed up learning. 
+    DecisionTree::ptr tree = std::make_shared<DecisionTree>();
     
     // Set up the state for the call backs
     DecisionTreeLearnerState state;
     state.action = ACTION_START_TREE;
     
-    evokeCallback(tree, 0, &state);
+    evokeCallback(tree, 0, state);
     
     // This is the list of nodes that still have to be split
     std::vector<int> splitStack;
@@ -161,7 +160,7 @@ DecisionTree* DecisionTreeLearner::learn(const DataStorage* dataStorage)
             leftHistogram.reset();
             rightHistogram = hist;
             
-            float leftValue = storage->getDataPoint(trainingExampleList[0])->at(feature);
+            float leftValue = storage->getDataPoint(trainingExampleList[0])(feature);
             int leftClass = storage->getClassLabel(trainingExampleList[0]);
             
             // Test different thresholds
@@ -176,7 +175,7 @@ DecisionTree* DecisionTreeLearner::learn(const DataStorage* dataStorage)
                         
                 // It does
                 // Get the two feature values
-                const float rightValue = storage->getDataPoint(n)->at(feature);
+                const float rightValue = storage->getDataPoint(n)(feature);
                 
                 // Skip this split, if the two points lie too close together
                 const float diff = rightValue - leftValue;
@@ -233,7 +232,7 @@ DecisionTree* DecisionTreeLearner::learn(const DataStorage* dataStorage)
         for (int m = 0; m < N; m++)
         {
             const int n = trainingExampleList[m];
-            const float featureValue = storage->getDataPoint(n)->at(bestFeature);
+            const float featureValue = storage->getDataPoint(n)(bestFeature);
             
             if (featureValue < bestThreshold)
             {
@@ -254,7 +253,7 @@ DecisionTree* DecisionTreeLearner::learn(const DataStorage* dataStorage)
         state.depth = tree->getDepth(node);
         state.objective = bestObjective;
         
-        evokeCallback(tree, 0, &state);
+        evokeCallback(tree, 0, state);
         
         // Save the impurity reduction for this feature if requested
         importance[bestFeature] += N/storage->getSize()*(hist.getEntropy() - bestObjective);
@@ -266,9 +265,6 @@ DecisionTree* DecisionTreeLearner::learn(const DataStorage* dataStorage)
         delete[] trainingExampleList;
     }
     
-    // Free the data set
-    delete storage;
-    
     // If we use bootstrap, we use all the training examples for the 
     // histograms
     if (useBootstrap)
@@ -279,7 +275,7 @@ DecisionTree* DecisionTreeLearner::learn(const DataStorage* dataStorage)
     return tree;
 }
 
-void DecisionTreeLearner::updateHistograms(DecisionTree* tree, const DataStorage* storage) const
+void DecisionTreeLearner::updateHistograms(DecisionTree::ptr tree, AbstractDataStorage::ptr storage) const
 {
     const int C = storage->getClasscount();
     
@@ -327,20 +323,20 @@ void DecisionTreeLearner::updateHistograms(DecisionTree* tree, const DataStorage
     }
 }
 
-int DecisionTreeLearner::defaultCallback(DecisionTree* tree, DecisionTreeLearnerState* state)
+int DecisionTreeLearner::defaultCallback(DecisionTree::ptr tree, const DecisionTreeLearnerState & state)
 {
-    switch (state->action) {
+    switch (state.action) {
         case DecisionTreeLearner::ACTION_START_TREE:
             std::cout << "Start decision tree training" << "\n";
             break;
         case DecisionTreeLearner::ACTION_SPLIT_NODE:
             std::cout << std::setw(15) << std::left << "Split node:"
-                    << "depth = " << std::setw(3) << std::right << state->depth
+                    << "depth = " << std::setw(3) << std::right << state.depth
                     << ", objective = " << std::setw(6) << std::left
-                    << std::setprecision(4) << state->objective << "\n";
+                    << std::setprecision(4) << state.objective << "\n";
             break;
         default:
-            std::cout << "UNKNOWN ACTION CODE " << state->action << "\n";
+            std::cout << "UNKNOWN ACTION CODE " << state.action << "\n";
             break;
     }
     
@@ -352,10 +348,11 @@ int DecisionTreeLearner::defaultCallback(DecisionTree* tree, DecisionTreeLearner
 /// RandomForestLearner
 ////////////////////////////////////////////////////////////////////////////////
 
-RandomForest* RandomForestLearner::learn(const DataStorage* storage)
+RandomForest::ptr RandomForestLearner::learn(AbstractDataStorage::ptr storage)
 {
     // Set up the empty random forest
-    RandomForest* forest = new RandomForest();
+    RandomForest::ptr forest = std::make_shared<RandomForest>();
+    
     const int D = storage->getDimensionality();
     
     // Initialize variable importance values.
@@ -363,11 +360,11 @@ RandomForest* RandomForestLearner::learn(const DataStorage* storage)
     
     // Set up the state for the call backs
     RandomForestLearnerState state;
-    state.numTrees = this->getNumTrees();
+    state.numTrees = numTrees;
     state.tree = 0;
     state.action = ACTION_START_FOREST;
     
-    evokeCallback(forest, 0, &state);
+    evokeCallback(forest, 0, state);
     
     int treeStartCounter = 0; 
     int treeFinishCounter = 0; 
@@ -378,57 +375,57 @@ RandomForest* RandomForestLearner::learn(const DataStorage* storage)
         {
             state.tree = ++treeStartCounter;
             state.action = ACTION_START_TREE;
-            evokeCallback(forest, treeStartCounter - 1, &state);
+            evokeCallback(forest, treeStartCounter - 1, state);
         }
         
         // Learn the tree
-        DecisionTree* tree = treeLearner->learn(storage);
+        DecisionTree::ptr tree = treeLearner.learn(storage);
         // Add it to the forest
         #pragma omp critical
         {
             state.tree = ++treeFinishCounter;
             state.action = ACTION_FINISH_TREE;
-            evokeCallback(forest, treeFinishCounter - 1, &state);
+            evokeCallback(forest, treeFinishCounter - 1, state);
             forest->addTree(tree);
 
             // Update variable importance.
             for (int f = 0; f < D; ++f)
             {
-                importance[f] += treeLearner->getImportance(f)/this->numTrees;
+                importance[f] += treeLearner.getImportance(f)/this->numTrees;
             }
         }
     }
     
     state.tree = 0;
     state.action = ACTION_FINISH_FOREST;
-    evokeCallback(forest, 0, &state);
+    evokeCallback(forest, 0, state);
     
-    return forest;
+    return RandomForest::ptr(forest);
 }
 
-int RandomForestLearner::defaultCallback(RandomForest* forest, RandomForestLearnerState* state)
+int RandomForestLearner::defaultCallback(RandomForest::ptr forest, const RandomForestLearnerState & state)
 {
-    switch (state->action) {
+    switch (state.action) {
         case RandomForestLearner::ACTION_START_FOREST:
             std::cout << "Start random forest training" << "\n";
             break;
         case RandomForestLearner::ACTION_START_TREE:
             std::cout << std::setw(15) << std::left << "Start tree " 
-                    << std::setw(4) << std::right << state->tree 
+                    << std::setw(4) << std::right << state.tree 
                     << " out of " 
-                    << std::setw(4) << state->numTrees << "\n";
+                    << std::setw(4) << state.numTrees << "\n";
             break;
         case RandomForestLearner::ACTION_FINISH_TREE:
             std::cout << std::setw(15) << std::left << "Finish tree " 
-                    << std::setw(4) << std::right << state->tree 
+                    << std::setw(4) << std::right << state.tree 
                     << " out of " 
-                    << std::setw(4) << state->numTrees << "\n";
+                    << std::setw(4) << state.numTrees << "\n";
             break;
         case RandomForestLearner::ACTION_FINISH_FOREST:
-            std::cout << "Finished forest in " << state->getPassedTime().count()/1000000. << "s\n";
+            std::cout << "Finished forest in " << state.getPassedTime().count()/1000000. << "s\n";
             break;
         default:
-            std::cout << "UNKNOWN ACTION CODE " << state->action << "\n";
+            std::cout << "UNKNOWN ACTION CODE " << state.action << "\n";
             break;
     }
     
@@ -440,10 +437,10 @@ int RandomForestLearner::defaultCallback(RandomForest* forest, RandomForestLearn
 /// BoostedRandomForestLearner
 ////////////////////////////////////////////////////////////////////////////////
 
-BoostedRandomForest* BoostedRandomForestLearner::learn(const DataStorage* storage)
+BoostedRandomForest::ptr BoostedRandomForestLearner::learn(AbstractDataStorage::ptr storage)
 {
     // Set up the empty random forest
-    BoostedRandomForest* forest = new BoostedRandomForest();
+    BoostedRandomForest::ptr forest = std::make_shared<BoostedRandomForest>();
     
     // Set up the state for the call backs
     BoostedRandomForestLearnerState state;
@@ -451,7 +448,7 @@ BoostedRandomForest* BoostedRandomForestLearner::learn(const DataStorage* storag
     state.tree = 0;
     state.action = ACTION_START_FOREST;
     
-    evokeCallback(forest, 0, &state);
+    evokeCallback(forest, 0, state);
     
     // Set up the weights for the data points
     const int N = storage->getSize();
@@ -477,14 +474,13 @@ BoostedRandomForest* BoostedRandomForestLearner::learn(const DataStorage* storag
     {
         state.tree = ++treeStartCounter;
         state.action = ACTION_START_TREE;
-        evokeCallback(forest, treeStartCounter - 1, &state);
+        evokeCallback(forest, treeStartCounter - 1, state);
         
         // Learn the tree
         // --------------
         
         // Sample data points according to the weights
-        DataStorage treeData;
-        treeData.setClasscount(storage->getClasscount());
+        ReferenceDataStorage::ptr treeData = std::make_shared<ReferenceDataStorage>(storage);
         
         for (int n = 0; n < N; n++)
         {
@@ -494,11 +490,11 @@ BoostedRandomForest* BoostedRandomForestLearner::learn(const DataStorage* storag
             {
                 index++;
             }
-            treeData.addDataPoint(storage->getDataPoint(index), storage->getClassLabel(index), false);
+            treeData->addDataPoint(index);
         }
         
         // Learn the tree
-        DecisionTree* tree = treeLearner->learn(&treeData);
+        DecisionTree::ptr tree = treeLearner.learn(treeData);
         
         // Calculate the error term
         float error = 0;
@@ -546,41 +542,41 @@ BoostedRandomForest* BoostedRandomForestLearner::learn(const DataStorage* storag
         state.error = error;
         state.alpha = alpha;
         state.action = ACTION_FINISH_TREE;
-        evokeCallback(forest, treeFinishCounter - 1, &state);
+        evokeCallback(forest, treeFinishCounter - 1, state);
     }
     
     state.tree = 0;
     state.action = ACTION_FINISH_FOREST;
-    evokeCallback(forest, 0, &state);
+    evokeCallback(forest, 0, state);
     
     return forest;
 }
 
-int BoostedRandomForestLearner::defaultCallback(BoostedRandomForest* forest, BoostedRandomForestLearnerState* state)
+int BoostedRandomForestLearner::defaultCallback(BoostedRandomForest::ptr forest, const BoostedRandomForestLearnerState & state)
 {
-    switch (state->action) {
+    switch (state.action) {
         case BoostedRandomForestLearner::ACTION_START_FOREST:
             std::cout << "Start boosted random forest training\n" << "\n";
             break;
         case BoostedRandomForestLearner::ACTION_START_TREE:
             std::cout   << std::setw(15) << std::left << "Start tree " 
-                        << std::setw(4) << std::right << state->tree 
+                        << std::setw(4) << std::right << state.tree 
                         << " out of " 
-                        << std::setw(4) << state->numTrees << "\n";
+                        << std::setw(4) << state.numTrees << "\n";
             break;
         case BoostedRandomForestLearner::ACTION_FINISH_TREE:
             std::cout   << std::setw(15) << std::left << "Finish tree " 
-                        << std::setw(4) << std::right << state->tree 
+                        << std::setw(4) << std::right << state.tree 
                         << " out of " 
-                        << std::setw(4) << state->numTrees
-                        << " error = " << state->error 
-                        << ", alpha = " << state->alpha << "\n";
+                        << std::setw(4) << state.numTrees
+                        << " error = " << state.error 
+                        << ", alpha = " << state.alpha << "\n";
             break;
         case BoostedRandomForestLearner::ACTION_FINISH_FOREST:
-            std::cout << "Finished boosted forest in " << state->getPassedTime().count()/1000000. << "s\n";
+            std::cout << "Finished boosted forest in " << state.getPassedTime().count()/1000000. << "s\n";
             break;
         default:
-            std::cout << "UNKNOWN ACTION CODE " << state->action << "\n";
+            std::cout << "UNKNOWN ACTION CODE " << state.action << "\n";
             break;
     }
     

@@ -26,7 +26,7 @@ namespace libf {
         /**
          * Learns a classifier in an unsupervised fashion.
          */
-        virtual T* learn(const UnlabeledDataStorage* storage) = 0;
+        virtual std::shared_ptr<T> learn(AbstractDataStorage::ptr storage) = 0;
 
     };
     
@@ -64,7 +64,7 @@ namespace libf {
         /**
          * The default callback for this learner.
          */
-        static int defaultCallback(DensityDecisionTree* tree, DensityDecisionTreeLearnerState* state);
+        static int defaultCallback(DensityDecisionTree::ptr tree, const DensityDecisionTreeLearnerState & state);
                 
         /**
          * Actions for the callback function.
@@ -75,7 +75,7 @@ namespace libf {
         /**
          * Learn a density tree.
          */
-        DensityDecisionTree* learn(const UnlabeledDataStorage* storage);
+        DensityDecisionTree::ptr learn(AbstractDataStorage::ptr storage);
         
     protected:
         void updateLeafNodeGaussian(Gaussian gaussian, EfficientCovarianceMatrix covariance);

@@ -4,15 +4,15 @@
 #include <vector>
 #include <boost/filesystem.hpp>
 
+#include "data.h"
+#include "classifiers.h"
+
 /**
  * This file contains some function that can evaluate the performance of a
  * learned classifier. 
  */
 
 namespace libf {
-    class DataStorage;
-    class Classifier;
-    class RandomForest;
     class RandomForestLearner;
     
     /**
@@ -23,7 +23,7 @@ namespace libf {
         /**
          * Returns the accuracy
          */
-        float measure(const Classifier* classifier, const DataStorage* storage) const;
+        float measure(const Classifier::ptr classifier, AbstractDataStorage::ptr storage) const;
         
         /**
          * Prints the accuracy
@@ -33,7 +33,7 @@ namespace libf {
         /**
          * Prints and measures the accuracy. 
          */
-        void measureAndPrint(const Classifier* classifier, const DataStorage* storage) const;
+        void measureAndPrint(const Classifier::ptr classifier, AbstractDataStorage::ptr storage) const;
     };
     
     /**
@@ -44,7 +44,7 @@ namespace libf {
         /**
          * Returns the accuracy
          */
-        void measure(const Classifier* classifier, const DataStorage* storage, std::vector< std::vector<float> > & result) const;
+        void measure(Classifier::ptr classifier, AbstractDataStorage::ptr storage, std::vector< std::vector<float> > & result) const;
         
         /**
          * Prints the accuracy
@@ -54,7 +54,7 @@ namespace libf {
         /**
          * Prints and measures the accuracy. 
          */
-        void measureAndPrint(const Classifier* classifier, const DataStorage* storage) const;
+        void measureAndPrint(Classifier::ptr classifier, AbstractDataStorage::ptr storage) const;
     };
     
     /**
@@ -66,7 +66,7 @@ namespace libf {
         /**
          * Returns the correlation
          */
-        void measure(const RandomForest* classifier, const DataStorage* storage, std::vector< std::vector<float> > & result) const;
+        void measure(const RandomForest::ptr classifier, AbstractDataStorage::ptr storage, std::vector< std::vector<float> > & result) const;
         
         /**
          * Prints the correlation
@@ -76,7 +76,7 @@ namespace libf {
         /**
          * Prints and measures the correlation. 
          */
-        void measureAndPrint(const RandomForest* classifier, const DataStorage* storage) const;
+        void measureAndPrint(const RandomForest::ptr classifier, AbstractDataStorage::ptr storage) const;
     };
     
     /**
@@ -113,6 +113,35 @@ namespace libf {
          * importance where the image has size rows x rows.
          */
         void measureAndSave(RandomForestLearner* learner, boost::filesystem::path file, int rows) const;
+    };
+    
+    /**
+     * Computes the relative frequency of the individual classes in a data storage.
+     */
+    class ClassStatisticsTool {
+    public:
+        /**
+         * Measures the relative class frequencies. The last entry of result
+         * contains the number of data points without a label. 
+         * 
+         * @param storage The data storage to examine
+         * @param result An array of relative frequencies
+         */
+        void measure(AbstractDataStorage::ptr storage, std::vector<float> & result) const;
+        
+        /**
+         * Prints the accuracy
+         * 
+         * @param result An array of relative frequencies
+         */
+        void print(const std::vector<float> & result) const;
+        
+        /**
+         * Prints and measures the accuracy. 
+         * 
+         * @param storage The data storage to examine
+         */
+        void measureAndPrint(AbstractDataStorage::ptr storage) const;
     };
 }
 

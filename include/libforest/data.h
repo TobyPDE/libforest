@@ -1,120 +1,27 @@
 #ifndef LIBF_DATA_H
 #define LIBF_DATA_H
 
-/**
- * This file contains everything that is related to reading data sets. We use 
- * an internal data representation that makes learning decision trees fast. You
- * can load any type of data set by implementing a so called data provider. A
- * data provider reads the data source and outputs a list of pairs (x_i, y_i)
- * where x_i is a vector and y_i is the class label. You can use either integer
- * class labels or string class labels. 
- * 
- * The library comes pre equiped with data providers for LIBSVM data files as 
- * well as CSV data files. 
- */
-
 #include <vector>
 #include <utility>
 #include <map>
 #include <cassert>
 #include <string>
 #include <iostream>
+#include <Eigen/Dense>
+#include <memory>
+#include "error_handling.h"
 
 namespace libf {
     /**
-     * This class represents in individual data point. 
+     * Forward declarations
      */
-    class DataPoint {
-    public:
-        /**
-         * Creates a new data point of size 0
-         */
-        DataPoint() : D(0), data(0) {}
-        
-        /**
-         * Creates a new data point of size D that is not initialized
-         */
-        DataPoint(int D) : D(D), data(new float[D]) {}
-        
-        /**
-         * Creates a new data point of size D that is initialized with x
-         */
-        DataPoint(int D, float x);
-        
-        /**
-         * Copy constructor
-         */
-        DataPoint(const DataPoint & other);
-        
-        /**
-         * Destructor
-         */
-        virtual ~DataPoint()
-        {
-            freeData();
-        }
-        
-        /**
-         * Resizes the data point
-         */
-        void resize(int newD);
-        
-        /**
-         * Assignment operator
-         */
-        DataPoint & operator=(const DataPoint & other);
-        
-        /**
-         * Returns the i-th entry of the vector
-         */
-        const float & at(int i) const
-        {
-            assert(0 <= i && i < D);
-            return data[i];
-        }
-        
-        /**
-         * Returns the i-th entry of the vector
-         */
-        float & at(int i)
-        {
-            assert(0 <= i && i < D);
-            return data[i];
-        }
-        
-        /**
-         * Returns the dimensionality
-         */
-        int getDimensionality() const
-        {
-            return D;
-        }
-        
-        /**
-         * Writes the class label map to a stream. 
-         */
-        void write(std::ostream & stream) const;
-        
-        /**
-         * Reads the class label map from a file
-         */
-        void read(std::istream & stream);
-        
-    private:
-        /**
-         * Frees the data array
-         */
-        void freeData();
-        
-        /**
-         * The dimensionality of the feature vector
-         */
-        int D;
-        /**
-         * The actual data
-         */
-        float* data;
-    };
+    class ReferenceDataStorage;
+    
+    /**
+     * We use eigen3 vectors for data points. This allows us to build quickly
+     * implement new features that rely on linear algebra. 
+     */
+    typedef Eigen::VectorXf DataPoint;
     
     /**
      * This is a class label map. The internal data storage works using integer
@@ -192,165 +99,168 @@ namespace libf {
     };
     
     /**
-     * Abstract data storage.
+     * This is the base class of all data storages. 
      */
-    class AbstractDataStorage {
+    class AbstractDataStorage : public std::enable_shared_from_this<AbstractDataStorage> {
     public:
-        AbstractDataStorage() {};
+        typedef std::shared_ptr<AbstractDataStorage> ptr;
+        typedef std::shared_ptr<const AbstractDataStorage> const_ptr;
         
         /**
-         * Copy constructor
+         * This is the label for points without a label
          */
-        AbstractDataStorage(const AbstractDataStorage & other);
+        static const int NO_LABEL = -1;
         
         /**
-         * Destructor
+         * Returns the i-th class label. 
+         * 
+         * @param i The data point index
+         * @return The class label of the i-th data point
          */
-        virtual ~AbstractDataStorage()
-        {
-            free();
-        };
+        virtual int getClassLabel(int i) const = 0;
         
         /**
-         * Assignment operator
+         * Returns the number of classes. 
+         * 
+         * @return The number of observed classes
          */
-        virtual AbstractDataStorage & operator=(const AbstractDataStorage & other);
+        virtual int getClasscount() const = 0;
         
         /**
-         * Permutes the data points according to some permutation. 
+         * Returns the i-th vector from the storage
+         * 
+         * @param i The index of the data point to return
+         * @return the i-th data point
          */
-        virtual void permute(const std::vector<int> & permutation);
+        virtual const DataPoint & getDataPoint(int i) const = 0;
         
         /**
-         * Permutes the data points randomly. 
+         * Returns the number of data points. 
+         * 
+         * @return The number of data points in this data storage
+         */
+        virtual int getSize() const = 0;
+        
+        /**
+         * Returns the dimensionality of the data storage. 
+         * 
+         * @return The dimensionality of the data storage.
+         */
+        int getDimensionality() const;
+
+        /**
+         * Returns true if there are unlabeled data points in the storage. 
+         * 
+         * @return True if there are unlabeled points.
+         */
+        bool containsUnlabeledPoints() const;
+
+        /**
+         * Create a DataStorage for an excerpt of thisDataStorage.
+         * 
+         * @param begin The index of the first data point
+         * @param end The index of the last data point
+         * @return A data storage with the bootstrapped examples
+         */
+        AbstractDataStorage::ptr excerpt(int begin, int end) const;
+        
+        /**
+         * Bootstrap-samples the data storage. 
+         * 
+         * @param N The number of data points to sample
+         * @param sampled Array of flags. sampled[i] == true <=> point i was sampled
+         * @param referenceStorage The shallow storage to put the data points in
+         */
+        AbstractDataStorage::ptr bootstrap(int N, std::vector<bool> & sampled) const;
+        
+        /**
+         * Permutes the data points according to some permutation. Please 
+         * notice that this will also change reference data storage that depend
+         * on this storage.
+         * 
+         * @param permutation A given permutation.
+         */
+        virtual void permute(const std::vector<int> & permutation) = 0;
+        
+        /**
+         * Permutes the data points randomly.  Please 
+         * notice that this will also change reference data storage that depend
+         * on this storage.
          */
         void randPermute();
         
         /**
-         * Returns the number of data points. 
-         */
-        int getSize() const
-        {
-            return dataPoints.size();
-        }
-        
-        /**
-         * Returns a reference to the i-th data point
-         */
-        DataPoint* getDataPoint(int i) const
-        {
-            return dataPoints[i];
-        }
-        
-        /**
-         * Returns the dimensionality of the data storage. 
-         */
-        int getDimensionality() const
-        {
-            if (getSize() == 0)
-            {
-                // There are no data points
-                return 0;
-            }
-            else
-            {
-                // Take the dimensionality of the first data point
-                return getDataPoint(0)->getDimensionality();
-            }
-        }
-        
-        /**
          * Dumps information about the data storage
+         * 
+         * @param stream The stream to dump the information to
          */
         virtual void dumpInformation(std::ostream & stream = std::cout);
         
-    protected:
         /**
-         * Frees the data points and resets the array structures. 
+         * Creates a reference copy. 
+         * 
+         * @return A reference copy. 
          */
-        virtual void free();
-        /**
-         * This is a list of data points. 
-         */
-        std::vector< DataPoint* > dataPoints;
-        /**
-         * This keeps track on which data points have to be freed and which 
-         * don't. If we for example bootstrap the data set, then the points
-         * don't have to be freed. 
-         */
-        std::vector<bool> freeFlags;
-    };
-    
-    /**
-     * Storage for unlabeled data. 
-     */
-    class UnlabeledDataStorage : public AbstractDataStorage {
-    public:
-        /**
-         * Add a single data point.
-         */
-        void addDataPoint(DataPoint* point, bool free = true)
+        AbstractDataStorage::ptr copy() const
         {
-            dataPoints.push_back(point);
-            freeFlags.push_back(free);
+            return excerpt(0, getSize() - 1);
         }
     };
     
     /**
-     * Basic labeled data storage.
+     * This is a storage for labeled and unlabeled data. Data points without 
+     * a label get the class label NO_LABEL. This allows us to have mixed storages
+     * with missing labels. 
      */
     class DataStorage : public AbstractDataStorage {
     public:
+        typedef std::shared_ptr<DataStorage> ptr;
+        
+        /**
+         * Initializes an empty data storage
+         */
         DataStorage() : classcount(0) {}
         
         /**
-         * Copy constructor
+         * Copy constructor. 
+         * Please be aware that this can be very expensive. 
+         * 
+         * @param other The data storage to copy
          */
-        DataStorage(const DataStorage & other);
-        
-        /**
-         * Assignment operator
-         */
-        DataStorage & operator=(const DataStorage & other);
-        
-        /**
-         * Create a DataStorage for an excerpt of thisDataStorage.
-         */
-        DataStorage excerpt(int begin, int end);
+        DataStorage(const DataStorage & other)
+        {
+            dataPoints = other.dataPoints;
+            classcount = other.classcount;
+        }
         
         /**
          * Returns the i-th class label. 
+         * 
+         * @param i The data point index
+         * @return The class label of the i-th data point
          */
         int getClassLabel(int i) const
         {
+            BOOST_ASSERT_MSG(0 <= i && i < getSize(), "Data point index out of bounds.");
             return classLabels[i];
         }
         
         /**
          * Returns the i-th class label. 
+         * 
+         * @param i The data point index
+         * @return The class label of the i-th data point
          */
         int & getClassLabel(int i) 
         {
+            BOOST_ASSERT_MSG(0 <= i && i < getSize(), "Data point index out of bounds.");
             return classLabels[i];
         }
         
         /**
-         * Adds a data point to the storage. 
-         */
-        void addDataPoint(DataPoint* point, int label, bool free = true)
-        {
-            dataPoints.push_back(point);
-            classLabels.push_back(label);
-            freeFlags.push_back(free);
-            if (label >= classcount)
-            {
-                classcount = label+1;
-            }
-        }
-        
-        /**
-         * Returns the number of classes. You have to call 
-         * getCLassLabelMap.computeIntClassLabels() first. 
+         * Returns the number of classes. 
+         * 
+         * @return The number of observed classes
          */
         int getClasscount() const
         {
@@ -358,54 +268,103 @@ namespace libf {
         }
         
         /**
-         * Permutes the data points according to some permutation. 
+         * Returns the i-th vector from the storage
+         * 
+         * @param i The index of the data point to return
+         * @return the i-th data point
+         */
+        const DataPoint & getDataPoint(int i) const
+        {
+            BOOST_ASSERT_MSG(0 <= i && i < getSize(), "The data point index is out of bounds.");
+            return dataPoints[i];
+        }
+        
+        /**
+         * Returns the i-th vector from the storage
+         * 
+         * @param i The index of the data point to return
+         * @return the i-th data point
+         */
+        DataPoint & getDataPoint(int i)
+        {
+            BOOST_ASSERT_MSG(0 <= i && i < getSize(), "The data point index is out of bounds.");
+            return dataPoints[i];
+        }
+        
+        /**
+         * Returns the number of data points. 
+         * 
+         * @return The number of data points in this data storage
+         */
+        int getSize() const
+        {
+            return dataPoints.size();
+        }
+        
+        /**
+         * Add a single data point without a label.
+         * 
+         * @param point The point to add to the storage
+         */
+        void addDataPoint(const DataPoint & point)
+        {
+            // Check if the dimensionality is correct
+            BOOST_ASSERT_MSG(getSize() == 0 || getDataPoint(0).rows() == point.rows(), "The dimensionality of the new point does not match the one of the existing points.");
+            
+            dataPoints.push_back(point);
+            classLabels.push_back(NO_LABEL);
+        }
+        
+        /**
+         * Adds a single data point with a label. 
+         * 
+         * @param point The point to add to the storage
+         * @param label The class label of the point
+         */
+        void addDataPoint(const DataPoint & point, int label)
+        {
+            BOOST_ASSERT_MSG(label >= 0, "The class labels must be consecutive and non-negative.");
+            // Check if the dimensionality is correct
+            BOOST_ASSERT_MSG(getSize() == 0 || getDataPoint(0).size() == point.size(), "The dimensionality of the new point does not match the one of the existing points.");
+            
+            dataPoints.push_back(point);
+            classLabels.push_back(label);
+            if (label >= classcount)
+            {
+                classcount = label + 1;
+            }
+        }
+
+        /**
+         * Permutes the data points according to some permutation. Please 
+         * notice that this will also change reference data storage that depend
+         * on this storage.
+         * 
+         * @param permutation A given permutation.
          */
         void permute(const std::vector<int> & permutation);
         
         /**
-         * Bootstraps the training set and creates a set of N examples. The 
-         * sampled array contains a flag for each data point. If it is true, then
-         * the point was used in the bootstrap process.
+         * A factory class for this data storage class. 
          */
-        void bootstrap(int N, DataStorage* dataStorage, std::vector<bool> & sampled) const;
-        
-        /**
-         * Returns the class label map that maps the string class labels to 
-         * integers.
-         */
-        const ClassLabelMap & getClassLabelMap() const
-        {
-            return classLabelMap;
-        }
-        
-        /**
-         * Returns the class label map that maps the string class labels to 
-         * integers.
-         */
-        ClassLabelMap & getClassLabelMap()
-        {
-            return classLabelMap;
-        }
-        
-        /**
-         * Sets the number of class label manually. Do not use this unless you
-         * are sure what you are doing.
-         */
-        void setClasscount(int _classcount)
-        {
-            classcount = _classcount;
-        }
-        
-        /**
-         * Dumps information about the data storage
-         */
-        virtual void dumpInformation(std::ostream & stream = std::cout);
+        class Factory {
+        public:
+            /**
+             * Creates a new empty data storage. 
+             * 
+             * @return New empty data storage
+             */
+            static DataStorage::ptr create()
+            {
+                return std::make_shared<DataStorage>();
+            }
+        };
         
     protected:
         /**
-         * Frees the data points and resets the array structures. 
+         * This is a list of data points. 
          */
-        void free();
+        std::vector< DataPoint > dataPoints;
         /**
          * The total number of classes
          */
@@ -414,79 +373,228 @@ namespace libf {
          * These are the corresponding class labels to the data points
          */
         std::vector<int> classLabels;
+    };
+    
+    /**
+     * This is a shallow data storage that contains references to data points
+     * from another data storage. We use this in order to perform efficient
+     * bootstrap sampling. Obviously, this one only works as long as the other
+     * storage is still alive. 
+     */
+    class ReferenceDataStorage : public AbstractDataStorage {
+    public:
+        typedef std::shared_ptr<ReferenceDataStorage> ptr;
+        
+        ReferenceDataStorage(AbstractDataStorage::const_ptr dataStorage) : dataStorage(dataStorage) {}
+        
         /**
-         * The class label map
+         * Returns the i-th class label. 
+         * 
+         * @param i The data point index
+         * @return The class label of the i-th data point
          */
-        ClassLabelMap classLabelMap;
+        int getClassLabel(int i) const
+        {
+            BOOST_ASSERT_MSG(0 <= i && i < getSize(), "Data point index out of bounds.");
+            return dataStorage->getClassLabel(dataPointIndices[i]);
+        }
+        
+        /**
+         * Returns the number of classes. 
+         * 
+         * @return The number of observed classes
+         */
+        int getClasscount() const
+        {
+            return dataStorage->getClasscount();
+        }
+        
+        /**
+         * Returns the i-th vector from the storage
+         * 
+         * @param i The index of the data point to return
+         * @return the i-th data point
+         */
+        const DataPoint & getDataPoint(int i) const
+        {
+            BOOST_ASSERT_MSG(0 <= i && i < getSize(), "The data point index is out of bounds.");
+            return dataStorage->getDataPoint(dataPointIndices[i]);
+        }
+        
+        /**
+         * Returns the number of data points. 
+         * 
+         * @return The number of data points in this data storage
+         */
+        int getSize() const
+        {
+            return dataPointIndices.size();
+        }
+        
+        /**
+         * Add a single data point.
+         * 
+         * @param n The index of the data point to add
+         */
+        void addDataPoint(int n)
+        {
+            BOOST_ASSERT_MSG(0 <= n && n < dataStorage->getSize(), "Invalid data point index from reference storage.");
+            dataPointIndices.push_back(n);
+        }
+        
+        /**
+         * Permutes the data points according to some permutation. Please 
+         * notice that this will also change reference data storage that depend
+         * on this storage.
+         * 
+         * @param permutation A given permutation.
+         */
+        void permute(const std::vector<int> & permutation);
+        
+    private:
+        /**
+         * The referenced data point indices
+         */
+        std::vector<int> dataPointIndices;
+        /**
+         * The reference data storage
+         */
+        AbstractDataStorage::const_ptr dataStorage;
     };
     
     /**
      * This is the interface that has to be implemented if you wish to implement
      * a custom data provider. 
      */
-    class DataProvider {
+    class AbstractDataReader {
     public:
-        virtual ~DataProvider() {}
+        virtual ~AbstractDataReader() {}
         
         /**
          * Reads a labeled dataset from a stream.
+         * 
+         * @param stream The stream to read the data from
+         * @param dataStorage The data storage to add the read data points to
          */
-        virtual void read(std::istream & stream, DataStorage* dataStorage) = 0;
-        
-        /**
-         * Reads an unlabeled dataset from a stream.
-         */
-        virtual void read(std::istream & stream, UnlabeledDataStorage* dataStorage) = 0;
+        virtual void read(std::istream & stream, DataStorage::ptr dataStorage) = 0;
         
         /**
          * Reads a labeled dataset from a file.
+         * 
+         * @param filename The name of the file that shall be read
+         * @param dataStorage The data storage to add the read data points to
          */
-        virtual void read(const std::string & filename, DataStorage* dataStorage);
-        
-        /**
-         * Reads an unlabeled dataset from a file.. 
-         */
-        virtual void read(const std::string & filename, UnlabeledDataStorage* dataStorage);
+        virtual void read(const std::string & filename, DataStorage::ptr dataStorage) throw(IOException);
     };
     
     /**
      * This data provider reads data from a local CSV file. 
      */
-    class CSVDataProvider : public DataProvider{
+    class CSVDataReader : public AbstractDataReader {
     public:
-        using DataProvider::read;    
+        using AbstractDataReader::read;    
 
         /**
-         * Constructor: read csv with the given columns as label column.
+         * Constructor
          */
-        CSVDataProvider(int classColumnIndex) : classColumnIndex(classColumnIndex), columnSeparator(",") {}
-        
-        /**
-         * Read CSV with the given columns as label column, separated by the
-         * given separator.
-         */
-        CSVDataProvider(int classColumnIndex, std::string columnSeperator) : classColumnIndex(classColumnIndex), columnSeparator(columnSeperator) {}
+        CSVDataReader() : readClassLabels(true), classLabelColumnIndex(0), columnSeparator(",") {}
         
         /**
          * Destructor.
          */
-        virtual ~CSVDataProvider() {}
+        virtual ~CSVDataReader() {}
         
         /**
-         * Reads a labeled dataset from a stream.
+         * Reads a dataset from a stream.
+         * 
+         * @param stream The stream to read the data from
+         * @param dataStorage The data storage to add the read data points to
+         * @param classLabelMap The class label map that shall be used
          */
-        virtual void read(std::istream & stream, DataStorage* dataStorage);
+        virtual void read(std::istream & stream, DataStorage::ptr dataStorage, ClassLabelMap & classLabelMap);
         
         /**
-         * Reads an unlabeled dataset from a stream.
+         * Reads a dataset from a stream.
+         * 
+         * @param stream The stream to read the data from
+         * @param dataStorage The data storage to add the read data points to
          */
-        virtual void read(std::istream & stream, UnlabeledDataStorage* dataStorage);
+        virtual void read(std::istream & stream, DataStorage::ptr dataStorage)
+        {
+            ClassLabelMap map;
+            read(stream, dataStorage, map);
+        }
+        
+        /**
+         * Sets whether or not class labels shall be read from the file. 
+         * 
+         * @param _readClassLabels Whether of not class labels shall be read. True => Read labels
+         */
+        void setReadClassLabels(bool _readClassLabels)
+        {
+            readClassLabels = _readClassLabels;
+        }
+        
+        /**
+         * Returns whether or not class labels shall be read from the file. 
+         * 
+         * @return True if class labels are read
+         */
+        bool getReadClassLabels() const
+        {
+            return readClassLabels;
+        }
+        
+        /**
+         * Sets the class label column index. 
+         * 
+         * @param _classLabelColumnIndex The new index
+         */
+        void setClassLabelColumnIndex(int _classLabelColumnIndex)
+        {
+            BOOST_ASSERT_MSG(_classLabelColumnIndex >= 0, "The class label index must be non-negative.");
+            classLabelColumnIndex = _classLabelColumnIndex;
+        }
+        
+        /**
+         * Returns the class label column index. 
+         * 
+         * @return The class label column index
+         */
+        int getClassLabelColumnIndex() const
+        {
+            return classLabelColumnIndex;
+        }
+        
+        /**
+         * Sets the column separator. 
+         * 
+         * @param _columnSeparator The new column separator
+         */
+        void setColumnSeparator(const std::string & _columnSeparator)
+        {
+            columnSeparator = _columnSeparator;
+        }
+        
+        /**
+         * Returns the column separator. 
+         * 
+         * @return The column separator
+         */
+        const std::string & getColumnSeparator() const
+        {
+            return columnSeparator;
+        }
         
     private:
         /**
+         * If true, class labels are read from the file. 
+         */
+        bool readClassLabels;
+        /**
          * The index of the column that contains the class label
          */
-        int classColumnIndex;
+        int classLabelColumnIndex;
         /**
          * Separator used between columns; default usually is ','
          */
@@ -496,90 +604,256 @@ namespace libf {
     /**
      * This data provider reads data from a local LIBSVM file. 
      */
-    class LIBSVMDataProvider : public DataProvider {
+    class LIBSVMDataReader : public AbstractDataReader {
     public:
-        using DataProvider::read;
+        using AbstractDataReader::read;
+        
+        virtual ~LIBSVMDataReader() {}
         
         /**
-         * Reads a labeled dataset from a stream.
+         * Reads a dataset from a stream.
+         * 
+         * @param stream The stream to read the data from
+         * @param dataStorage The data storage to add the read data points to
          */
-        virtual void read(std::istream & stream, DataStorage* dataStorage);
+        virtual void read(std::istream & stream, DataStorage::ptr dataStorage);
+        
+    private:
+        /**
+         * Parses a single line and feeds.
+         * 
+         * @param line The string of the line
+         * @param result The class label is stored in first, the dimension:feature list is stored in second
+         */
+        void parseLine(const std::string & line, std::pair<int, std::vector< std::pair<int, float> > > & result) const;
     };
     
     /**
      * Reads the data set from a binary libforest format. This is the fastest
      * way to load a data set. 
      */
-    class LibforestDataProvider : public DataProvider {
+    class LibforestDataReader : public AbstractDataReader {
     public:
-        using DataProvider::read;
+        using AbstractDataReader::read;
+        
+        LibforestDataReader() : readClassLabels(true) {}
         
         /**
          * Reads a labeled dataset from a stream.
          */
-        virtual void read(std::istream & stream, DataStorage* dataStorage);
+        virtual void read(std::istream & stream, DataStorage::ptr dataStorage);
         
         /**
-         * Reads an unlabeled dataset from a stream.
+         * Reads a single data point from a stream
+         * 
+         * @param stream The data stream 
+         * @param v The data point where the data shall be saved into
          */
-        virtual void read(std::istream & stream, UnlabeledDataStorage* dataStorage);        
+        void readDataPoint(std::istream & stream, DataPoint & v);
+        
+        /**
+         * Sets whether or not class labels shall be read from the file. 
+         * 
+         * @param _readClassLabels Whether of not class labels shall be read. True => Read labels
+         */
+        void setReadClassLabels(bool _readClassLabels)
+        {
+            readClassLabels = _readClassLabels;
+        }
+        
+        /**
+         * Returns whether or not class labels shall be read from the file. 
+         * 
+         * @return True if class labels are read
+         */
+        bool getReadClassLabels() const
+        {
+            return readClassLabels;
+        }
+        
+    private:
+        /**
+         * If true, class labels are read from the file. 
+         */
+        bool readClassLabels;
     };
     
     /**
      * This is the basic class for a data writer.
      */
-    class DataWriter {
+    class AbstractDataWriter {
     public:
         /**
          * Writes the data to a stream. 
          */
-        virtual void write(std::ostream & stream, DataStorage* dataStorage) = 0;
+        virtual void write(std::ostream & stream, DataStorage::ptr dataStorage) = 0;
         
         /**
          * Writes the data to a file and add them to the data storage. 
          */
-        virtual void write(const std::string & filename, DataStorage* dataStorage);
+        virtual void write(const std::string & filename, DataStorage::ptr dataStorage) throw(IOException);
     };
     
     
     /**
      * This data provider reads data from a local CSV file. 
      */
-    class CSVDataWriter : public DataWriter {
+    class CSVDataWriter : public AbstractDataWriter {
     public:
-        using DataWriter::write;
+        using AbstractDataWriter::write;
+        
+        CSVDataWriter() : writeClassLabels(true), classLabelColumnIndex(0), columnSeparator(",") {}
         
         /**
          * Writes the data to a stream. 
          */
-        virtual void write(std::ostream & stream, DataStorage* dataStorage) = 0;
-    };
-    
-    /**
-     * This data provider write data to a local LIBSVM file. 
-     */
-    class LIBSVMDataWriter : public DataWriter {
-    public:
-        using DataWriter::write;
+        virtual void write(std::ostream & stream, DataStorage::ptr dataStorage);
         
         /**
-         * Writes the data to a stream. 
+         * Sets whether or not class labels shall be written to the file. 
+         * 
+         * @param _writeClassLabels Whether of not class labels shall be read. True => Read labels
          */
-        virtual void write(std::ostream & stream, DataStorage* dataStorage) = 0;
+        void setWriteClassLabels(bool _writeClassLabels)
+        {
+            writeClassLabels = _writeClassLabels;
+        }
+        
+        /**
+         * Returns whether or not class labels shall be written to the file. 
+         * 
+         * @return True if class labels are written
+         */
+        bool getWriteClassLabels() const
+        {
+            return writeClassLabels;
+        }
+        
+        /**
+         * Sets the class label column index. 
+         * 
+         * @param _classLabelColumnIndex The new index
+         */
+        void setClassLabelColumnIndex(int _classLabelColumnIndex)
+        {
+            BOOST_ASSERT_MSG(_classLabelColumnIndex >= 0, "The class label index must be non-negative.");
+            classLabelColumnIndex = _classLabelColumnIndex;
+        }
+        
+        /**
+         * Returns the class label column index. 
+         * 
+         * @return The class label column index
+         */
+        int getClassLabelColumnIndex() const
+        {
+            return classLabelColumnIndex;
+        }
+        
+        /**
+         * Sets the column separator. 
+         * 
+         * @param _columnSeparator The new column separator
+         */
+        void setColumnSeparator(const std::string & _columnSeparator)
+        {
+            columnSeparator = _columnSeparator;
+        }
+        
+        /**
+         * Returns the column separator. 
+         * 
+         * @return The column separator
+         */
+        const std::string & getColumnSeparator() const
+        {
+            return columnSeparator;
+        }
+        
+    private:
+        /**
+         * If true, class labels are written to the file. 
+         */
+        bool writeClassLabels;
+        /**
+         * The index of the column that contains the class label
+         */
+        int classLabelColumnIndex;
+        /**
+         * Separator used between columns; default usually is ','
+         */
+        std::string columnSeparator;
     };
     
     /**
      * Writes the data set to a binary libforest format. This is the fastest
      * way to save a data set. 
      */
-    class LibforestDataWriter : public DataWriter {
+    class LibforestDataWriter : public AbstractDataWriter {
     public:
-        using DataWriter::write;
+        using AbstractDataWriter::write;
+        
+        LibforestDataWriter() : writeClassLabels(true) {}
         
         /**
          * Writes the data to a stream. 
          */
-        virtual void write(std::ostream & stream, DataStorage* dataStorage);
+        virtual void write(std::ostream & stream, DataStorage::ptr dataStorage);
+        
+        /**
+         * Writes a single data point to a stream
+         * 
+         * @param stream The data stream 
+         * @param v The data point where the data shall be saved into
+         */
+        void writeDataPoint(std::ostream & stream, DataPoint & v);
+        
+        /**
+         * Sets whether or not class labels shall be written to the file. 
+         * 
+         * @param _writeClassLabels Whether of not class labels shall be read. True => Read labels
+         */
+        void setWriteClassLabels(bool _writeClassLabels)
+        {
+            writeClassLabels = _writeClassLabels;
+        }
+        
+        /**
+         * Returns whether or not class labels shall be written to the file. 
+         * 
+         * @return True if class labels are read
+         */
+        bool getWriteClassLabels() const
+        {
+            return writeClassLabels;
+        }
+        
+    private:
+        /**
+         * If true, class labels are written to the file. 
+         */
+        bool writeClassLabels;
+    };
+    
+    /**
+     * This data provider write data to a local LIBSVM file. 
+     */
+    class LIBSVMDataWriter : public AbstractDataWriter {
+    public:
+        using AbstractDataWriter::write;
+        
+        /**
+         * Writes the data to a stream. 
+         */
+        virtual void write(std::ostream & stream, DataStorage::ptr dataStorage);
+        
+        /**
+         * Writers a single data point to a stream
+         * 
+         * @param stream The data stream 
+         * @param v The data point where the data shall be saved into
+         */
+        void writeDataPoint(std::ostream & stream, DataPoint & v);
     };
 }
 

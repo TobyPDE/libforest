@@ -63,7 +63,7 @@ int main(int argc, const char** argv)
     DataStorage storage;
     DataStorage storageT;
     
-    LibforestDataProvider reader;
+    LibforestDataReader reader;
     reader.read(trainDat.string(), &storageT);
     reader.read(testDat.string(), &storage);
     

@@ -18,6 +18,7 @@
 #define ENTROPY(p) (-(p)*fastlog2(p))
 
 namespace libf {
+    // TODO: Remove this crap
     class Exception {
     public:
         Exception(const std::string & s) {}
@@ -28,6 +29,15 @@ namespace libf {
      */
     class Util {
     public:
+        /**
+         * Creates a random permutation of [N]. 
+         * TODO: Write unit test
+         * 
+         * @param N The number of points
+         * @param sigma The permutation
+         */
+        static void generateRandomPermutation(int N, std::vector<int> & sigma);
+        
         /**
          * Returns true if the given parameter is a valid permutation and returns
          * false otherwise. If sigma is of length N, then we check if sigma is in
@@ -148,6 +158,37 @@ namespace libf {
             }
 
             std::cout.flush();
+        }
+        
+        /**
+         * Returns the index of an array. If there are multiple maxima in an 
+         * array the smallest of those indices is returned. If the array is
+         * empty, the result is 0. 
+         * 
+         * TODO: Write unit test
+         * 
+         * @param v The array of comparable objects
+         * @return The maximizing index
+         */
+        template <class T>
+        static size_t argMax(const std::vector<T> & v)
+        {
+            // If thee array is empty, there is not much to do. 
+            if (v.size() == 0) return 0;
+            
+            // Determine the maximizing index
+            T arg = v[0];
+            size_t index = 0;
+            for (size_t i = 1; i < v.size(); i++)
+            {
+                if (v[i] > arg)
+                {
+                    arg = v[i];
+                    index = i;
+                }
+            }
+            
+            return index;
         }
     };
 

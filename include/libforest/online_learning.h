@@ -5,6 +5,7 @@
 #include <iostream>
 #include <cmath>
 #include <vector>
+#include <memory>
 #include "classifiers.h"
 #include "learning.h"
 
@@ -27,7 +28,7 @@ namespace libf {
         /**
          * Learns a classifier online (updates a given classifier).
          */
-        virtual T* learn(const DataStorage* storage, T* model = 0) = 0;
+        virtual std::shared_ptr<T> learn(AbstractDataStorage::ptr storage, std::shared_ptr<T> model = 0) = 0;
 
     };
     
@@ -78,7 +79,7 @@ namespace libf {
         /**
          * Deduce the feature ranges from the given dataset.
          */
-        RandomThresholdGenerator(const DataStorage & storage);
+        RandomThresholdGenerator(AbstractDataStorage::ptr storage);
         
         /**
          * Adds a feature range. Note that the features have to be added in the 
@@ -157,8 +158,8 @@ namespace libf {
                 smoothingParameter(1),
                 useBootstrap(true),
                 bootstrapLambda(1.f),
-                numThresholds(2*numFeatures),
-                minSplitObjective(1.f)
+                minSplitObjective(1.f), 
+                numThresholds(2*numFeatures)
         {
             // Overwrite min split examples.
             minSplitExamples = 30;
@@ -168,12 +169,12 @@ namespace libf {
         /**
          * The default callback for this learner.
          */
-        static int defaultCallback(DecisionTree* tree, OnlineDecisionTreeLearnerState* state);
+        static int defaultCallback(DecisionTree::ptr tree, const OnlineDecisionTreeLearnerState & state);
         
         /**
          * Verbose callback for this learner.
          */
-        static int verboseCallback(DecisionTree* tree, OnlineDecisionTreeLearnerState* state);
+        static int verboseCallback(DecisionTree::ptr tree, const OnlineDecisionTreeLearnerState & state);
         
         /**
          * Actions for the callback function.
@@ -270,7 +271,7 @@ namespace libf {
         /**
          * Updates the given decision tree on the given data.
          */
-        virtual DecisionTree* learn(const DataStorage* storage, DecisionTree* tree = 0);
+        virtual DecisionTree::ptr learn(AbstractDataStorage::ptr storage, DecisionTree::ptr tree = 0);
         
     protected:
         /**
@@ -280,7 +281,7 @@ namespace libf {
                 std::vector<EfficientEntropyHistogram> & rightChildStatistics, 
                 const std::vector<int> & features,
                 const std::vector< std::vector<float> > & thresholds, 
-                const DataPoint* x, const int label);
+                const DataPoint & x, const int label);
         
         /**
          * The smoothing parameter for the histograms
@@ -342,12 +343,12 @@ namespace libf {
         /**
          * The default callback for this learner.
          */
-        static int defaultCallback(RandomForest* forest, OnlineRandomForestLearnerState* state);
+        static int defaultCallback(RandomForest::ptr forest, const OnlineRandomForestLearnerState & state);
         
         /**
          * Verbose callback for this learner.
          */
-        static int verboseCallback(RandomForest* forest, OnlineRandomForestLearnerState* state);
+        static int verboseCallback(RandomForest::ptr forest, const OnlineRandomForestLearnerState & state);
          
         /**
          * These are the actions of the learning algorithm that are passed
@@ -380,7 +381,7 @@ namespace libf {
         /**
          * Learns a forests. 
          */
-        virtual RandomForest* learn(const DataStorage* storage, RandomForest* forest = 0);
+        virtual RandomForest::ptr learn(AbstractDataStorage::ptr storage, RandomForest::ptr forest = 0);
 
     protected:
         /**

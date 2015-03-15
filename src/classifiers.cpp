@@ -14,10 +14,9 @@ using namespace libf;
 /// Classifier
 ////////////////////////////////////////////////////////////////////////////////
 
-void Classifier::classify(const DataStorage* storage, std::vector<int> & results) const
+void Classifier::classify(AbstractDataStorage::ptr storage, std::vector<int> & results) const
 {
     // Clean the result set
-    results.erase(results.begin(), results.end());
     results.resize(storage->getSize());
     
     // Classify each individual data point
@@ -27,28 +26,13 @@ void Classifier::classify(const DataStorage* storage, std::vector<int> & results
     }
 }
 
-int Classifier::classify(const DataPoint* x) const
+int Classifier::classify(const DataPoint & x) const
 {
     // Get the class posterior
     std::vector<float> posterior;
-    this->classLogPosterior(x, posterior);
+    classLogPosterior(x, posterior);
     
-    assert(posterior.size() > 0);
-    
-    int label = 0;
-    float prob = posterior[0];
-    const int size = static_cast<int>(posterior.size());
-    
-    for (int i = 1; i < size; i++)
-    {
-        if (posterior[i] > prob)
-        {
-            label = i;
-            prob = posterior[i];
-        }
-    }
-    
-    return label;
+    return Util::argMax(posterior);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -114,9 +98,9 @@ void DecisionTree::addNode(int depth)
 int DecisionTree::splitNode(int node)
 {
     // Make sure this is a valid node ID
-    assert(0 <= node && node < static_cast<int>(splitFeatures.size()));
+    BOOST_ASSERT_MSG(0 <= node && node < static_cast<int>(splitFeatures.size()), "Invalid node index.");
     // Make sure this is a former leaf node
-    assert(leftChild[node] == 0);
+    BOOST_ASSERT_MSG(leftChild[node] == 0, "Cannot split non-leaf node.");
     
     // Determine the index of the new left child
     const int leftNode = static_cast<int>(splitFeatures.size());
@@ -132,7 +116,7 @@ int DecisionTree::splitNode(int node)
     return leftNode;
 }
 
-int DecisionTree::findLeafNode(const DataPoint* x) const
+int DecisionTree::findLeafNode(const DataPoint & x) const
 {
     // Select the root node as current node
     int node = 0;
@@ -141,7 +125,7 @@ int DecisionTree::findLeafNode(const DataPoint* x) const
     while (leftChild[node] != 0)
     {
         // Check the threshold
-        if (x->at(splitFeatures[node]) < thresholds[node])
+        if (x(splitFeatures[node]) < thresholds[node])
         {
             // Go to the left
             node = leftChild[node];
@@ -156,7 +140,7 @@ int DecisionTree::findLeafNode(const DataPoint* x) const
     return node;
 }
 
-void DecisionTree::classLogPosterior(const DataPoint* x, std::vector<float> & probabilities) const
+void DecisionTree::classLogPosterior(const DataPoint & x, std::vector<float> & probabilities) const
 {
     // Get the leaf node
     const int leafNode = findLeafNode(x);
@@ -239,7 +223,7 @@ Gaussian::Gaussian(Eigen::VectorXf _mean, Eigen::MatrixXf _covariance, float _co
     transform = solver.eigenvectors()*solver.eigenvalues().cwiseSqrt().asDiagonal();
 }
 
-void Gaussian::setCovariance(Eigen::MatrixXf _covariance)
+void Gaussian::setCovariance(Eigen::MatrixXf & _covariance)
 {
     const int rows = _covariance.rows();
     const int cols = _covariance.cols();
@@ -255,7 +239,7 @@ void Gaussian::setCovariance(Eigen::MatrixXf _covariance)
     cachedDeterminant = false;
 }
 
-DataPoint* Gaussian::sample()
+void Gaussian::sample(DataPoint & x)
 {
     const int rows = mean.rows();
     
@@ -265,15 +249,13 @@ DataPoint* Gaussian::sample()
         randNVector(i) = randN();
     }
     
-    Eigen::VectorXf x = transform * randNVector + mean;
-    
-    return asDataPoint(x);
+    x = transform * randNVector + mean;
 }
 
-float Gaussian::evaluate(const DataPoint* x)
+float Gaussian::evaluate(const DataPoint & x)
 {
-    assert(x->getDimensionality() == mean.rows());
-    assert(x->getDimensionality() == covariance.rows());
+    assert(x.rows() == mean.rows());
+    assert(x.rows() == covariance.rows());
     
     // Invert the covariance matrix if not cached.
     if (!cachedInverse)
@@ -289,8 +271,7 @@ float Gaussian::evaluate(const DataPoint* x)
         cachedDeterminant = true;
     }
     
-    Eigen::VectorXf x_bar = asEigenVector(x);
-    Eigen::VectorXf offset = x_bar - mean;
+    Eigen::VectorXf offset = x - mean;
     
     float p = 1/std::sqrt(pow(2*M_PI, mean.rows())*covarianceDeterminant)
             * std::exp(- (1./2.) * offset.transpose()*covarianceInverse*offset);
@@ -298,68 +279,44 @@ float Gaussian::evaluate(const DataPoint* x)
     return p;
 }
 
-Eigen::VectorXf Gaussian::asEigenVector(const DataPoint* x)
-{
-    Eigen::VectorXf x_bar(x->getDimensionality());
-    
-    for (int i = 0; i < x->getDimensionality(); i++)
-    {
-        x_bar(i) = x->at(i);
-    }
-    
-    return x_bar;
-}
-
-DataPoint* Gaussian::asDataPoint(const Eigen::VectorXf & x)
-{
-    DataPoint* x_bar = new DataPoint(x.rows());
-    
-    for (int i = 0; i < x.rows(); i++)
-    {
-        x_bar->at(i) = x(i);
-    }
-    
-    return x_bar;
-}
-
 ////////////////////////////////////////////////////////////////////////////////
 /// EfficientCovarianceMatrix
 ////////////////////////////////////////////////////////////////////////////////
 
-void EfficientCovarianceMatrix::addOne(const DataPoint* x)
+void EfficientCovarianceMatrix::addOne(const DataPoint & x)
 {
-    assert(x->getDimensionality() == mean.rows());
-    assert(x->getDimensionality() == covariance.rows());
+    assert(x.rows() == mean.rows());
+    assert(x.rows() == covariance.rows());
     
-    for (int i = 0; i < x->getDimensionality(); i++)
+    for (int i = 0; i < x.rows(); i++)
     {
         // Update runnign estimate of mean.
-        mean(i) += x->at(i);
+        mean(i) += x(i);
         
-        for (int j = 0; j < x->getDimensionality(); j++)
+        for (int j = 0; j < x.rows(); j++)
         {
             // Update runnign estimate of covariance.
-            covariance(i, j) += x->at(i)*x->at(j);
+            covariance(i, j) += x(i)*x(j);
         }
     }
     
     mass += 1;
 }
 
-void EfficientCovarianceMatrix::subOne(const DataPoint* x)
+void EfficientCovarianceMatrix::subOne(const DataPoint & x)
 {
-    assert(x->getDimensionality() == mean.rows());
-    assert(x->getDimensionality() == covariance.rows());
+    assert(x.rows() == mean.rows());
+    assert(x.rows() == covariance.rows());
     
-    for (int i = 0; i < x->getDimensionality(); i++)
+    for (int i = 0; i < x.rows(); i++)
     {
         // Update runnign estimate of mean.
-        mean(i) -= x->at(i);
+        mean(i) -= x(i);
         
-        for (int j = 0; j < x->getDimensionality(); j++)
+        for (int j = 0; j < x.rows(); j++)
         {
             // Update runnign estimate of covariance.
-            covariance(i, j) -= x->at(i)*x->at(j);
+            covariance(i, j) -= x(i)*x(j);
         }
     }
     
@@ -395,17 +352,10 @@ Eigen::MatrixXf & EfficientCovarianceMatrix::getCovariance()
 /// RandomForest
 ////////////////////////////////////////////////////////////////////////////////
 
-RandomForest::~RandomForest()
+void RandomForest::classLogPosterior(const DataPoint & x, std::vector<float> & probabilities) const
 {
-    for (size_t i = 0; i < trees.size(); i++)
-    {
-        delete trees[i];
-    }
-}
-
-void RandomForest::classLogPosterior(const DataPoint* x, std::vector<float> & probabilities) const
-{
-    assert(getSize() > 0);
+    BOOST_ASSERT_MSG(getSize() > 0, "Cannot classify a point from an empty ensemble.");
+    
     trees[0]->classLogPosterior(x, probabilities);
     
     // Let the crowd decide
@@ -444,7 +394,8 @@ void RandomForest::read(std::istream& stream)
     // Read the trees
     for (int i = 0; i < size; i++)
     {
-        DecisionTree* tree = new DecisionTree();
+        DecisionTree::ptr tree = std::make_shared<DecisionTree>();
+        
         tree->read(stream);
         addTree(tree);
     }
@@ -453,15 +404,6 @@ void RandomForest::read(std::istream& stream)
 ////////////////////////////////////////////////////////////////////////////////
 /// BoostedRandomForest
 ////////////////////////////////////////////////////////////////////////////////
-
-BoostedRandomForest::~BoostedRandomForest()
-{
-    for (size_t i = 0; i < trees.size(); i++)
-    {
-        delete trees[i];
-    }
-}
-
 
 void BoostedRandomForest::write(std::ostream& stream) const
 {
@@ -486,7 +428,7 @@ void BoostedRandomForest::read(std::istream& stream)
     // Read the trees
     for (int i = 0; i < size; i++)
     {
-        DecisionTree* tree = new DecisionTree();
+        DecisionTree::ptr tree = std::make_shared<DecisionTree>();
         tree->read(stream);
         // Read the weight
         float weight;
@@ -496,9 +438,10 @@ void BoostedRandomForest::read(std::istream& stream)
 }
 
 
-void BoostedRandomForest::classLogPosterior(const DataPoint* x, std::vector<float> & probabilities) const
+void BoostedRandomForest::classLogPosterior(const DataPoint & x, std::vector<float> & probabilities) const
 {
-    assert(getSize() > 0);
+    BOOST_ASSERT_MSG(getSize() > 0, "Cannot classify a point from an empty ensemble.");
+    // TODO: This can be done way more efficient
     // Determine the number of classes by looking at a histogram
     trees[0]->classLogPosterior(x, probabilities);
     // Initialize the result vector

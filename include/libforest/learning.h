@@ -1,36 +1,20 @@
 #ifndef LIBF_LEARNING_H
 #define LIBF_LEARNING_H
 
-/**
- * This file implements the actual learning algorithms. There are basically 
- * four major algorithm:
- * 1. Ordinary decision tree learning
- * 2. Ordinary random forest learning
- * 3. Decorellated MCMC based decision tree learning
- * 4. Decorrelated MCMC based random forest learning
- * The MCMC based algorithm depend on the Metropolis-Hastings algorithm as well
- * as its variant Simulated Annealing. Both of these algorithms can be found in 
- * mcmc.h. 
- * All learning algorithm use a special data structure to speed up the process. 
- * The data structure sorts the data set according to each dimension.
- */
-#include <cassert>
 #include <functional>
 #include <iostream>
 #include <chrono>
 #include <cmath>
 #include <vector>
 
+#include "error_handling.h"
+#include "data.h"
 #include "classifiers.h"
 
 namespace libf {
     /**
      * Forward declarations to reduce compile time
      */
-    class DataStorage;
-    class DecisionTree;
-    class RandomForest;
-    class BoostedRandomForest;
     class DecisionTreeLearner;
     class RandomForestLearner;
     class BoostedRandomForestLearner;
@@ -45,8 +29,11 @@ namespace libf {
     public:
         /**
          * Registers a callback function that is called every cycle iterations. 
+         * 
+         * @param callback The callback function
+         * @param cycle The number of cycles in between the function calls
          */
-        void addCallback(std::function<int(T*, S*)> callback, int cycle)
+        void addCallback(const std::function<int(std::shared_ptr<T>, const S &)> & callback, int cycle)
         {
             callbacks.push_back(callback);
             callbackCycles.push_back(cycle);
@@ -56,7 +43,7 @@ namespace libf {
         /**
          * Calls the callbacks. The results of the callbacks are bitwise or'ed
          */
-        int evokeCallback(T* learnedObject, int iteration, S* state) const
+        int evokeCallback(std::shared_ptr<T> learnedObject, int iteration, const S & state) const
         {
             int result = 0;
             
@@ -77,7 +64,7 @@ namespace libf {
         /**
          * The callback functions.
          */
-        std::vector<std::function<int(T*, S*)>  > callbacks;
+        std::vector<std::function<int(std::shared_ptr<T>, const S &)>  > callbacks;
         /**
          * The learning cycle. The callback is called very cycle iterations
          */
@@ -104,8 +91,10 @@ namespace libf {
         
         /**
          * Returns the passed time in microseconds
+         * 
+         * @return The time passed since instantiating the state object
          */
-        std::chrono::microseconds getPassedTime()
+        std::chrono::microseconds getPassedTime() const
         {
             std::chrono::high_resolution_clock::time_point now = std::chrono::high_resolution_clock::now();
             return std::chrono::duration_cast<std::chrono::microseconds>( now - startTime );
@@ -121,8 +110,11 @@ namespace libf {
         
         /**
          * Learns a classifier.
+         * 
+         * @param storage The storage to train the classifier on
+         * @return The trained classifier
          */
-        virtual T* learn(const DataStorage* storage) = 0;
+        virtual std::shared_ptr<T> learn(AbstractDataStorage::ptr storage) = 0;
     };
     
     /**
@@ -139,16 +131,23 @@ namespace libf {
                 minChildSplitExamples(1) {}
                 
         /**
-         * Sets the number of features that are required to perform a split
+         * Sets the number of features that are required to perform a split. If 
+         * there are less than the specified number of training examples at a 
+         * node, it won't be split and becomes a leaf node. 
+         * 
+         * @param minSplitExamples The minimum number of examples required to split a node
          */
         void setMinSplitExamples(int minSplitExamples) 
         {
-            assert(minSplitExamples >= 0);
+            BOOST_ASSERT(minSplitExamples >= 0);
             this->minSplitExamples = minSplitExamples;
         }
 
         /**
-         * Returns the number of features that are required to perform a split
+         * Returns the minimum number of training examples required in order
+         * to split a node. 
+         * 
+         * @return The minimum number of training examples required to split a node
          */
         int getMinSplitExamples() const 
         {
@@ -156,16 +155,22 @@ namespace libf {
         }
 
         /**
-         * Sets the maximum depth of a tree
+         * Sets the maximum depth of a tree where the root node receives depth
+         * 0. 
+         * 
+         * @param maxDepth the max depth
          */
         void setMaxDepth(int maxDepth) 
         {
-            assert(maxDepth >= 1);
+            BOOST_ASSERT(maxDepth >= 0);
+            
             this->maxDepth = maxDepth;
         }
 
         /**
-         * Returns the maximum depth of a tree
+         * Returns the maximum depth of a tree where the root node has depth 0. 
+         * 
+         * @return The maximum depth of a tree
          */
         int getMaxDepth() const 
         {
@@ -173,16 +178,23 @@ namespace libf {
         }
 
         /**
-         * Sets the number of random features that shall be evaluated
+         * Sets the number of random features that shall be evaluated. If the
+         * number of features equals the total number of dimensions, then we
+         * train an ordinary decision tree. 
+         * 
+         * @param numFeatures The number of features to evaluate. 
          */
         void setNumFeatures(int numFeatures) 
         {
-            assert(numFeatures >= 1);
+            BOOST_ASSERT(numFeatures >= 1);
+            
             this->numFeatures = numFeatures;
         }
 
         /**
          * Returns the number of random features that shall be evaluated
+         * 
+         * @return The number of features to evaluate
          */
         int getNumFeatures() const 
         {
@@ -192,16 +204,20 @@ namespace libf {
         /**
          * Sets the minimum number of examples that need to be in both child nodes
          * in order to perform a split. 
+         * 
+         * @param _minChildSplitExamples The required number of examples
          */
         void setMinChildSplitExamples(int _minChildSplitExamples)
         {
-            assert(_minChildSplitExamples >= 0);
+            BOOST_ASSERT(_minChildSplitExamples >= 0);
             minChildSplitExamples = _minChildSplitExamples;
         }
         
         /**
          * Returns the minimum number of examples that need to be in both child nodes
          * in order to perform a split. 
+         * 
+         * @return The required number of examples
          */
         int getMinChildSplitExamples() const
         {
@@ -212,15 +228,20 @@ namespace libf {
          * Get the Mean Decrease Impurity importance.
          * 
          * @see http://orbi.ulg.ac.be/bitstream/2268/170309/1/thesis.pdf
+         * @param feature TODO
+         * @return TODO
          */
         float getImportance(int feature) const
         {
+            BOOST_ASSERT(0 <= feature && feature < importance.size());
             return importance[feature];
         }
         
         /**
          * Get the Mean Impurity Decrease variable importance for all features, 
          * see above.
+         * 
+         * @return TODO
          */
         std::vector<float> & getImportance()
         {
@@ -261,7 +282,7 @@ namespace libf {
                 depth(0) {}
         
         /**
-         * Objective of splitted node.
+         * Objective of split node.
          */
         float objective;
         /**
@@ -283,14 +304,14 @@ namespace libf {
         /**
          * The data storage
          */
-        const AbstractDataStorage* storage;
+        AbstractDataStorage::ptr storage;
 
         /**
          * Compares two training examples
          */
         bool operator() (const int lhs, const int rhs) const
         {
-            return storage->getDataPoint(lhs)->at(feature) < storage->getDataPoint(rhs)->at(feature);
+            return storage->getDataPoint(lhs)(feature) < storage->getDataPoint(rhs)(feature);
         }
     };
     
@@ -303,14 +324,14 @@ namespace libf {
             public Learner<DecisionTree> {
     public:
         DecisionTreeLearner() : AbstractDecisionTreeLearner(),
-                useBootstrap(false),
                 smoothingParameter(1),
+                useBootstrap(false),
                 numBootstrapExamples(1) {}
                 
         /**
          * The default callback for this learner.
          */
-        static int defaultCallback(DecisionTree* tree, DecisionTreeLearnerState* state);
+        static int defaultCallback(DecisionTree::ptr tree, const DecisionTreeLearnerState & state);
                 
         /**
          * Actions for the callback function.
@@ -369,12 +390,12 @@ namespace libf {
         /**
          * Learns a decision tree on a data set.
          */
-        virtual DecisionTree* learn(const DataStorage* storage);
+        virtual DecisionTree::ptr learn(AbstractDataStorage::ptr storage);
         
         /**
          * Updates the histograms
          */
-        void updateHistograms(DecisionTree* tree, const DataStorage* storage) const;
+        void updateHistograms(DecisionTree::ptr tree, AbstractDataStorage::ptr storage) const;
         
     protected:
         /**
@@ -406,7 +427,7 @@ namespace libf {
          */
         void setNumTrees(int _numTrees)
         {
-            assert(_numTrees >= 1);
+            BOOST_ASSERT(_numTrees >= 1);
             numTrees = _numTrees;
         }
         
@@ -499,7 +520,7 @@ namespace libf {
         /**
          * The default callback for this learner.
          */
-        static int defaultCallback(RandomForest* forest, RandomForestLearnerState* state);
+        static int defaultCallback(RandomForest::ptr forest, const RandomForestLearnerState & state);
         
         /**
          * These are the actions of the learning algorithm that are passed
@@ -510,13 +531,12 @@ namespace libf {
         const static int ACTION_START_FOREST = 3;
         const static int ACTION_FINISH_FOREST = 4;
         
-        RandomForestLearner() : AbstractRandomForestLearner(),
-                treeLearner(0) {}
+        RandomForestLearner() : AbstractRandomForestLearner() {}
         
         /**
          * Sets the decision tree learner
          */
-        void setTreeLearner(DecisionTreeLearner* _treeLearner)
+        void setTreeLearner(const DecisionTreeLearner & _treeLearner)
         {
             treeLearner = _treeLearner;
         }
@@ -524,7 +544,15 @@ namespace libf {
         /**
          * Returns the decision tree learner
          */
-        DecisionTreeLearner* getTreeLearner() const
+        const DecisionTreeLearner & getTreeLearner() const
+        {
+            return treeLearner;
+        }
+        
+        /**
+         * Returns the decision tree learner
+         */
+        DecisionTreeLearner & getTreeLearner()
         {
             return treeLearner;
         }
@@ -532,50 +560,13 @@ namespace libf {
         /**
          * Learns a forests. 
          */
-        virtual RandomForest* learn(const DataStorage* storage);
+        virtual RandomForest::ptr learn(AbstractDataStorage::ptr storage);
 
     protected:
         /**
          * The tree learner
          */
-        DecisionTreeLearner* treeLearner;
-    };
-    
-    /**
-     * This is a random forest learner. 
-     */
-    template<class S>
-    class AbstractBoostedRandomForestLearner : public AbstractLearner<BoostedRandomForest, S> {
-    public:
-        
-        AbstractBoostedRandomForestLearner() : numTrees(8) {}
-        
-        /**
-         * Sets the number of trees. 
-         */
-        void setNumTrees(int _numTrees)
-        {
-            assert(_numTrees >= 1);
-            numTrees = _numTrees;
-        }
-        
-        /**
-         * Returns the number of trees
-         */
-        int getNumTrees() const
-        {
-            return numTrees;
-        }
-        
-    protected:
-        /**
-         * The number of trees that we shall learn
-         */
-        int numTrees;
-        /**
-         * The tree learner
-         */
-        DecisionTreeLearner* treeLearner;
+        DecisionTreeLearner treeLearner;
     };
     
     /**
@@ -611,15 +602,13 @@ namespace libf {
     /**
      * This is a random forest learner. 
      */
-    class BoostedRandomForestLearner :
-            public AbstractBoostedRandomForestLearner<BoostedRandomForestLearnerState>,
-            public Learner<BoostedRandomForest> {
+    class BoostedRandomForestLearner : public AbstractLearner<BoostedRandomForest, BoostedRandomForestLearnerState> {
     public:
         
         /**
          * The default callback for this learner.
          */
-        static int defaultCallback(BoostedRandomForest* forest, BoostedRandomForestLearnerState* state);
+        static int defaultCallback(BoostedRandomForest::ptr forest, const BoostedRandomForestLearnerState & state);
         
         /**
          * These are the actions of the learning algorithm that are passed
@@ -630,13 +619,12 @@ namespace libf {
         const static int ACTION_START_FOREST = 3;
         const static int ACTION_FINISH_FOREST = 4;
         
-        BoostedRandomForestLearner() : AbstractBoostedRandomForestLearner(),
-                treeLearner(0) {}
+        BoostedRandomForestLearner() : AbstractLearner() {}
         
         /**
          * Sets the decision tree learner
          */
-        void setTreeLearner(DecisionTreeLearner* _treeLearner)
+        void setTreeLearner(const DecisionTreeLearner & _treeLearner)
         {
             treeLearner = _treeLearner;
         }
@@ -644,7 +632,15 @@ namespace libf {
         /**
          * Returns the decision tree learner
          */
-        DecisionTreeLearner* getTreeLearner() const
+        const DecisionTreeLearner & getTreeLearner() const
+        {
+            return treeLearner;
+        }
+        
+        /**
+         * Returns the decision tree learner
+         */
+        DecisionTreeLearner & getTreeLearner()
         {
             return treeLearner;
         }
@@ -652,13 +648,34 @@ namespace libf {
         /**
          * Learns a forests. 
          */
-        virtual BoostedRandomForest* learn(const DataStorage* storage);
+        virtual BoostedRandomForest::ptr learn(AbstractDataStorage::ptr storage);
+        
+        /**
+         * Sets the number of trees. 
+         */
+        void setNumTrees(int _numTrees)
+        {
+            BOOST_ASSERT(_numTrees >= 1);
+            numTrees = _numTrees;
+        }
+        
+        /**
+         * Returns the number of trees
+         */
+        int getNumTrees() const
+        {
+            return numTrees;
+        }
         
     protected:
         /**
+         * The number of trees that we shall learn
+         */
+        int numTrees;
+        /**
          * The tree learner
          */
-        DecisionTreeLearner* treeLearner;
+        DecisionTreeLearner treeLearner;
     };
 }
 

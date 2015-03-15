@@ -17,10 +17,10 @@ static std::mt19937 g(rd());
 /// RandomThresholdGenerator
 ////////////////////////////////////////////////////////////////////////////////
 
-RandomThresholdGenerator::RandomThresholdGenerator(const DataStorage & storage)
+RandomThresholdGenerator::RandomThresholdGenerator(AbstractDataStorage::ptr storage)
 {
-    const int D = storage.getDimensionality();
-    const int N = storage.getSize();
+    const int D = storage->getDimensionality();
+    const int N = storage->getSize();
     
     min = std::vector<float>(D, 1e35f);
     max = std::vector<float>(D, -1e35f);
@@ -28,17 +28,17 @@ RandomThresholdGenerator::RandomThresholdGenerator(const DataStorage & storage)
     for (int n = 0; n < N; ++n)
     {
         // Retrieve the datapoint to check all features.
-        DataPoint* x = storage.getDataPoint(n);
+        const DataPoint & x = storage->getDataPoint(n);
         
         for (int d = 0; d < D; d++)
         {
-            if (x->at(d) < min[d])
+            if (x(d) < min[d])
             {
-                min[d] = x->at(d);
+                min[d] = x(d);
             }
-            if (x->at(d) > max[d])
+            if (x(d) > max[d])
             {
-                max[d] = x->at(d);
+                max[d] = x(d);
             }
         }
     }    
@@ -70,14 +70,14 @@ void OnlineDecisionTreeLearner::updateSplitStatistics(std::vector<EfficientEntro
         std::vector<EfficientEntropyHistogram> & rightChildStatistics, 
         const std::vector<int> & features,
         const std::vector< std::vector<float> > & thresholds, 
-        const DataPoint* x, const int label)
+        const DataPoint & x, const int label)
 {
     for (int f = 0; f < numFeatures; f++)
     {
         // There may not be numThresholds thresholds yet!!!
         for (int t = 0; t < thresholds[f].size(); t++)
         {
-            if (x->at(features[f]) < thresholds[f][t])
+            if (x(features[f]) < thresholds[f][t])
             {
                 // x would fall into left child.
                 leftChildStatistics[t + numThresholds*f].addOne(label);
@@ -91,7 +91,7 @@ void OnlineDecisionTreeLearner::updateSplitStatistics(std::vector<EfficientEntro
     }
 }
 
-DecisionTree* OnlineDecisionTreeLearner::learn(const DataStorage* storage, DecisionTree* tree) {
+DecisionTree::ptr OnlineDecisionTreeLearner::learn(AbstractDataStorage::ptr storage, DecisionTree::ptr tree) {
     
     // Get the number of training examples and the dimensionality of the data set
     const int D = storage->getDimensionality();
@@ -110,10 +110,10 @@ DecisionTree* OnlineDecisionTreeLearner::learn(const DataStorage* storage, Decis
     // Set up a new tree if no existing tree is given.
     if (!tree)
     {
-        tree = new DecisionTree(true);
+        tree = std::make_shared<DecisionTree>(true);
     }
     
-    evokeCallback(tree, 0, &state);
+    evokeCallback(tree, 0, state);
     
     // Set up a list of all available features.
     std::vector<int> features(D);
@@ -124,7 +124,7 @@ DecisionTree* OnlineDecisionTreeLearner::learn(const DataStorage* storage, Decis
     
     for (int n = 0; n < N; n++)
     {
-        const DataPoint* x = storage->getDataPoint(n);
+        const DataPoint & x = storage->getDataPoint(n);
         const int label = storage->getClassLabel(n);
         const int leaf = tree->findLeafNode(x);
         const int depth = tree->getDepth(leaf);
@@ -202,14 +202,14 @@ DecisionTree* OnlineDecisionTreeLearner::learn(const DataStorage* storage, Decis
             }
             
             state.action = ACTION_INIT_NODE;
-            evokeCallback(tree, 0, &state);
+            evokeCallback(tree, 0, state);
         }
         
         int K = 1;
         if (useBootstrap)
         {
             std::poisson_distribution<int> poisson(bootstrapLambda);
-            int K = poisson(g); // May also give zero.
+            K = poisson(g); // May also give zero.
         }
         
         for (int k = 0; k < K; k++)
@@ -235,7 +235,7 @@ DecisionTree* OnlineDecisionTreeLearner::learn(const DataStorage* storage, Decis
             updateLeafNodeHistogram(tree->getHistogram(leaf), nodeStatistics, smoothingParameter);
         
             state.action = ACTION_NOT_SPLITTING_NODE;  
-            evokeCallback(tree, 0, &state);
+            evokeCallback(tree, 0, state);
             
             continue;
         }
@@ -279,7 +279,7 @@ DecisionTree* OnlineDecisionTreeLearner::learn(const DataStorage* storage, Decis
             state.objective = bestObjective;
             state.minObjective = minSplitObjective;
             
-            evokeCallback(tree, 0, &state);
+            evokeCallback(tree, 0, state);
             
             continue;
         }
@@ -317,64 +317,64 @@ DecisionTree* OnlineDecisionTreeLearner::learn(const DataStorage* storage, Decis
         state.action = ACTION_SPLIT_NODE; 
         state.objective = bestObjective;
         
-        evokeCallback(tree, 0, &state);
+        evokeCallback(tree, 0, state);
     }
     
     return tree;
 }
 
-int OnlineDecisionTreeLearner::defaultCallback(DecisionTree* tree, OnlineDecisionTreeLearnerState* state)
+int OnlineDecisionTreeLearner::defaultCallback(DecisionTree::ptr tree, const OnlineDecisionTreeLearnerState & state)
 {
-    switch (state->action) {
+    switch (state.action) {
 //        case OnlineDecisionTreeLearner::ACTION_INIT_NODE:
 //            std::cout << std::setw(30) << std::left << "Init node: "
 //                    << "depth = " << std::setw(6) << state->depth << "\n";
 //            break;
         case OnlineDecisionTreeLearner::ACTION_SPLIT_NODE:
             std::cout << std::setw(30) << std::left << "Split node: "
-                    << "depth = " << std::setw(6) << state->depth
-                    << "samples = " << std::setw(6) << state->samples
+                    << "depth = " << std::setw(6) << state.depth
+                    << "samples = " << std::setw(6) << state.samples
                     << "objective = " << std::setw(6)
-                    << std::setprecision(3) << state->objective << "\n";
+                    << std::setprecision(3) << state.objective << "\n";
             break;
     }
     
     return 0;
 }
 
-int OnlineDecisionTreeLearner::verboseCallback(DecisionTree* tree, OnlineDecisionTreeLearnerState* state)
+int OnlineDecisionTreeLearner::verboseCallback(DecisionTree::ptr tree, const OnlineDecisionTreeLearnerState & state)
 {
-    switch (state->action) {
+    switch (state.action) {
         case OnlineDecisionTreeLearner::ACTION_START_TREE:
             std::cout << "Start decision tree training." << "\n";
             break; 
         case OnlineDecisionTreeLearner::ACTION_INIT_NODE:
             std::cout << std::setw(30) << std::left << "Init node: "
-                    << "depth = " << std::setw(6) << state->depth << "\n";
+                    << "depth = " << std::setw(6) << state.depth << "\n";
             break;
         case OnlineDecisionTreeLearner::ACTION_NOT_SPLITTING_NODE:
             std::cout << std::setw(30) << std::left << "Not splitting node: "
-                    << "depth = " << std::setw(6) << state->depth
-                    << "samples = " << std::setw(6) << state->samples << "\n";
+                    << "depth = " << std::setw(6) << state.depth
+                    << "samples = " << std::setw(6) << state.samples << "\n";
             break;
         case OnlineDecisionTreeLearner::ACTION_NOT_SPLITTING_OBJECTIVE_NODE:
             std::cout << std::setw(30) << std::left << "Not splitting node: "
-                    << "depth = " << std::setw(6) << state->depth
-                    << "samples = " << std::setw(6) << state->samples
+                    << "depth = " << std::setw(6) << state.depth
+                    << "samples = " << std::setw(6) << state.samples
                     << "objective = " << std::setw(6)
-                    << std::setprecision(3) << state->objective
+                    << std::setprecision(3) << state.objective
                     << "min objective = " << std::setw(6)
-                    << std::setprecision(3) << state->minObjective << "\n";
+                    << std::setprecision(3) << state.minObjective << "\n";
             break;
         case OnlineDecisionTreeLearner::ACTION_SPLIT_NODE:
             std::cout << std::setw(30) << std::left << "Split node: "
-                    << "depth = " << std::setw(6) << state->depth
-                    << "samples = " << std::setw(6) << state->samples
+                    << "depth = " << std::setw(6) << state.depth
+                    << "samples = " << std::setw(6) << state.samples
                     << "objective = " << std::setw(6)
-                    << std::setprecision(3) << state->objective << "\n";
+                    << std::setprecision(3) << state.objective << "\n";
             break;
         default:
-            std::cout << "UNKNOWN ACTION CODE " << state->action << "\n";
+            std::cout << "UNKNOWN ACTION CODE " << state.action << "\n";
             break;
     }
     
@@ -385,20 +385,20 @@ int OnlineDecisionTreeLearner::verboseCallback(DecisionTree* tree, OnlineDecisio
 /// RandomForestLearner
 ////////////////////////////////////////////////////////////////////////////////
 
-RandomForest* OnlineRandomForestLearner::learn(const DataStorage* storage, RandomForest* forest)
+RandomForest::ptr OnlineRandomForestLearner::learn(AbstractDataStorage::ptr storage, RandomForest::ptr forest)
 {
     const int D = storage->getDimensionality();
     
     if (!forest)
     {
-        forest = new RandomForest();
+        forest = std::make_shared<RandomForest>();
     }
     
     for (int i = 0; i < numTrees; i++)
     {
         if (i >= forest->getSize())
         {
-            forest->addTree(new DecisionTree(true));
+            forest->addTree(std::make_shared<DecisionTree>(true));
         }
     }
     
@@ -411,12 +411,12 @@ RandomForest* OnlineRandomForestLearner::learn(const DataStorage* storage, Rando
     state.numTrees = this->getNumTrees();
     state.action = ACTION_START_FOREST;
     
-    evokeCallback(forest, 0, &state);
+    evokeCallback(forest, 0, state);
     
     int treeStartCounter = 0; 
     int treeFinishCounter = 0; 
     
-    DecisionTree* tree;
+    DecisionTree::ptr tree;
     #pragma omp parallel for num_threads(numThreads)
     for (int i = 0; i < numTrees; i++)
     {
@@ -425,10 +425,10 @@ RandomForest* OnlineRandomForestLearner::learn(const DataStorage* storage, Rando
             state.tree = ++treeStartCounter;
             state.action = ACTION_START_TREE;
             
-            evokeCallback(forest, treeStartCounter - 1, &state);
+            evokeCallback(forest, treeStartCounter - 1, state);
         }
         
-        DecisionTree* tree = forest->getTree(i);
+        DecisionTree::ptr tree = forest->getTree(i);
         treeLearner->learn(storage, tree);
         
         #pragma omp critical
@@ -436,7 +436,7 @@ RandomForest* OnlineRandomForestLearner::learn(const DataStorage* storage, Rando
             state.tree = ++treeFinishCounter;
             state.action = ACTION_FINISH_TREE;
             
-            evokeCallback(forest, treeFinishCounter - 1, &state);
+            evokeCallback(forest, treeFinishCounter - 1, state);
 
             // Update variable importance.
             for (int f = 0; f < D; ++f)
@@ -448,48 +448,48 @@ RandomForest* OnlineRandomForestLearner::learn(const DataStorage* storage, Rando
     
     state.tree = 0;
     state.action = ACTION_FINISH_FOREST;
-    evokeCallback(forest, 0, &state);
+    evokeCallback(forest, 0, state);
     
     return forest;
 }
 
-int OnlineRandomForestLearner::defaultCallback(RandomForest* forest, OnlineRandomForestLearnerState* state)
+int OnlineRandomForestLearner::defaultCallback(RandomForest::ptr forest, const OnlineRandomForestLearnerState & state)
 {
-    switch (state->action) {
+    switch (state.action) {
         case RandomForestLearner::ACTION_START_FOREST:
             std::cout << "Start random forest training" << "\n";
             break;
         case RandomForestLearner::ACTION_FINISH_FOREST:
-            std::cout << "Finished forest in " << state->getPassedTime().count()/1000000. << "s\n";
+            std::cout << "Finished forest in " << state.getPassedTime().count()/1000000. << "s\n";
             break;
     }
     
     return 0;
 }
 
-int OnlineRandomForestLearner::verboseCallback(RandomForest* forest, OnlineRandomForestLearnerState* state)
+int OnlineRandomForestLearner::verboseCallback(RandomForest::ptr forest, const OnlineRandomForestLearnerState & state)
 {
-    switch (state->action) {
+    switch (state.action) {
         case RandomForestLearner::ACTION_START_FOREST:
             std::cout << "Start random forest training" << "\n";
             break;
         case RandomForestLearner::ACTION_START_TREE:
             std::cout << std::setw(15) << std::left << "Start tree " 
-                    << std::setw(4) << std::right << state->tree 
+                    << std::setw(4) << std::right << state.tree 
                     << " out of " 
-                    << std::setw(4) << state->numTrees << "\n";
+                    << std::setw(4) << state.numTrees << "\n";
             break;
         case RandomForestLearner::ACTION_FINISH_TREE:
             std::cout << std::setw(15) << std::left << "Finish tree " 
-                    << std::setw(4) << std::right << state->tree 
+                    << std::setw(4) << std::right << state.tree 
                     << " out of " 
-                    << std::setw(4) << state->numTrees << "\n";
+                    << std::setw(4) << state.numTrees << "\n";
             break;
         case RandomForestLearner::ACTION_FINISH_FOREST:
-            std::cout << "Finished forest in " << state->getPassedTime().count()/1000000. << "s\n";
+            std::cout << "Finished forest in " << state.getPassedTime().count()/1000000. << "s\n";
             break;
         default:
-            std::cout << "UNKNOWN ACTION CODE " << state->action << "\n";
+            std::cout << "UNKNOWN ACTION CODE " << state.action << "\n";
             break;
     }
     

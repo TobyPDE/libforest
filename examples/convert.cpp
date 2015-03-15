@@ -58,7 +58,7 @@ int main(int argc, const char** argv)
     
     if (parameters.find("csv-to-dat") != parameters.end())
     {
-        CSVDataProvider reader(parameters["csv-label-col"].as<int>(), parameters["csv-separator"].as<std::string>());
+        CSVDataReader reader(parameters["csv-label-col"].as<int>(), parameters["csv-separator"].as<std::string>());
         reader.read(inFile.string(), &storage);
         LibforestDataWriter writer;
         writer.write(outFile.string(), &storage);

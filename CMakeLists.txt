@@ -47,7 +47,7 @@ include_directories(
                     ${OpenCV_INCLUDE_DIRS} 
                     ${GTEST_INCLUDE_DIRS})
 
-# Add the necessary gcc flags:
+# Add the necessary g++ flags:
 # C++11
 # All warnings
 # OpenMP
@@ -77,6 +77,7 @@ add_subdirectory(examples)
 
 # Build the test suite
 add_executable(tests
+                    tests/data.cpp
                     tests/util.cpp)
 target_link_libraries(tests
                     libforest 
