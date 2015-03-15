@@ -66,7 +66,7 @@ cv::Mat visualizeGaussians(int H, int W, std::vector<Gaussian> gaussians, std::v
     return image;
 }
 
-cv::Mat visualizeTree(int H, int W, DensityTree* tree)
+cv::Mat visualizeTree(int H, int W, KernelDensityTree* tree)
 {    
     cv::Mat image(H, W, CV_32FC1, cv::Scalar(0));
     float p_max = 0;
@@ -123,7 +123,7 @@ cv::Mat visualizeSamples(int H, int W, const UnlabeledDataStorage* storage)
     return image;
 }
 
-cv::Mat visualizeColoredSamples(int H, int W, const UnlabeledDataStorage* storage, DensityTree* tree)
+cv::Mat visualizeColoredSamples(int H, int W, const UnlabeledDataStorage* storage, KernelDensityTree* tree)
 {
     cv::Mat image(H, W, CV_8UC3, cv::Scalar(255, 255, 255));
     std::vector<cv::Vec3b> colors(tree->getNumNodes(), cv::Vec3b(0, 0, 0));
@@ -181,8 +181,10 @@ int main(int argc, const char** argv)
         ("num-samples", boost::program_options::value<int>()->default_value(10000),"number of samples for training")
         ("num-features", boost::program_options::value<int>()->default_value(10), "number of features to use (set to dimensionality of data to learn deterministically)")
         ("max-depth", boost::program_options::value<int>()->default_value(10), "maximum depth of trees")
-        ("min-split-examples", boost::program_options::value<int>()->default_value(2000), "minimum number of samples required for a split")
-        ("min-child-split-examples", boost::program_options::value<int>()->default_value(1000), "minimum examples needed in the children for a split")
+        ("min-split-examples", boost::program_options::value<int>()->default_value(500), "minimum number of samples required for a split")
+        ("min-child-split-examples", boost::program_options::value<int>()->default_value(250), "minimum examples needed in the children for a split")
+        ("bandwidth-selection-method", boost::program_options::value<int>()->default_value(0), "bandwidth selection method")
+        ("kernel", boost::program_options::value<int>()->default_value(0), "kernel")
         ("seed", boost::program_options::value<int>()->default_value(std::time(0)), "seed used for std::srand");
 
     boost::program_options::positional_options_description positionals;
@@ -257,14 +259,55 @@ int main(int argc, const char** argv)
     cv::Mat image_samples = visualizeSamples(H, W, &storage);
     cv::imwrite("samples.png", image_samples);    
     
-    DensityTreeLearner learner;
-    learner.addCallback(DensityTreeLearner::defaultCallback, 1);
+    int bandWidthSelectionMethod = KernelDensityEstimator::BANDWIDTH_RULE_OF_THUMB;
+    switch(parameters["bandwidth-selection-method"].as<int>())
+    {
+        case KernelDensityEstimator::BANDWIDTH_RULE_OF_THUMB:
+        case KernelDensityEstimator::BANDWIDTH_RULE_OF_THUMB_INTERQUARTILE:
+        case KernelDensityEstimator::BANDWIDTH_MAXIMAL_SMOOTHING_PRINCIPLE:
+            bandWidthSelectionMethod = parameters["bandwidth-selection-method"].as<int>();
+            break;
+        default:
+            std::cout << "Invalid bandwidth selection method." << std::endl;
+            return 1;
+    }
+    
+    MultivariateKernel* kernel;
+    switch (parameters["kernel"].as<int>())
+    {
+        case 0:
+            kernel = new MultivariateGaussianKernel();
+            break;
+        case 1:
+            kernel = new MultivariateEpanechnikovKernel();
+            break;
+        case 2:
+            kernel = new ProductKernel(new GaussianKernel());
+            break;
+        case 3:
+            kernel = new ProductKernel(new EpanechnikovKernel());
+            break;
+        case 4:
+            kernel = new ProductKernel(new BiweightKernel());
+            break;
+        case 5:
+            kernel = new ProductKernel(new TriweightKernel());
+            break;
+        default:
+            std::cout << "Invalid kernel." << std::endl;
+            return 1;
+    }
+    
+    KernelDensityTreeLearner learner;
+    learner.addCallback(KernelDensityTreeLearner::defaultCallback, 1);
     learner.setMaxDepth(parameters["max-depth"].as<int>());
     learner.setNumFeatures(parameters["num-features"].as<int>());
     learner.setMinSplitExamples(parameters["min-split-examples"].as<int>());
     learner.setMinChildSplitExamples(parameters["min-child-split-examples"].as<int>());
-    
-    DensityTree* tree = learner.learn(&storage);
+    learner.setKernel(kernel);
+    learner.setBandwidthSelectionMethod(bandWidthSelectionMethod);
+            
+    KernelDensityTree* tree = learner.learn(&storage);
     
     GaussianKullbackLeiblerTool klTool;
     klTool.measureAndPrint(tree, gaussians, weights, 10*N);
@@ -277,15 +320,6 @@ int main(int argc, const char** argv)
     
     cv::Mat image_colored_samples = visualizeColoredSamples(H, W, &storage, tree);
     cv::imwrite("colored_samples.png", image_colored_samples);
-    
-    UnlabeledDataStorage storage_tree;
-    for (int n = 0; n < N; n++)
-    {
-        storage_tree.addDataPoint(tree->sample());
-    }
-    
-    cv::Mat image_samples_tree = visualizeSamples(H, W, &storage_tree);
-    cv::imwrite("tree_samples.png", image_samples_tree);
     
     delete tree;
     return 0;

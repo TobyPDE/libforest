@@ -28,6 +28,7 @@
 #define LIBF_BG_COLOR_WHITE    "\x1B[47m"
 
 namespace libf {
+    
     /**
      * Writes a binary value to a stream
      */

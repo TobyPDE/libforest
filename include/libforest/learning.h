@@ -416,8 +416,8 @@ namespace libf {
      * This is a an abstract random forest learner providing functionality for
      * online and offline learning.
      */
-    template<class S>
-    class AbstractRandomForestLearner : public AbstractLearner<RandomForest, S> {
+    template<class M, class S>
+    class AbstractRandomForestLearner : public AbstractLearner<M, S> {
     public:
         
         AbstractRandomForestLearner() : numTrees(8), numThreads(1) {}
@@ -513,7 +513,7 @@ namespace libf {
     /**
      * This is an offline random forest learner. 
      */
-    class RandomForestLearner : public AbstractRandomForestLearner<RandomForestLearnerState>,
+    class RandomForestLearner : public AbstractRandomForestLearner<RandomForest, RandomForestLearnerState>,
             public Learner<RandomForest> {
     public:
         

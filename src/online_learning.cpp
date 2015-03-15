@@ -75,7 +75,7 @@ void OnlineDecisionTreeLearner::updateSplitStatistics(std::vector<EfficientEntro
     for (int f = 0; f < numFeatures; f++)
     {
         // There may not be numThresholds thresholds yet!!!
-        for (int t = 0; t < thresholds[f].size(); t++)
+        for (unsigned int t = 0; t < thresholds[f].size(); t++)
         {
             if (x(features[f]) < thresholds[f][t])
             {
@@ -91,7 +91,17 @@ void OnlineDecisionTreeLearner::updateSplitStatistics(std::vector<EfficientEntro
     }
 }
 
-DecisionTree::ptr OnlineDecisionTreeLearner::learn(AbstractDataStorage::ptr storage, DecisionTree::ptr tree) {
+DecisionTree::ptr OnlineDecisionTreeLearner::learn(AbstractDataStorage::ptr storage)
+{
+{
+    DecisionTree::ptr tree = std::make_shared<DecisionTree>();
+    tree->addNode(0);
+    
+    return learn(storage, tree);
+}
+
+DecisionTree::ptr OnlineDecisionTreeLearner::learn(AbstractDataStorage::ptr storage, DecisionTree::ptr tree)
+{
     
     // Get the number of training examples and the dimensionality of the data set
     const int D = storage->getDimensionality();
@@ -101,21 +111,19 @@ DecisionTree::ptr OnlineDecisionTreeLearner::learn(AbstractDataStorage::ptr stor
     assert(numFeatures <= D);
     assert(thresholdGenerator.getSize() == D);
     
+    // The tree must have at least the root note!
+    assert(tree->getNumNodes() > 0);
+    
     // Saves the sum of impurity decrease achieved by each feature
     importance = std::vector<float>(D, 0.f);
     
     OnlineDecisionTreeLearnerState state;
     state.action = ACTION_START_TREE;
-        
-    // Set up a new tree if no existing tree is given.
-    if (!tree)
-    {
-        tree = std::make_shared<DecisionTree>(true);
-    }
     
     evokeCallback(tree, 0, state);
     
     // Set up a list of all available features.
+    numFeatures = std::min(numFeatures, D);
     std::vector<int> features(D);
     for (int f = 0; f < D; f++)
     {
@@ -159,6 +167,7 @@ DecisionTree::ptr OnlineDecisionTreeLearner::learn(AbstractDataStorage::ptr stor
             {
                 // Try the first feature.
                 nodeFeatures[f] = features[f];
+                assert(nodeFeatures[f] >= 0 && nodeFeatures[f] < D);
                 
                 // This may be a trivial feature, so search for the next non/trivial
                 // feature; make sure that all chosen features are different.
@@ -229,7 +238,7 @@ DecisionTree::ptr OnlineDecisionTreeLearner::learn(AbstractDataStorage::ptr stor
         // - if the number of examples is too small
         // - if the maximum depth is reached
         if (nodeStatistics.getMass() < minSplitExamples || nodeStatistics.isPure() 
-                || depth > maxDepth)
+                || depth >= maxDepth)
         {
             // Do not split, update leaf histogram according to new sample.
             updateLeafNodeHistogram(tree->getHistogram(leaf), nodeStatistics, smoothingParameter);
@@ -283,6 +292,9 @@ DecisionTree::ptr OnlineDecisionTreeLearner::learn(AbstractDataStorage::ptr stor
             
             continue;
         }
+        
+        assert(bestFeature >= 0 && nodeFeatures[bestFeature] >= 0 
+                && nodeFeatures[bestFeature] < D);
         
         // We split this node!
         tree->setThreshold(leaf, nodeThresholds[bestFeature][bestThreshold]); // Save the actual threshold value.
@@ -385,20 +397,24 @@ int OnlineDecisionTreeLearner::verboseCallback(DecisionTree::ptr tree, const Onl
 /// RandomForestLearner
 ////////////////////////////////////////////////////////////////////////////////
 
+RandomForest::ptr OnlineRandomForestLearner::learn(AbstractDataStorage::ptr storage)
+{
+    RandomForest::ptr forest = std::make_shared<RandomForest>();
+    return learn(storage, forest);
+}
+
 RandomForest::ptr OnlineRandomForestLearner::learn(AbstractDataStorage::ptr storage, RandomForest::ptr forest)
 {
     const int D = storage->getDimensionality();
-    
-    if (!forest)
-    {
-        forest = std::make_shared<RandomForest>();
-    }
     
     for (int i = 0; i < numTrees; i++)
     {
         if (i >= forest->getSize())
         {
-            forest->addTree(std::make_shared<DecisionTree>(true));
+            DecisionTree* tree = std::make_shared<DecisionTree>(true);
+            tree->addNode(0);
+            
+            forest->addTree(tree);
         }
     }
     
@@ -416,7 +432,6 @@ RandomForest::ptr OnlineRandomForestLearner::learn(AbstractDataStorage::ptr stor
     int treeStartCounter = 0; 
     int treeFinishCounter = 0; 
     
-    DecisionTree::ptr tree;
     #pragma omp parallel for num_threads(numThreads)
     for (int i = 0; i < numTrees; i++)
     {

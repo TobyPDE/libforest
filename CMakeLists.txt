@@ -7,6 +7,7 @@ cmake_minimum_required(VERSION 2.6)
 project(libforest)
 
 set(LIBF_INCLUDE_DIRS "${PROJECT_SOURCE_DIR}/include")
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/")
 
 enable_testing()
 
@@ -48,10 +49,11 @@ include_directories(
                     ${GTEST_INCLUDE_DIRS})
 
 # Add the necessary g++ flags:
-# C++11
-# All warnings
+# -std=c++11: C++11
+# -g: Debuggin with Valgrind
+# -Wall: All warnings
 # OpenMP
-set(CMAKE_CXX_FLAGS "-std=c++11 -Wall ${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
+set(CMAKE_CXX_FLAGS "-std=c++11 -g -Wall ${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
 
 ################################################################################
 ### SET UP TARGETS
@@ -61,6 +63,7 @@ set(CMAKE_CXX_FLAGS "-std=c++11 -Wall ${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
 add_library(libforest STATIC 
                     src/data.cpp 
                     src/classifiers.cpp 
+                    src/estimators.cpp
                     src/unsupervised_learning.cpp 
                     src/online_learning.cpp 
                     src/learning.cpp 
@@ -74,6 +77,9 @@ target_link_libraries(libforest
 # Build the examples
 # TODO: Make this a CMake option or remove it completely from the build process
 add_subdirectory(examples)
+
+message(STATUS "GTest_INCLUDE_DIR=${GTest_INCLUDE_DIR}")
+message(STATUS "GTest_LIBRARIES=${GTest_LIBRARIES}")
 
 # Build the test suite
 add_executable(tests

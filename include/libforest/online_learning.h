@@ -26,10 +26,14 @@ namespace libf {
     public:
         
         /**
-         * Learns a classifier online (updates a given classifier).
+         * Learns a classifier.
          */
-        virtual std::shared_ptr<T> learn(AbstractDataStorage::ptr storage, std::shared_ptr<T> model = 0) = 0;
-
+        virtual std::shared_ptr<T> learn(AbstractDataStorage::ptr storage) = 0;
+        
+        /**
+         * Updates a classifier online.
+         */
+        virtual std::shared_ptr<T> learn(AbstractDataStorage::ptr storage, std::shared_ptr<T> model) = 0;
     };
     
     class OnlineDecisionTreeLearnerState : public AbstractLearnerState {
@@ -269,9 +273,15 @@ namespace libf {
         }
         
         /**
+         * Learns a decision tree.
+         */
+        virtual DecisionTree* learn(const DataStorage* storage);
+        
+        /**
          * Updates the given decision tree on the given data.
          */
-        virtual DecisionTree::ptr learn(AbstractDataStorage::ptr storage, DecisionTree::ptr tree = 0);
+        virtual DecisionTree::ptr learn(AbstractDataStorage::ptr storage, DecisionTree::ptr tree);
+        virtual DecisionTree* learn(const DataStorage* storage, DecisionTree* tree);
         
     protected:
         /**
@@ -296,10 +306,6 @@ namespace libf {
          */
         float bootstrapLambda;
         /**
-         * Minimum objective required for a node to split.
-         */
-        float minSplitObjective;
-        /**
          * Number of thresholds randomly sampled. Together with the sampled
          * features these define the tests over which to optimize at
          * each node in online learning.
@@ -307,6 +313,10 @@ namespace libf {
          * @see http://lrs.icg.tugraz.at/pubs/saffari_olcv_09.pdf
          */
         int numThresholds;
+        /**
+         * Minimum objective required for a node to split.
+         */
+        float minSplitObjective;
         /**
          * The generator to sample random thresholds.
          */
@@ -336,7 +346,7 @@ namespace libf {
     /**
      * This is an offline random forest learner. 
      */
-    class OnlineRandomForestLearner : public AbstractRandomForestLearner<OnlineRandomForestLearnerState>,
+    class OnlineRandomForestLearner : public AbstractRandomForestLearner<RandomForest, OnlineRandomForestLearnerState>,
             public OnlineLearner<RandomForest> {
     public:
         
@@ -379,9 +389,15 @@ namespace libf {
         }
         
         /**
+         * Learns a decision forest.
+         */
+        virtual RandomForest* learn(const DataStorage* storage);
+        
+        /**
          * Learns a forests. 
          */
-        virtual RandomForest::ptr learn(AbstractDataStorage::ptr storage, RandomForest::ptr forest = 0);
+        virtual RandomForest::ptr learn(AbstractDataStorage::ptr storage, RandomForest::ptr forest);
+        virtual RandomForest* learn(const DataStorage* storage, RandomForest* forest);
 
     protected:
         /**

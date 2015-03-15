@@ -13,11 +13,6 @@
 #include <memory>
 #include <Eigen/Dense>
 
-// For gaussian sampling
-#include <boost/random/mersenne_twister.hpp>
-#include <boost/random/normal_distribution.hpp>
-#include <boost/random/variate_generator.hpp>
-
 #include "data.h"
 #include "util.h"
 #include "error_handling.h"
@@ -47,37 +42,35 @@ namespace libf {
          * Returns the class posterior probability p(c|x).
          */
         virtual void classLogPosterior(const DataPoint & x, std::vector<float> & probabilities) const = 0;
-        
-        /**
-         * Reads the classifier from a stream
-         */
-        virtual void read(std::istream & stream) = 0;
-        
-        /**
-         * Writes the classifier to a stream
-         */
-        virtual void write(std::ostream & stream) const = 0;
     };
     
-    /**
-     * This class represents a decision tree.
-     */
-    class DecisionTree : public Classifier {
+    class Tree {
     public:
-        typedef std::shared_ptr<DecisionTree> ptr;
-        
         /**
-         * Creates a new decision tree
+         * Creates an empty density tree.
          */
-        DecisionTree();
+        Tree();
         
         /**
-         * Creates a decision tree which maintains a set of statistics
-         * for each leaf node.
+         * Destructor.
+         */
+        virtual ~Tree() {};
+        
+        /**
+         * Splits a child node and returns the index of the left child. 
          * 
-         * @param statistics If true, a set of statistics is maintained for each leaf node
+         * @param node The node index
          */
-        DecisionTree(bool statistics);
+        int splitNode(int node);
+        
+        /**
+         * Passes the data point through the tree and returns the index of the
+         * leaf node it ends up in. 
+         * 
+         * @param v The data point to pass down the tree
+         * @return The index of the leaf node v ends up in
+         */
+        int findLeafNode(const DataPoint & v) const;
         
         /**
          * Sets the split feature for a node
@@ -133,18 +126,123 @@ namespace libf {
         }
         
         /**
-         * Splits a child node and returns the index of the left child. 
+         * Returns the total number of nodes. 
+         * 
+         * @return The total number of nodes
          */
-        int splitNode(int node);
+        int getNumNodes() const
+        {
+            return static_cast<int>(leftChild.size());
+        }
         
         /**
-         * Passes the data point through the tree and returns the index of the
-         * leaf node it ends up in. 
+         * Returns true if the given node is a leaf node. 
          * 
-         * @param v The data point to pass down the tree
-         * @return The index of the leaf node v ends up in
+         * @param node The index of the node
+         * @return True if the node is a leaf node
          */
-        int findLeafNode(const DataPoint & v) const;
+        bool isLeafNode(int node) const 
+        {
+            BOOST_ASSERT_MSG(0 <= node && node < splitFeatures.size(), "Invalid node index.");
+            
+            return leftChild[node] == 0;
+        }
+        
+        /**
+         * Returns the index of the left child node for a node. 
+         * 
+         * @param node The index of the node
+         * @return The index of the left child node
+         */
+        int getLeftChild(int node) const
+        {
+            BOOST_ASSERT_MSG(0 <= node && node < splitFeatures.size(), "Invalid node index.");
+            
+            return leftChild[node];
+        }
+        
+        /**
+         * Get depth of a node where the root node has depth 0. 
+         * 
+         * @param node The index of the node
+         * @return The depth of the node
+         */
+        int getDepth(int node)
+        {
+            BOOST_ASSERT_MSG(0 <= node && node < splitFeatures.size(), "Invalid node index.");
+            
+            return depths[node];
+        }
+        
+        /**
+         * Reads the tree from a stream. 
+         * 
+         * @param stream The stream to read the tree from
+         */
+        virtual void read(std::istream & stream);
+        
+        /**
+         * Writes the tree to a stream
+         * 
+         * @param stream The stream to write the tree to.
+         */
+        virtual void write(std::ostream & stream) const;
+        
+        /**
+         * Adds a new node. This method needs to be implemented by all trees.
+         */
+        virtual void addNode(int depth);
+        
+    protected:
+        
+        /**
+         * Adds a new node. THis method needs to be implemented by all trees.
+         */
+        virtual void addNodeDerived(int depth) = 0;
+        
+        /**
+         * The depth of each node.
+         */
+        std::vector<int> depths;
+        /**
+         * The split feature at each node. 
+         */
+        std::vector<int> splitFeatures;
+        /**
+         * The threshold at each node
+         */
+        std::vector<float> thresholds;
+        /**
+         * The left child node of each node. If the left child node is 0, then 
+         * this is a leaf node. The right child node is left + 1. 
+         */
+        std::vector<int> leftChild;
+        
+    };
+    
+    /**
+     * This class represents a decision tree.
+     */
+    class DecisionTree : public Tree, public Classifier {
+    public:
+        
+        /**
+         * Creates a new decision tree
+         */
+        DecisionTree();
+        
+        /**
+         * Creates a decision tree which maintains a set of statistics
+         * for each leaf node.
+         * 
+         * @param statistics If true, a set of statistics is maintained for each leaf node
+         */
+        DecisionTree(bool statistics);
+        
+        /**
+         * Destructor.
+         */
+        ~DecisionTree() {};
         
         /**
          * Returns the class log posterior log(p(c | x)). The probabilities are
@@ -193,55 +291,6 @@ namespace libf {
             BOOST_ASSERT_MSG(0 <= node && node < splitFeatures.size(), "Invalid node index.");
             
             return histograms[node];
-        }
-        
-        /**
-         * Returns the total number of nodes. 
-         * 
-         * @return The total number of nodes
-         */
-        int getNumNodes() const
-        {
-            return static_cast<int>(leftChild.size());
-        }
-        
-        /**
-         * Returns true if the given node is a leaf node. 
-         * 
-         * @param node The index of the node
-         * @return True if the node is a leaf node
-         */
-        bool isLeafNode(int node) const 
-        {
-            BOOST_ASSERT_MSG(0 <= node && node < splitFeatures.size(), "Invalid node index.");
-            
-            return leftChild[node] == 0;
-        }
-        
-        /**
-         * Returns the index of the left child node for a node. 
-         * 
-         * @param node The index of the node
-         * @return The index of the left child node
-         */
-        int getLeftChild(int node) const
-        {
-            BOOST_ASSERT_MSG(0 <= node && node < splitFeatures.size(), "Invalid node index.");
-            
-            return leftChild[node];
-        }
-        
-        /**
-         * Get depth of a node where the root node has depth 0. 
-         * 
-         * @param node The index of the node
-         * @return The depth of the node
-         */
-        int getDepth(int node)
-        {
-            BOOST_ASSERT_MSG(0 <= node && node < splitFeatures.size(), "Invalid node index.");
-            
-            return depths[node];
         }
         
         /**
@@ -309,25 +358,7 @@ namespace libf {
         /**
          * Adds a plain new node.
          */
-        void addNode(int depth);
-        
-        /**
-         * The depth of each node.
-         */
-        std::vector<int> depths;
-        /**
-         * The split feature at each node. 
-         */
-        std::vector<int> splitFeatures;
-        /**
-         * The threshold at each node
-         */
-        std::vector<float> thresholds;
-        /**
-         * The left child node of each node. If the left child node is 0, then 
-         * this is a leaf node. The right child node is left + 1. 
-         */
-        std::vector<int> leftChild;
+        virtual void addNodeDerived(int depth);
         
     private:
         /**
@@ -372,308 +403,6 @@ namespace libf {
         std::vector< std::vector<int> > nodeFeatures;
     };
     
-    /**
-     * A simple Gaussian distribution represented by mean and covariance matrix.
-     * 
-     * TODO: Move to another module and add Java-Doc comments. 
-     */
-    class Gaussian {
-    public:
-        /**
-         * Default Gaussian with zero mean and identity covariance.
-         */
-        Gaussian() :
-                cachedInverse(false),
-                cachedDeterminant(false),
-                randN(rng, norm) {};
-        
-        /**
-         * Gaussian with given mean and covariance.
-         */
-        Gaussian(Eigen::VectorXf _mean, Eigen::MatrixXf _covariance);
-        
-        /**
-         * Gaussian with given mean and covariance and cached determinant.
-         */
-        Gaussian(Eigen::VectorXf _mean, Eigen::MatrixXf _covariance, float _covarianceDeterminant);
-                
-        /**
-         * Destructor.
-         */
-        ~Gaussian() {};
-        
-        Gaussian & operator=(const Gaussian & other)
-        {
-            if (this != &other)
-            {
-                mean = Eigen::VectorXf(other.mean);
-                covariance = Eigen::MatrixXf(other.covariance);
-
-                transform = Eigen::MatrixXf(other.transform);
-
-                cachedInverse = false;
-                cachedDeterminant = false;
-            }
-            return *this;
-        }
-        
-        /**
-         * Get probability of the given data point.
-         */
-        float evaluate(const DataPoint & x);
-        
-        /**
-         * Sample a point from the Gaussian.
-         */
-        void sample(DataPoint & x);
-        
-        /**
-         * Sets the mean.
-         */
-        void setMean(const Eigen::VectorXf & _mean)
-        {
-            mean = _mean;
-        }
-        
-        /**
-         * Returns the mean.
-         */
-        Eigen::VectorXf & getMean()
-        {
-            return mean;
-        }
-        
-        /**
-         * Sets the covariance matrix.
-         */
-        void setCovariance(Eigen::MatrixXf & _covariance);
-        
-        /**
-         * Returns the covariance matrix.
-         */
-        Eigen::MatrixXf & getCovariance()
-        {
-            return covariance;
-        }
-        
-    private:
-        /**
-         * Mean of Gaussian.
-         */
-        Eigen::VectorXf mean;
-        /**
-         * Covariance of Gaussian.
-         */
-        Eigen::MatrixXf covariance;
-        /**
-         * Inverse covariance can be cached.
-         */
-        bool cachedInverse = false;
-        /**
-         * Covariance determinant can be cached.
-         */
-        bool cachedDeterminant = false;
-        /**
-         * Cached covariance inverse.
-         */
-        Eigen::MatrixXf covarianceInverse;
-        /**
-         * Cached determinant.
-         */
-        float covarianceDeterminant;
-        /**
-         * Uniform pseudo random generator.
-         */
-        boost::mt19937 rng;
-        /**
-         * Scalar Gaussian distribution.
-         */
-        boost::normal_distribution<float> norm;
-        /**
-         * Zero mean and unit variance Gaussian distribution.
-         */
-        boost::variate_generator<boost::mt19937&, boost::normal_distribution<float> > randN;
-        /**
-         * Eigenvector and eigenvalue transformation for sampling.
-         */
-        Eigen::MatrixXf transform;
-    };
-    
-    /**
-     * Represents the Gaussian at each leaf and allows to update mean and covariance
-     * efficiently as well as compute the determinant of the covariance matrix
-     * for learning.
-     * 
-     * TODO: Add Java-Doc comments and move to another module. 
-     */
-    class EfficientCovarianceMatrix {
-    public:
-        /**
-         * Creates an empty covaraince matrix.
-         */
-        EfficientCovarianceMatrix() : 
-                dimensions(0),
-                mass(0),
-                cachedTrueCovariance(false),
-                cachedDeterminant(false),
-                covarianceDeterminant(0) {};
-                
-        /**
-         * Creates a _classes x _classes covariance matrix.
-         */
-        EfficientCovarianceMatrix(int _dimensions) : 
-                dimensions(_dimensions),
-                mass(0),
-                covariance(_dimensions, _dimensions),
-                mean(_dimensions),
-                cachedTrueCovariance(false),
-                cachedDeterminant(false),
-                trueCovariance(_dimensions, _dimensions),
-                covarianceDeterminant(0) {};
-                
-        /**
-         * Destructor.
-         */
-        ~EfficientCovarianceMatrix() {};
-        
-        EfficientCovarianceMatrix operator=(const EfficientCovarianceMatrix & other)
-        {
-            mean = Eigen::VectorXf(other.mean);
-            covariance = Eigen::MatrixXf(other.covariance);
-            dimensions = other.dimensions;
-            mass = other.mass;
-            // TODO: does currently not consider caching!
-            
-            return *this;
-        }
-        
-        /**
-         * Resets the mean and covariance to zero.
-         */
-        void reset()
-        {
-            mean = Eigen::VectorXf::Zero(dimensions);
-            covariance = Eigen::MatrixXf::Zero(dimensions, dimensions);
-            mass = 0;
-            
-            // Update caches.
-            cachedTrueCovariance = false;
-            cachedDeterminant = false;
-            trueCovariance = Eigen::MatrixXf::Zero(dimensions, dimensions);
-            covarianceDeterminant = 0;
-        }
-        
-        /**
-         * Get the number of samples.
-         */
-        int getMass()
-        {
-            return mass;
-        }
-        
-        /**
-         * Add a sample and update covariance and mean estimate.
-         */
-        void addOne(const DataPoint & x);
-        
-        /**
-         * Remove a sample and update covariance and mean estimate.
-         */
-        void subOne(const DataPoint & x);
-        
-        /**
-         * Returns mean.
-         */
-        Eigen::VectorXf & getMean()
-        {
-            return mean;
-        }
-        
-        /**
-         * Returns true covariance matrix from estimates.
-         */
-        Eigen::MatrixXf & getCovariance();
-        
-        /**
-         * Returns covariance determinant;
-         */
-        float getDeterminant();
-        
-        /**
-         * Get the entropy to determine split objective.
-         */
-        float getEntropy();
-        
-    private:
-        
-        /**
-         * Number of dimensions: dimension x dimension covariance matrix.
-         */
-        int dimensions;
-        /**
-         * Number of samples.
-         */
-        int mass;
-        /**
-         * Current estimate of dimension x dimension covariance matrix.
-         */
-        Eigen::MatrixXf covariance;
-        /**
-         * Current estimate of mean.
-         */
-        Eigen::VectorXf mean;
-        /**
-         * The true covariance is cached for reuse when setting a leaf's
-         * Gaussian distribution.
-         */
-        bool cachedTrueCovariance;
-        /**
-         * The determinant is cached for the same reason as above.
-         */
-        bool cachedDeterminant;
-        /**
-         * Cached true covariance matrix.
-         */
-        Eigen::MatrixXf trueCovariance;
-        /**
-         * Cached covariance determinant.
-         */
-        float covarianceDeterminant;
-        
-    };
-    
-    /**
-     * Density decision tree for unsupervised learning.
-     */
-    class DensityDecisionTree : public DecisionTree {
-    public:
-        typedef std::shared_ptr<DensityDecisionTree> ptr;
-        
-        /**
-         * Creates an empty density tree.
-         */
-        DensityDecisionTree() : DecisionTree() {};
-        
-        /**
-         * Destructor.
-         */
-        ~DensityDecisionTree() {};
-        
-        /**
-         * Get the Gaussian of a specific leaf.
-         */
-        Gaussian & getGaussian(const int node)
-        {
-            return gaussians[node];
-        }
-        
-    private:
-        /**
-         * The Gaussians at the leafs.
-         */
-        std::vector<Gaussian> gaussians;
-        
-    };
     
     /**
      * A random forests that classifies a data point that classifies a data 

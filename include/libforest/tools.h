@@ -115,6 +115,7 @@ namespace libf {
         void measureAndSave(RandomForestLearner* learner, boost::filesystem::path file, int rows) const;
     };
     
+    
     /**
      * Computes the relative frequency of the individual classes in a data storage.
      */
@@ -142,6 +143,54 @@ namespace libf {
          * @param storage The data storage to examine
          */
         void measureAndPrint(AbstractDataStorage::ptr storage) const;
+    };
+    
+    /*
+     * Used to assess the quality of a density estimation given the true
+     * Gaussian mixture density.
+     */
+    class GaussianKullbackLeiblerTool {
+    public:
+        
+        /**
+         * Measures the density accuracy using the Kulback-Leibler divergence on a discretegrid.
+         */
+        float measure(Estimator* estimator, std::vector<Gaussian> & gaussians,
+                const std::vector<float> & weights, int N);
+        
+        /**
+         * Print the Kulback-Leibler divergence.
+         */
+        void print(float kl);
+        
+        /**
+         * Measure and print the accuracy in terms of the Kulback-Leibler divergence.
+         */
+        void measureAndPrint(Estimator* estimator, std::vector<Gaussian> & gaussians,
+                const std::vector<float> & weights, int N);
+        
+    };
+    
+    class GaussianSquaredErrorTool {
+    public:
+        
+        /**
+         * Measures the density accuracy in terms for squared error.
+         */
+        float measure(Estimator* estimator, std::vector<Gaussian> & gaussians,
+                const std::vector<float> & weights, int N);
+        
+        /**
+         * Print the squared error.
+         */
+        void print(float se);
+        
+        /**
+         * Measure and print the accuracy in terms of the squared error
+         */
+        void measureAndPrint(Estimator* estimator, std::vector<Gaussian> & gaussians,
+                const std::vector<float> & weights, int N);
+        
     };
 }
 

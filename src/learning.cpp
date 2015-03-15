@@ -19,15 +19,18 @@ static std::random_device rd;
 /**
  * Updates the leaf node histograms using a smoothing parameter
  */
-inline void updateLeafNodeHistogram(std::vector<float> & leafNodeHistograms, const EfficientEntropyHistogram & hist, float smoothing, bool useBootstrap)
+inline void updateLeafNodeHistogram(std::vector<float> & leafNodeHistogram, const EfficientEntropyHistogram & hist, float smoothing, bool useBootstrap)
 {
-    leafNodeHistograms.resize(hist.getSize());
+    const int C = hist.getSize();
+    
+    leafNodeHistogram.resize(C);
+    BOOST_ASSERT(leafNodeHistogram.size() > 0);
     
     if(!useBootstrap)
     {
-        for (int c = 0; c < hist.getSize(); c++)
+        for (int c = 0; c < C; c++)
         {
-            leafNodeHistograms[c] = std::log((hist.at(c) + smoothing)/(hist.getMass() + hist.getSize() * smoothing));
+            leafNodeHistogram[c] = std::log((hist.at(c) + smoothing)/(hist.getMass() + hist.getSize() * smoothing));
         }
     }
 }
@@ -52,9 +55,9 @@ DecisionTree::ptr DecisionTreeLearner::learn(AbstractDataStorage::ptr dataStorag
     const int D = storage->getDimensionality();
     const int C = storage->getClasscount();
     
-    // Set up a new tree. Note: We will convert the tree to a shared pointer at
-    // The end in order to speed up learning. 
+    // Set up a new tree. 
     DecisionTree::ptr tree = std::make_shared<DecisionTree>();
+    tree->addNode(0);
     
     // Set up the state for the call backs
     DecisionTreeLearnerState state;
@@ -130,11 +133,11 @@ DecisionTree::ptr DecisionTreeLearner::learn(AbstractDataStorage::ptr dataStorag
         //  If the number of examples is too small
         //  If the training examples are all of the same class
         //  If the maximum depth is reached
-        if (hist.getMass() < minSplitExamples || hist.isPure() || tree->getDepth(node) > maxDepth)
+        if (hist.getMass() < minSplitExamples || hist.isPure() || tree->getDepth(node) >= maxDepth)
         {
-            delete[] trainingExampleList;
             // Resize and initialize the leaf node histogram
             updateLeafNodeHistogram(tree->getHistogram(node), hist, smoothingParameter, useBootstrap);
+            BOOST_ASSERT(tree->getHistogram(node).size() > 0);
             continue;
         }
         
@@ -214,8 +217,8 @@ DecisionTree::ptr DecisionTreeLearner::learn(AbstractDataStorage::ptr dataStorag
         {
             // We didn't
             // Don't split
-            delete[] trainingExampleList;
             updateLeafNodeHistogram(tree->getHistogram(node), hist, smoothingParameter, useBootstrap);
+            BOOST_ASSERT(tree->getHistogram(node).size() > 0);
             continue;
         }
         
@@ -431,7 +434,6 @@ int RandomForestLearner::defaultCallback(RandomForest::ptr forest, const RandomF
     
     return 0;
 }
-
 
 ////////////////////////////////////////////////////////////////////////////////
 /// BoostedRandomForestLearner
