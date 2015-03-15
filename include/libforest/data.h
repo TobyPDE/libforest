@@ -23,6 +23,12 @@ namespace libf {
      */
     typedef Eigen::VectorXf DataPoint;
     
+        
+    /**
+     * This is the label for points without a label
+     */
+#define LIBF_NO_LABEL -1
+    
     /**
      * This is a class label map. The internal data storage works using integer
      * class labels. When loading a data set from a file, the class labels are
@@ -105,11 +111,6 @@ namespace libf {
     public:
         typedef std::shared_ptr<AbstractDataStorage> ptr;
         typedef std::shared_ptr<const AbstractDataStorage> const_ptr;
-        
-        /**
-         * This is the label for points without a label
-         */
-        static const int NO_LABEL = -1;
         
         /**
          * Returns the i-th class label. 
@@ -209,7 +210,7 @@ namespace libf {
     
     /**
      * This is a storage for labeled and unlabeled data. Data points without 
-     * a label get the class label NO_LABEL. This allows us to have mixed storages
+     * a label get the class label LIBF_NO_LABEL. This allows us to have mixed storages
      * with missing labels. 
      */
     class DataStorage : public AbstractDataStorage {
@@ -312,7 +313,7 @@ namespace libf {
             BOOST_ASSERT_MSG(getSize() == 0 || getDataPoint(0).rows() == point.rows(), "The dimensionality of the new point does not match the one of the existing points.");
             
             dataPoints.push_back(point);
-            classLabels.push_back(NO_LABEL);
+            classLabels.push_back(LIBF_NO_LABEL);
         }
         
         /**

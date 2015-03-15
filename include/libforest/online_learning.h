@@ -162,8 +162,8 @@ namespace libf {
                 smoothingParameter(1),
                 useBootstrap(true),
                 bootstrapLambda(1.f),
-                minSplitObjective(1.f), 
-                numThresholds(2*numFeatures)
+                numThresholds(2*numFeatures),
+                minSplitObjective(1.f)
         {
             // Overwrite min split examples.
             minSplitExamples = 30;
@@ -275,13 +275,12 @@ namespace libf {
         /**
          * Learns a decision tree.
          */
-        virtual DecisionTree* learn(const DataStorage* storage);
+        virtual DecisionTree::ptr learn(AbstractDataStorage::ptr storage);
         
         /**
          * Updates the given decision tree on the given data.
          */
         virtual DecisionTree::ptr learn(AbstractDataStorage::ptr storage, DecisionTree::ptr tree);
-        virtual DecisionTree* learn(const DataStorage* storage, DecisionTree* tree);
         
     protected:
         /**
@@ -391,13 +390,12 @@ namespace libf {
         /**
          * Learns a decision forest.
          */
-        virtual RandomForest* learn(const DataStorage* storage);
+        virtual RandomForest::ptr learn(AbstractDataStorage::ptr storage);
         
         /**
          * Learns a forests. 
          */
         virtual RandomForest::ptr learn(AbstractDataStorage::ptr storage, RandomForest::ptr forest);
-        virtual RandomForest* learn(const DataStorage* storage, RandomForest* forest);
 
     protected:
         /**

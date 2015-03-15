@@ -84,7 +84,7 @@ bool AbstractDataStorage::containsUnlabeledPoints() const
     // Go through the storage and check for unlabeled points
     for (int n = 0; n < getSize(); n++)
     {
-        if (getClassLabel(n) == NO_LABEL)
+        if (getClassLabel(n) == LIBF_NO_LABEL)
         {
             return true;
         }

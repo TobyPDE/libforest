@@ -34,14 +34,14 @@ cv::Mat visualizeGaussians(int H, int W, std::vector<Gaussian> gaussians, std::v
         for (int j = 0; j < W; j++)
         {
             DataPoint x(2);
-            x.at(0) = i;
-            x.at(1) = j;
+            x(0) = i;
+            x(1) = j;
             
             float p_x = 0;
             
             for (int m = 0; m < M; m++)
             {
-                p_x += weights[m]*gaussians[m].evaluate(&x);
+                p_x += weights[m]*gaussians[m].evaluate(x);
             }
             
             if (p_x > p_max)
@@ -66,7 +66,7 @@ cv::Mat visualizeGaussians(int H, int W, std::vector<Gaussian> gaussians, std::v
     return image;
 }
 
-cv::Mat visualizeTree(int H, int W, KernelDensityTree* tree)
+cv::Mat visualizeTree(int H, int W, KernelDensityTree::ptr tree)
 {    
     cv::Mat image(H, W, CV_32FC1, cv::Scalar(0));
     float p_max = 0;
@@ -76,10 +76,10 @@ cv::Mat visualizeTree(int H, int W, KernelDensityTree* tree)
         for (int j = 0; j < W; j++)
         {
             DataPoint x(2);
-            x.at(0) = i;
-            x.at(1) = j;
+            x(0) = i;
+            x(1) = j;
             
-            float p_x = tree->estimate(&x);
+            float p_x = tree->estimate(x);
             
             if (p_x > p_max)
             {
@@ -103,16 +103,16 @@ cv::Mat visualizeTree(int H, int W, KernelDensityTree* tree)
     return image;
 }
 
-cv::Mat visualizeSamples(int H, int W, const UnlabeledDataStorage* storage)
+cv::Mat visualizeSamples(int H, int W, AbstractDataStorage::ptr storage)
 {
     cv::Mat image(H, W, CV_8UC1, cv::Scalar(255));
     
     for (int n = 0; n < storage->getSize(); n++)
     {
-        DataPoint* x = storage->getDataPoint(n);
+        const DataPoint & x = storage->getDataPoint(n);
         
-        int i = std::floor(x->at(0));
-        int j = std::floor(x->at(1));
+        int i = std::floor(x(0));
+        int j = std::floor(x(1));
         
         if (i >= 0 && i < H && j >= 0 && j < W)
         {
@@ -123,14 +123,14 @@ cv::Mat visualizeSamples(int H, int W, const UnlabeledDataStorage* storage)
     return image;
 }
 
-cv::Mat visualizeColoredSamples(int H, int W, const UnlabeledDataStorage* storage, KernelDensityTree* tree)
+cv::Mat visualizeColoredSamples(int H, int W, AbstractDataStorage::ptr storage, KernelDensityTree::ptr tree)
 {
     cv::Mat image(H, W, CV_8UC3, cv::Scalar(255, 255, 255));
     std::vector<cv::Vec3b> colors(tree->getNumNodes(), cv::Vec3b(0, 0, 0));
     
     for (int n = 0; n < storage->getSize(); n++)
     {
-        DataPoint* x = storage->getDataPoint(n);
+        const DataPoint & x = storage->getDataPoint(n);
         int leaf = tree->findLeafNode(x);
         
         while (colors[leaf][0] == 0 && colors[leaf][1] == 0 && colors[leaf][2] == 0)
@@ -140,8 +140,8 @@ cv::Mat visualizeColoredSamples(int H, int W, const UnlabeledDataStorage* storag
             colors[leaf][2] = std::rand()%256;
         }
         
-        int i = std::floor(x->at(0));
-        int j = std::floor(x->at(1));
+        int i = std::floor(x(0));
+        int j = std::floor(x(1));
         
         if (i >= 0 && i < H && j >= 0 && j < W)
         {
@@ -248,15 +248,17 @@ int main(int argc, const char** argv)
     
     // Generate samples.
     const int N = parameters["num-samples"].as<int>();
-    UnlabeledDataStorage storage;
+    DataStorage::ptr storage = DataStorage::Factory::create();
     
     for (int n = 0; n < N; n++)
     {
         int m = std::rand() % M;
-        storage.addDataPoint(gaussians[m].sample());
+        DataPoint x;
+        gaussians[m].sample(x);
+        storage->addDataPoint(x);
     }
     
-    cv::Mat image_samples = visualizeSamples(H, W, &storage);
+    cv::Mat image_samples = visualizeSamples(H, W, storage);
     cv::imwrite("samples.png", image_samples);    
     
     int bandWidthSelectionMethod = KernelDensityEstimator::BANDWIDTH_RULE_OF_THUMB;
@@ -307,7 +309,7 @@ int main(int argc, const char** argv)
     learner.setKernel(kernel);
     learner.setBandwidthSelectionMethod(bandWidthSelectionMethod);
             
-    KernelDensityTree* tree = learner.learn(&storage);
+    KernelDensityTree::ptr tree = learner.learn(storage);
     
     GaussianKullbackLeiblerTool klTool;
     klTool.measureAndPrint(tree, gaussians, weights, 10*N);
@@ -318,9 +320,8 @@ int main(int argc, const char** argv)
     cv::Mat image_tree = visualizeTree(H, W, tree);
     cv::imwrite("tree.png", image_tree);
     
-    cv::Mat image_colored_samples = visualizeColoredSamples(H, W, &storage, tree);
+    cv::Mat image_colored_samples = visualizeColoredSamples(H, W, storage, tree);
     cv::imwrite("colored_samples.png", image_colored_samples);
     
-    delete tree;
     return 0;
 }

@@ -62,18 +62,18 @@ int main(int argc, const char** argv)
     
     const bool useBootstrap = parameters.find("use-bootstrap") != parameters.end();
     
-    DataStorage storage;
-    DataStorage storageT;
+    DataStorage::ptr storage = DataStorage::Factory::create();
+    DataStorage::ptr storageT = DataStorage::Factory::create();
     
     LibforestDataReader reader;
-    reader.read(trainDat.string(), &storageT);
-    reader.read(testDat.string(), &storage);
+    reader.read(trainDat.string(), storageT);
+    reader.read(testDat.string(), storage);
     
     // Important for sorted datasets!
-    storageT.randPermute();
+    storageT->randPermute();
     
     std::cout << "Training Data" << std::endl;
-    storageT.dumpInformation();
+    storageT->dumpInformation();
     
     DecisionTreeLearner treeLearner;
     
@@ -82,14 +82,13 @@ int main(int argc, const char** argv)
     treeLearner.setNumFeatures(parameters["num-features"].as<int>());
     treeLearner.addCallback(DecisionTreeLearner::defaultCallback, 1);
     
-    DecisionTree* tree = treeLearner.learn(&storageT);
+    DecisionTree::ptr tree = treeLearner.learn(storageT);
     
     AccuracyTool accuracyTool;
-    accuracyTool.measureAndPrint(tree, &storage);
+    accuracyTool.measureAndPrint(tree, storage);
     
     ConfusionMatrixTool confusionMatrixTool;
-    confusionMatrixTool.measureAndPrint(tree, &storage);
+    confusionMatrixTool.measureAndPrint(tree, storage);
     
-    delete tree;
     return 0;
 }

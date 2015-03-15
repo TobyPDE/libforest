@@ -225,6 +225,7 @@ namespace libf {
      */
     class DecisionTree : public Tree, public Classifier {
     public:
+        typedef std::shared_ptr<DecisionTree> ptr;
         
         /**
          * Creates a new decision tree

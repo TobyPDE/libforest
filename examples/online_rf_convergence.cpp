@@ -73,18 +73,18 @@ int main(int argc, const char** argv)
         return 1;
     }
     
-    DataStorage storage;
-    DataStorage storageT;
+    DataStorage::ptr storage = DataStorage::Factory::create();
+    DataStorage::ptr storageT = DataStorage::Factory::create();
     
-    LibforestDataProvider reader;
-    reader.read(trainDat.string(), &storageT);
-    reader.read(testDat.string(), &storage);
+    LibforestDataReader reader;
+    reader.read(trainDat.string(), storageT);
+    reader.read(testDat.string(), storage);
     
     // Important for sorted datasets!
-    storageT.randPermute();
+    storageT->randPermute();
     
     std::cout << "Training Data" << std::endl;
-    storageT.dumpInformation();
+    storageT->dumpInformation();
     
     bool useBootstrap = parameters.find("use-bootstrap") != parameters.end();
     RandomThresholdGenerator randomGenerator(storageT);
@@ -106,16 +106,14 @@ int main(int argc, const char** argv)
     onlineForestLearner.setNumThreads(parameters["num-threads"].as<int>());
     // onlineForestLearner.addCallback(OnlineRandomForestLearner::verboseCallback, 1);
     
-    DecisionTreeLearner treeLearner;
-    treeLearner.setMinSplitExamples(parameters["min-split-examples"].as<int>());
-    treeLearner.setMinChildSplitExamples(parameters["min-child-split-examples"].as<int>());
-    treeLearner.setMaxDepth(parameters["max-depth"].as<int>());
-    treeLearner.setNumFeatures(parameters["num-features"].as<int>());
-    treeLearner.setUseBootstrap(useBootstrap);
-    
     RandomForestLearner forestLearner;
     
-    forestLearner.setTreeLearner(&treeLearner);
+    forestLearner.getTreeLearner().setMinSplitExamples(parameters["min-split-examples"].as<int>());
+    forestLearner.getTreeLearner().setMinChildSplitExamples(parameters["min-child-split-examples"].as<int>());
+    forestLearner.getTreeLearner().setMaxDepth(parameters["max-depth"].as<int>());
+    forestLearner.getTreeLearner().setNumFeatures(parameters["num-features"].as<int>());
+    forestLearner.getTreeLearner().setUseBootstrap(useBootstrap);
+    
     forestLearner.setNumTrees(parameters["num-trees"].as<int>());
     forestLearner.setNumThreads(parameters["num-threads"].as<int>());
     // forestLearner.addCallback(RandomForestLearner::defaultCallback, 1);
@@ -125,17 +123,17 @@ int main(int argc, const char** argv)
     
     for (int s = 0; s < S; s++) 
     {
-        const int end = (int) std::min((float) storageT.getSize() - 1, storageT.getSize()*steps[s]);
-        DataStorage batch = storageT.excerpt(0, end);
+        const int end = (int) std::min((float) storageT->getSize() - 1, storageT->getSize()*steps[s]);
+        AbstractDataStorage::ptr batch = storageT->excerpt(0, end);
         
-        RandomForest* onlineForest = onlineForestLearner.learn(&batch);
-        RandomForest* forest = forestLearner.learn(&batch);
+        RandomForest::ptr onlineForest = onlineForestLearner.learn(batch);
+        RandomForest::ptr forest = forestLearner.learn(batch);
         
         std::cout << steps[s]*100 << "% - Random Forest / Online Random Forest:" << std::endl;
         
         AccuracyTool accuracyTool;
-        accuracyTool.measureAndPrint(forest, &storage);
-        accuracyTool.measureAndPrint(onlineForest, &storage);
+        accuracyTool.measureAndPrint(forest, storage);
+        accuracyTool.measureAndPrint(onlineForest, storage);
     }
     
     return 0;

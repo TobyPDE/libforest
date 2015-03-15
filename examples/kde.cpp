@@ -34,14 +34,14 @@ cv::Mat visualizeGaussians(int H, int W, std::vector<Gaussian> gaussians, std::v
         for (int j = 0; j < W; j++)
         {
             DataPoint x(2);
-            x.at(0) = i;
-            x.at(1) = j;
+            x(0) = i;
+            x(1) = j;
 
             float p_x = 0;
 
             for (int m = 0; m < M; m++)
             {
-                p_x += weights[m]*gaussians[m].evaluate(&x);
+                p_x += weights[m]*gaussians[m].evaluate(x);
             }
 
             if (p_x > p_max)
@@ -66,7 +66,7 @@ cv::Mat visualizeGaussians(int H, int W, std::vector<Gaussian> gaussians, std::v
     return image;
 }
 
-cv::Mat visualizeKDE(int H, int W, DensityTree* tree)
+cv::Mat visualizeKDE(int H, int W, KernelDensityEstimator::ptr tree)
 {    
     cv::Mat image(H, W, CV_32FC1, cv::Scalar(0));
     float p_max = 0;
@@ -76,10 +76,10 @@ cv::Mat visualizeKDE(int H, int W, DensityTree* tree)
         for (int j = 0; j < W; j++)
         {
             DataPoint x(2);
-            x.at(0) = i;
-            x.at(1) = j;
+            x(0) = i;
+            x(1) = j;
 
-            float p_x = tree->estimate(&x);
+            float p_x = tree->estimate(x);
 
             if (p_x > p_max)
             {
@@ -103,16 +103,16 @@ cv::Mat visualizeKDE(int H, int W, DensityTree* tree)
     return image;
 }
 
-cv::Mat visualizeSamples(int H, int W, const UnlabeledDataStorage* storage)
+cv::Mat visualizeSamples(int H, int W, AbstractDataStorage::ptr storage)
 {
     cv::Mat image(H, W, CV_8UC1, cv::Scalar(255));
 
     for (int n = 0; n < storage->getSize(); n++)
     {
-        DataPoint* x = storage->getDataPoint(n);
+        const DataPoint & x = storage->getDataPoint(n);
 
-        int i = std::floor(x->at(0));
-        int j = std::floor(x->at(1));
+        int i = std::floor(x(0));
+        int j = std::floor(x(1));
 
         if (i >= 0 && i < H && j >= 0 && j < W)
         {
@@ -133,10 +133,10 @@ cv::Mat visualizeKDE(int H, int W, KernelDensityEstimator* kde)
         for (int j = 0; j < W; j++)
         {
             DataPoint x(2);
-            x.at(0) = i;
-            x.at(1) = j;
+            x(0) = i;
+            x(1) = j;
 
-            float p_x = kde->estimate(&x);
+            float p_x = kde->estimate(x);
 
             if (p_x > p_max)
             {
@@ -237,15 +237,17 @@ int main(int argc, const char** argv)
     
     // Generate samples.
     const int N = parameters["num-samples"].as<int>();
-    UnlabeledDataStorage storage;
+    DataStorage::ptr storage = DataStorage::Factory::create();
     
     for (int n = 0; n < N; n++)
     {
         int m = std::rand() % M;
-        storage.addDataPoint(gaussians[m].sample());
+        DataPoint x;
+        gaussians[m].sample(x);
+        storage->addDataPoint(x);
     }
     
-    cv::Mat image_samples = visualizeSamples(H, W, &storage);
+    cv::Mat image_samples = visualizeSamples(H, W, storage);
     cv::imwrite("samples.png", image_samples);    
     
     int bandWidthSelectionMethod = KernelDensityEstimator::BANDWIDTH_RULE_OF_THUMB;
@@ -287,16 +289,16 @@ int main(int argc, const char** argv)
             return 1;
     }
     
-    KernelDensityEstimator kde(&storage, kernel);
-    kde.selectBandwidth(bandWidthSelectionMethod);
+    KernelDensityEstimator::ptr kde = std::make_shared<KernelDensityEstimator>(storage, kernel);
+    kde->selectBandwidth(bandWidthSelectionMethod);
     
     GaussianKullbackLeiblerTool klTool;
-    klTool.measureAndPrint(&kde, gaussians, weights, 10*N);
+    klTool.measureAndPrint(kde, gaussians, weights, 10*N);
     
 //    GaussianSquaredErrorTool seTool;
 //    seTool.measureAndPrint(&kde, gaussians, weights, 10*N);
     
-    cv::Mat image_kde = visualizeKDE(H, W, &kde);
+    cv::Mat image_kde = visualizeKDE(H, W, kde);
     cv::imwrite("kde.png", image_kde);
     
     return 0;

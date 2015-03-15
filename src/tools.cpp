@@ -359,7 +359,7 @@ void ClassStatisticsTool::measure(AbstractDataStorage::ptr storage, std::vector<
     
     for (int n = 0; n < storage->getSize(); n++)
     {
-        if (storage->getClassLabel(n) != DataStorage::NO_LABEL)
+        if (storage->getClassLabel(n) != LIBF_NO_LABEL)
         {
             result[storage->getClassLabel(n)] += 1.0f;
         }
@@ -396,7 +396,7 @@ void ClassStatisticsTool::measureAndPrint(AbstractDataStorage::ptr storage) cons
 /// GaussianKullbackLeiblerTool
 ////////////////////////////////////////////////////////////////////////////////
 
-float GaussianKullbackLeiblerTool::measure(Estimator* estimator, std::vector<Gaussian> & gaussians,
+float GaussianKullbackLeiblerTool::measure(std::shared_ptr<Estimator> estimator, std::vector<Gaussian> & gaussians,
         const std::vector<float> & weights, int N)
 {
     assert(weights.size() == gaussians.size());
@@ -408,7 +408,8 @@ float GaussianKullbackLeiblerTool::measure(Estimator* estimator, std::vector<Gau
     for (int n = 0; n < N; n++)
     {
         int m = std::rand()%M;
-        DataPoint* x = gaussians[m].sample();
+        DataPoint x;
+        gaussians[m].sample(x);
 
         float p_x = 0;
         float p_x_hat = estimator->estimate(x);
@@ -432,7 +433,7 @@ void GaussianKullbackLeiblerTool::print(float kl)
     printf("Divergence: %2.2f\n", kl);
 }
 
-void GaussianKullbackLeiblerTool::measureAndPrint(Estimator* estimator, std::vector<Gaussian> & gaussians,
+void GaussianKullbackLeiblerTool::measureAndPrint(std::shared_ptr<Estimator> estimator, std::vector<Gaussian> & gaussians,
         const std::vector<float> & weights, int N)
 {
     float kl = measure(estimator, gaussians, weights, N);
@@ -443,7 +444,7 @@ void GaussianKullbackLeiblerTool::measureAndPrint(Estimator* estimator, std::vec
 /// GaussianSquaredErrorTool
 ////////////////////////////////////////////////////////////////////////////////
 
-float GaussianSquaredErrorTool::measure(Estimator* estimator, std::vector<Gaussian> & gaussians,
+float GaussianSquaredErrorTool::measure(std::shared_ptr<Estimator> estimator, std::vector<Gaussian> & gaussians,
         const std::vector<float> & weights, int N)
 {
     assert(weights.size() == gaussians.size());
@@ -455,7 +456,8 @@ float GaussianSquaredErrorTool::measure(Estimator* estimator, std::vector<Gaussi
     for (int n = 0; n < N; n++)
     {
         int m = std::rand()%M;
-        DataPoint* x = gaussians[m].sample();
+        DataPoint x;
+        gaussians[m].sample(x);
 
         float p_x = 0;
         float p_x_hat = estimator->estimate(x);
@@ -476,7 +478,7 @@ void GaussianSquaredErrorTool::print(float se)
     printf("Error: %2.6f\n", se);
 }
 
-void GaussianSquaredErrorTool::measureAndPrint(Estimator* estimator, std::vector<Gaussian> & gaussians,
+void GaussianSquaredErrorTool::measureAndPrint(std::shared_ptr<Estimator> estimator, std::vector<Gaussian> & gaussians,
         const std::vector<float> & weights, int N)
 {
     float se = measure(estimator, gaussians, weights, N);

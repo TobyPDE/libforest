@@ -80,7 +80,7 @@ int Tree::splitNode(int node)
     return leftNode;
 }
 
-int DecisionTree::findLeafNode(const DataPoint & x) const
+int Tree::findLeafNode(const DataPoint & x) const
 {
     // Select the root node as current node
     int node = 0;

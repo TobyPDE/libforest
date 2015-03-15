@@ -42,7 +42,8 @@ float MultivariateKernel::calculateSquareIntegral(int D)
     float expectation = 0;
     for (int n = 0; n < N; n++)
     {
-        DataPoint* x = gaussian.sample();
+        DataPoint x;
+        gaussian.sample(x);
         float p_x = gaussian.evaluate(x);
         float k_x = evaluate(x);
         
@@ -60,7 +61,8 @@ float MultivariateKernel::calculateSecondMoment(int D)
     float expectation = 0;
     for (int n = 0; n < N; n++)
     {
-        DataPoint* x = gaussian.sample();
+        DataPoint x;
+        gaussian.sample(x);
         
         float p_x = gaussian.evaluate(x);
         float k_x = evaluate(x);
@@ -68,7 +70,7 @@ float MultivariateKernel::calculateSecondMoment(int D)
         float inner = 0;
         for (int d = 0; d < D; d++)
         {
-            inner += x->at(d)*x->at(d);
+            inner += x(d)*x(d);
         }
         
         expectation += inner*k_x/p_x;
@@ -81,7 +83,7 @@ float MultivariateKernel::calculateSecondMoment(int D)
 /// KernelDensityEstimator
 ////////////////////////////////////////////////////////////////////////////////
 
-float KernelDensityEstimator::estimate(const DataPoint* x)
+float KernelDensityEstimator::estimate(const DataPoint & x)
 {
     const int D = storage->getDimensionality();
     const int N = storage->getSize();
@@ -95,10 +97,10 @@ float KernelDensityEstimator::estimate(const DataPoint* x)
     {
         for (int d = 0; d < D; d++)
         {
-            x_bar.at(d) = (storage->getDataPoint(n)->at(d) - x->at(d))/bandwidth(d);
+            x_bar(d) = (storage->getDataPoint(n)(d) - x(d))/bandwidth(d);
         }
         
-        p_x += kernel->evaluate(&x_bar);
+        p_x += kernel->evaluate(x_bar);
     }
     
     float H = 1;
@@ -122,10 +124,10 @@ float KernelDensityEstimator::calculateVariance(int d)
     
     for (int n = 0; n < N; n++)
     {
-        DataPoint* x = storage->getDataPoint(n);
+        const DataPoint & x = storage->getDataPoint(n);
         
-        assert(x->getDimensionality() > 0);
-        float value = x->at(d);
+        assert(x.rows() > 0);
+        float value = x(d);
         
         mean += value;
         variance += value*value;
@@ -145,7 +147,7 @@ float KernelDensityEstimator::calculateInterquartileRange(int d)
     std::vector<float> points(N);
     for (int n = 0; n < N; n++)
     {
-        points[n] = storage->getDataPoint(n)->at(d);
+        points[n] = storage->getDataPoint(n)(d);
     }
     
     std::sort(points.begin(), points.end());
@@ -247,7 +249,7 @@ void Gaussian::setCovariance(const Eigen::MatrixXf _covariance)
     cachedDeterminant = false;
 }
 
-DataPoint* Gaussian::sample()
+void Gaussian::sample(DataPoint & x)
 {
     const int rows = mean.rows();
     
@@ -261,15 +263,13 @@ DataPoint* Gaussian::sample()
         randNVector(i) = randN();
     }
     
-    Eigen::VectorXf x = transform * randNVector + mean;
-    
-    return asDataPoint(x);
+    x = transform * randNVector + mean;
 }
 
-float Gaussian::evaluate(const DataPoint* x)
+float Gaussian::evaluate(const DataPoint & x)
 {
-    assert(x->getDimensionality() == mean.rows());
-    assert(x->getDimensionality() == covariance.rows());
+    assert(x.rows() == mean.rows());
+    assert(x.rows() == covariance.rows());
     
     // Invert the covariance matrix if not cached.
     if (!cachedInverse)
@@ -285,37 +285,12 @@ float Gaussian::evaluate(const DataPoint* x)
         cachedDeterminant = true;
     }
     
-    Eigen::VectorXf x_bar = asEigenVector(x);
-    Eigen::VectorXf offset = x_bar - mean;
+    Eigen::VectorXf offset = x - mean;
     
     float p = 1/std::sqrt(pow(2*M_PI, mean.rows())*covarianceDeterminant)
             * std::exp(- (1./2.) * offset.transpose()*covarianceInverse*offset);
     
     return p;
-}
-
-Eigen::VectorXf Gaussian::asEigenVector(const DataPoint* x)
-{
-    Eigen::VectorXf x_bar(x->getDimensionality());
-    
-    for (int i = 0; i < x->getDimensionality(); i++)
-    {
-        x_bar(i) = x->at(i);
-    }
-    
-    return x_bar;
-}
-
-DataPoint* Gaussian::asDataPoint(const Eigen::VectorXf & x)
-{
-    DataPoint* x_bar = new DataPoint(x.rows());
-    
-    for (int i = 0; i < x.rows(); i++)
-    {
-        x_bar->at(i) = x(i);
-    }
-    
-    return x_bar;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -348,15 +323,14 @@ float DensityTree::getPartitionFunction(int D)
                 {
                     // This is basically Monte Carlo integration, where 
                     // the proposal distribution is our target distribution.
-                    DataPoint* x = gaussians[node].sample();
+                    DataPoint x;
+                    gaussians[node].sample(x);
                     
                     int leaf = findLeafNode(x);
                     if (leaf == node)
                     {
                         count++;
                     }
-                    
-                    delete x;
                 }
                 
                 float volume = ((float) count)/N;
@@ -370,19 +344,19 @@ float DensityTree::getPartitionFunction(int D)
     return partitionFunction;
 }
 
-float DensityTree::estimate(const DataPoint* x)
+float DensityTree::estimate(const DataPoint & x)
 {
     assert(leftChild.size() > 0);
     
     int node = findLeafNode(x);
     
     // Get the normalizer for our distribution.
-    const float Z = getPartitionFunction(x->getDimensionality());
+    const float Z = getPartitionFunction(x.rows());
     
     return this->gaussians[node].evaluate(x)/Z;
 }
 
-DataPoint* DensityTree::sample()
+void DensityTree::sample(DataPoint & x)
 {
     assert(leftChild.size() > 0);
     
@@ -396,14 +370,14 @@ DataPoint* DensityTree::sample()
     assert(leftChild[node] == 0);
     
     // Now sample from the final Gaussian.
-    return gaussians[node].sample();
+    gaussians[node].sample(x);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 /// DensityForest
 ////////////////////////////////////////////////////////////////////////////////
 
-float DensityForest::estimate(const DataPoint* x)
+float DensityForest::estimate(const DataPoint & x)
 {
     const int T = static_cast<int>(trees.size());
     
@@ -416,10 +390,10 @@ float DensityForest::estimate(const DataPoint* x)
     return p_x/T;
 }
 
-DataPoint* DensityForest::sample()
+void DensityForest::sample(DataPoint & x)
 {
     int t = std::rand()%trees.size();
-    DensityTree* tree = getTree(t);
+    DensityTree::ptr tree = getTree(t);
     
     // We begin by sampling a random path in the tree.
     int node = std::rand()%tree->getNumNodes();
@@ -431,7 +405,7 @@ DataPoint* DensityForest::sample()
     assert(tree->getLeftChild(node) == 0);
     
     // Now sample from the final Gaussian.
-    return tree->getGaussian(node).sample();
+    tree->getGaussian(node).sample(x);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -466,7 +440,8 @@ float KernelDensityTree::getPartitionFunction(int D)
                 {
                     // This is basically Monte Carlo integration. We use
                     // the Gaussian at each leaf as proposal distribution.
-                    DataPoint* x = gaussians[node].sample();
+                    DataPoint x;
+                    gaussians[node].sample(x);
                     
                     int leaf = findLeafNode(x);
                     if (leaf == node)
@@ -477,8 +452,6 @@ float KernelDensityTree::getPartitionFunction(int D)
                         
                         count += p_x/N_x;
                     }
-                    
-                    delete x;
                 }
                 
                 float volume = count/N;
@@ -492,14 +465,14 @@ float KernelDensityTree::getPartitionFunction(int D)
     return partitionFunction;
 }
 
-float KernelDensityTree::estimate(const DataPoint* x)
+float KernelDensityTree::estimate(const DataPoint & x)
 {
     assert(leftChild.size() > 0);
     
     int node = findLeafNode(x);
     
     // Get the normalizer for our distribution.
-    const float Z = getPartitionFunction(x->getDimensionality());
+    const float Z = getPartitionFunction(x.rows());
     
     return estimators[node].estimate(x)/Z;
 }

@@ -93,7 +93,6 @@ void OnlineDecisionTreeLearner::updateSplitStatistics(std::vector<EfficientEntro
 
 DecisionTree::ptr OnlineDecisionTreeLearner::learn(AbstractDataStorage::ptr storage)
 {
-{
     DecisionTree::ptr tree = std::make_shared<DecisionTree>();
     tree->addNode(0);
     
@@ -411,7 +410,7 @@ RandomForest::ptr OnlineRandomForestLearner::learn(AbstractDataStorage::ptr stor
     {
         if (i >= forest->getSize())
         {
-            DecisionTree* tree = std::make_shared<DecisionTree>(true);
+            DecisionTree::ptr tree = std::make_shared<DecisionTree>(true);
             tree->addNode(0);
             
             forest->addTree(tree);

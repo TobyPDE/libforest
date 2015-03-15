@@ -71,43 +71,40 @@ int main(int argc, const char** argv)
     
     const bool useBootstrap = parameters.find("use-bootstrap") != parameters.end();
     
-    DataStorage storage;
-    DataStorage storageT;
+    DataStorage::ptr storage = DataStorage::Factory::create();
+    DataStorage::ptr storageT = DataStorage::Factory::create();
     
     LibforestDataReader reader;
-    reader.read(trainDat.string(), &storageT);
-    reader.read(testDat.string(), &storage);
+    reader.read(trainDat.string(), storageT);
+    reader.read(testDat.string(), storage);
     
     // Important for sorted datasets!
-    storageT.randPermute();
+    storageT->randPermute();
     
     std::cout << "Training Data" << std::endl;
-    storageT.dumpInformation();
+    storageT->dumpInformation();
     
-    DecisionTreeLearner treeLearner;
-    
-    treeLearner.setUseBootstrap(useBootstrap);
-    treeLearner.setMaxDepth(parameters["max-depth"].as<int>());
-    treeLearner.setNumFeatures(parameters["num-features"].as<int>());
     
     RandomForestLearner forestLearner;
     forestLearner.addCallback(RandomForestLearner::defaultCallback, 1);
     
-    forestLearner.setTreeLearner(&treeLearner);
+    forestLearner.getTreeLearner().setUseBootstrap(useBootstrap);
+    forestLearner.getTreeLearner().setMaxDepth(parameters["max-depth"].as<int>());
+    forestLearner.getTreeLearner().setNumFeatures(parameters["num-features"].as<int>());
+    
     forestLearner.setNumTrees(parameters["num-trees"].as<int>());
     forestLearner.setNumThreads(parameters["num-threads"].as<int>());
     
-    RandomForest* forest = forestLearner.learn(&storageT);
+    RandomForest::ptr forest = forestLearner.learn(storageT);
     
     AccuracyTool accuracyTool;
-    accuracyTool.measureAndPrint(forest, &storage);
+    accuracyTool.measureAndPrint(forest, storage);
     
     ConfusionMatrixTool confusionMatrixTool;
-    confusionMatrixTool.measureAndPrint(forest, &storage);
+    confusionMatrixTool.measureAndPrint(forest, storage);
     
 //    VariableImportanceTool variableImportanceTool;
 //    variableImportanceTool.measureAndPrint(&forestLearner);
     
-    delete forest;
     return 0;
 }
