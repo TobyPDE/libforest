@@ -26,7 +26,7 @@ namespace libf {
         /**
          * Returns the accuracy
          */
-        float measure(const Classifier::ptr classifier, AbstractDataStorage::ptr storage) const;
+        float measure(const AbstractClassifier::ptr classifier, AbstractDataStorage::ptr storage) const;
         
         /**
          * Prints the accuracy
@@ -36,7 +36,7 @@ namespace libf {
         /**
          * Prints and measures the accuracy. 
          */
-        void measureAndPrint(const Classifier::ptr classifier, AbstractDataStorage::ptr storage) const;
+        void measureAndPrint(const AbstractClassifier::ptr classifier, AbstractDataStorage::ptr storage) const;
     };
     
     /**
@@ -47,7 +47,7 @@ namespace libf {
         /**
          * Returns the accuracy
          */
-        void measure(Classifier::ptr classifier, AbstractDataStorage::ptr storage, std::vector< std::vector<float> > & result) const;
+        void measure(AbstractClassifier::ptr classifier, AbstractDataStorage::ptr storage, std::vector< std::vector<float> > & result) const;
         
         /**
          * Prints the accuracy
@@ -57,7 +57,7 @@ namespace libf {
         /**
          * Prints and measures the accuracy. 
          */
-        void measureAndPrint(Classifier::ptr classifier, AbstractDataStorage::ptr storage) const;
+        void measureAndPrint(AbstractClassifier::ptr classifier, AbstractDataStorage::ptr storage) const;
     };
     
     /**

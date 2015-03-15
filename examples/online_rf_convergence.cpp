@@ -126,7 +126,7 @@ int main(int argc, const char** argv)
         const int end = (int) std::min((float) storageT->getSize() - 1, storageT->getSize()*steps[s]);
         AbstractDataStorage::ptr batch = storageT->excerpt(0, end);
         
-        RandomForest::ptr onlineForest = onlineForestLearner.learn(batch);
+        OnlineRandomForest::ptr onlineForest = onlineForestLearner.learn(batch);
         RandomForest::ptr forest = forestLearner.learn(batch);
         
         std::cout << steps[s]*100 << "% - Random Forest / Online Random Forest:" << std::endl;

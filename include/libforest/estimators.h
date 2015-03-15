@@ -15,7 +15,8 @@
 
 #include "util.h"
 #include "data.h"
-#include "classifiers.h"
+#include "tree.h"
+#include "io.h"
 
 namespace libf {
     /**
@@ -800,9 +801,38 @@ namespace libf {
     };
     
     /**
+     * This is the data that is stored in the nodes of a Density Tree
+     */
+    class DensityTreeNodeData {
+    public:
+        /**
+         * The Gaussian at the leafs.
+         */
+        Gaussian gaussian;
+    };
+    
+    /**
+     * Overload the read binary method to also read DensityTreeNodeData
+     */
+    template <>
+    inline void readBinary(std::istream & stream, DensityTreeNodeData & v)
+    {
+        // TODO: Implement this stuff
+    }
+    
+    /**
+     * Overload the write binary method to also write DecisionTreeNodeData
+     */
+    template <>
+    inline void writeBinary(std::ostream & stream, const DensityTreeNodeData & v)
+    {
+        // TODO: Implement this stuff
+    }
+    
+    /**
      * Density decision tree for unsupervised learning.
      */
-    class DensityTree : public Tree, public Estimator, public Generator {
+    class DensityTree : public SplitTree<DensityTreeNodeData>, public Estimator, public Generator {
     public:
         typedef std::shared_ptr<DensityTree> ptr;
         
@@ -817,14 +847,6 @@ namespace libf {
         virtual ~DensityTree() {};
         
         /**
-         * Get the Gaussian of a specific leaf.
-         */
-        Gaussian & getGaussian(const int node)
-        {
-            return gaussians[node];
-        }
-        
-        /**
          * Estimate the probability of a datapoint.
          */
         virtual float estimate(const DataPoint & x);
@@ -834,22 +856,11 @@ namespace libf {
          */
         virtual void sample(DataPoint & x);
         
-    protected:
-        /**
-         * Adds a plain new node.
-         */
-        virtual void addNodeDerived(int depth);;
-        
     private:
         /**
          * Compute and cache the partition function.
          */
         float getPartitionFunction(int D);
-        
-        /**
-         * The Gaussians at the leafs.
-         */
-        std::vector<Gaussian> gaussians;
         /**
          * Partition function.
          */
@@ -858,7 +869,6 @@ namespace libf {
          * The partition function is cached.
          */
         bool cachedPartitionFunction;
-        
     };
     
     /**
@@ -929,9 +939,42 @@ namespace libf {
     };
     
     /**
+     * This is the payload that is stored in the nodes of a kernel density tree
+     */
+    class KernelDensityTreeNodeData {
+    public:
+        /**
+         * The Gaussians at the leafs.
+         */
+        Gaussian gaussian;
+        /**
+         * The leaf node kernel density estimators.
+         */
+        KernelDensityEstimator estimator;
+    };
+    
+    /**
+     * Overload the read binary method to also read KernelDensityTreeNodeData
+     */
+    template <>
+    inline void readBinary(std::istream & stream, KernelDensityTreeNodeData & v)
+    {
+        // TODO: Implement this stuff
+    }
+    
+    /**
+     * Overload the write binary method to also write KernelDensityTreeNodeData
+     */
+    template <>
+    inline void writeBinary(std::ostream & stream, const KernelDensityTreeNodeData & v)
+    {
+        // TODO: Implement this stuff
+    }
+
+    /**
      * A kernel density tree.
      */
-    class KernelDensityTree : public Tree, public Estimator {
+    class KernelDensityTree : public SplitTree<KernelDensityTreeNodeData>, public Estimator {
     public:
         typedef std::shared_ptr<KernelDensityTree> ptr;
         
@@ -943,30 +986,12 @@ namespace libf {
         /**
          * Destructor.
          */
-        ~KernelDensityTree() {};
-        
-        Gaussian & getGaussian(int node)
-        {
-            assert(node >= 0 && node < static_cast<int>(leftChild.size()));
-            return gaussians[node];
-        }
-        
-        KernelDensityEstimator & getEstimator(int node)
-        {
-            assert(node >= 0 && node < static_cast<int>(leftChild.size()));
-            return estimators[node];
-        }
+        virtual ~KernelDensityTree() {};
         
         /**
          * Estimate probability of a point.
          */
         virtual float estimate(const DataPoint &);
-        
-    protected:
-        /**
-         * Add a node.
-         */
-        virtual void addNodeDerived(int depth);
         
     private:
         /**
@@ -974,14 +999,6 @@ namespace libf {
          */
         float getPartitionFunction(int D);
         
-        /**
-         * The Gaussians at the leafs.
-         */
-        std::vector<Gaussian> gaussians;
-        /**
-         * The leaf node kernel density estimators.
-         */
-        std::vector<KernelDensityEstimator> estimators;
         /**
          * Kernel used for kernel density estimation.
          */

@@ -12,21 +12,22 @@
 #include <vector>
 #include <memory>
 #include <Eigen/Dense>
+#include <boost/static_assert.hpp>
+#include <boost/type_traits.hpp>
 
-#include "data.h"
-#include "util.h"
-#include "error_handling.h"
+#include "tree.h"
+#include "io.h"
 
 namespace libf {
     /**
      * The base class for all classifiers. This allows use to use the evaluation
      * tools for both trees and forests. 
      */
-    class Classifier {
+    class AbstractClassifier {
     public:
-        typedef std::shared_ptr<Classifier> ptr;
+        typedef std::shared_ptr<AbstractClassifier> ptr;
         
-        virtual ~Classifier() {}
+        virtual ~AbstractClassifier() {}
         
         /**
          * Assigns an integer class label to some data point
@@ -44,206 +45,33 @@ namespace libf {
         virtual void classLogPosterior(const DataPoint & x, std::vector<float> & probabilities) const = 0;
     };
     
-    class Tree {
+    /**
+     * This is the base class for all tree classifier node data classes. 
+     */
+    class AbstractTreeClassifierNodeData {
     public:
         /**
-         * Creates an empty density tree.
+         * A histogram that represents a distribution over the class labels
          */
-        Tree();
-        
-        /**
-         * Destructor.
-         */
-        virtual ~Tree() {};
-        
-        /**
-         * Splits a child node and returns the index of the left child. 
-         * 
-         * @param node The node index
-         */
-        int splitNode(int node);
-        
-        /**
-         * Passes the data point through the tree and returns the index of the
-         * leaf node it ends up in. 
-         * 
-         * @param v The data point to pass down the tree
-         * @return The index of the leaf node v ends up in
-         */
-        int findLeafNode(const DataPoint & v) const;
-        
-        /**
-         * Sets the split feature for a node
-         * 
-         * @param node The index of the node that shall be edited
-         * @param feature The feature dimension
-         */
-        void setSplitFeature(int node, int feature)
-        {
-            BOOST_ASSERT_MSG(0 <= node && node < splitFeatures.size(), "Invalid node index.");
-            BOOST_ASSERT_MSG(feature >= 0, "Invalid feature dimension.");
-            
-            splitFeatures[node] = feature;
-        }
-        
-        /**
-         * Returns the split feature for a node
-         * 
-         * @param node The index of the node
-         * @return The split feature
-         */
-        int getSplitFeature(int node) const
-        {
-            BOOST_ASSERT_MSG(0 <= node && node < splitFeatures.size(), "Invalid node index.");
-            
-            return splitFeatures[node];
-        }
-        
-        /**
-         * Sets the threshold for a node
-         * 
-         * @param node The index of the node
-         * @param threshold The new threshold value
-         */
-        void setThreshold(int node, float threshold)
-        {
-            BOOST_ASSERT_MSG(0 <= node && node < splitFeatures.size(), "Invalid node index.");
-            
-            thresholds[node] = threshold;
-        }
-        
-        /**
-         * Returns the threshold for a node
-         * 
-         * @param node The index of the node
-         * @return The threshold 
-         */
-        float getThreshold(int node) const
-        {
-            BOOST_ASSERT_MSG(0 <= node && node < splitFeatures.size(), "Invalid node index.");
-            
-            return thresholds[node];
-        }
-        
-        /**
-         * Returns the total number of nodes. 
-         * 
-         * @return The total number of nodes
-         */
-        int getNumNodes() const
-        {
-            return static_cast<int>(leftChild.size());
-        }
-        
-        /**
-         * Returns true if the given node is a leaf node. 
-         * 
-         * @param node The index of the node
-         * @return True if the node is a leaf node
-         */
-        bool isLeafNode(int node) const 
-        {
-            BOOST_ASSERT_MSG(0 <= node && node < splitFeatures.size(), "Invalid node index.");
-            
-            return leftChild[node] == 0;
-        }
-        
-        /**
-         * Returns the index of the left child node for a node. 
-         * 
-         * @param node The index of the node
-         * @return The index of the left child node
-         */
-        int getLeftChild(int node) const
-        {
-            BOOST_ASSERT_MSG(0 <= node && node < splitFeatures.size(), "Invalid node index.");
-            
-            return leftChild[node];
-        }
-        
-        /**
-         * Get depth of a node where the root node has depth 0. 
-         * 
-         * @param node The index of the node
-         * @return The depth of the node
-         */
-        int getDepth(int node)
-        {
-            BOOST_ASSERT_MSG(0 <= node && node < splitFeatures.size(), "Invalid node index.");
-            
-            return depths[node];
-        }
-        
-        /**
-         * Reads the tree from a stream. 
-         * 
-         * @param stream The stream to read the tree from
-         */
-        virtual void read(std::istream & stream);
-        
-        /**
-         * Writes the tree to a stream
-         * 
-         * @param stream The stream to write the tree to.
-         */
-        virtual void write(std::ostream & stream) const;
-        
-        /**
-         * Adds a new node. This method needs to be implemented by all trees.
-         */
-        virtual void addNode(int depth);
-        
-    protected:
-        
-        /**
-         * Adds a new node. THis method needs to be implemented by all trees.
-         */
-        virtual void addNodeDerived(int depth) = 0;
-        
-        /**
-         * The depth of each node.
-         */
-        std::vector<int> depths;
-        /**
-         * The split feature at each node. 
-         */
-        std::vector<int> splitFeatures;
-        /**
-         * The threshold at each node
-         */
-        std::vector<float> thresholds;
-        /**
-         * The left child node of each node. If the left child node is 0, then 
-         * this is a leaf node. The right child node is left + 1. 
-         */
-        std::vector<int> leftChild;
-        
+        std::vector<float> histogram;
     };
     
     /**
-     * This class represents a decision tree.
+     * This is the base class for all tree classifiers
      */
-    class DecisionTree : public Tree, public Classifier {
+    template <class Data>
+    class AbstractTreeClassifier : public SplitTree<Data>, public AbstractClassifier {
     public:
-        typedef std::shared_ptr<DecisionTree> ptr;
+        
+        virtual ~AbstractTreeClassifier() {}
         
         /**
-         * Creates a new decision tree
+         * Only accept template parameters that extend AbstractTreeClassifierNodeData.
+         * Note: The double parentheses are needed.
          */
-        DecisionTree();
+        BOOST_STATIC_ASSERT((boost::is_base_of<AbstractTreeClassifierNodeData, Data>::value));
         
-        /**
-         * Creates a decision tree which maintains a set of statistics
-         * for each leaf node.
-         * 
-         * @param statistics If true, a set of statistics is maintained for each leaf node
-         */
-        DecisionTree(bool statistics);
-        
-        /**
-         * Destructor.
-         */
-        ~DecisionTree() {};
+        typedef std::shared_ptr<AbstractTreeClassifier<Data> >  ptr;
         
         /**
          * Returns the class log posterior log(p(c | x)). The probabilities are
@@ -252,181 +80,155 @@ namespace libf {
          * @param x The data point for which the log posterior shall be evaluated. 
          * @param probabilities The vector of log posterior probabilities
          */
-        virtual void classLogPosterior(const DataPoint & c, std::vector<float> & probabilities) const;
-        
-        /**
-         * Reads the tree from a stream. 
-         * 
-         * @param stream The stream to read the tree from
-         */
-        virtual void read(std::istream & stream);
-        
-        /**
-         * Writes the tree to a stream
-         * 
-         * @param stream The stream to write the tree to.
-         */
-        virtual void write(std::ostream & stream) const;
-        
-        /**
-         * Returns a reference the histogram for a node
-         * 
-         * @param node The index of the node
-         * @return A reference to its histogram
-         */
-        std::vector<float> & getHistogram(int node)
+        void classLogPosterior(const DataPoint & x, std::vector<float> & probabilities) const
         {
-            BOOST_ASSERT_MSG(0 <= node && node < splitFeatures.size(), "Invalid node index.");
-            
-            return histograms[node];
+            // Get the leaf node
+            const int leafNode = this->findLeafNode(x);
+            probabilities = this->getNodeData(leafNode).histogram;
         }
-        
-        /**
-         * Returns a reference the histogram for a node
-         * 
-         * @param node The index of the node
-         * @return A reference to its histogram
-         */
-        const std::vector<float> & getHistogram(int node) const
-        {
-            BOOST_ASSERT_MSG(0 <= node && node < splitFeatures.size(), "Invalid node index.");
-            
-            return histograms[node];
-        }
-        
-        /**
-         * Get node statistics (i.e. an entropy histogram).
-         * 
-         * @param node The node index
-         * @return A reference to the statistics
-         */
-        EfficientEntropyHistogram & getNodeStatistics(int node)
-        {
-            BOOST_ASSERT_MSG(0 <= node && node < splitFeatures.size(), "Invalid node index.");
-            
-            return nodeStatistics[node];
-        }
-        
-        /**
-         * Get node thresholds (a threshold for each sampled feature).
-         * 
-         * @param node The node index
-         * @return A reference to the thresholds
-         */
-        std::vector< std::vector<float> > & getNodeThresholds(int node)
-        {
-            BOOST_ASSERT_MSG(0 <= node && node < splitFeatures.size(), "Invalid node index.");
-            
-            return nodeThresholds[node];
-        }
-        
-        /**
-         * Get node features.
-         * 
-         * @param node The index of the node
-         * @return A reference to its features
-         */
-        std::vector<int> & getNodeFeatures(int node)
-        {
-            BOOST_ASSERT_MSG(0 <= node && node < splitFeatures.size(), "Invalid node index.");
-            
-            return nodeFeatures[node];
-        }
-        
-        /**
-         * Get left child statistics for each combination of feature and threshold.
-         * 
-         * @param node The node index
-         * @return A reference to the left child statistics
-         */
-        std::vector<EfficientEntropyHistogram> & getLeftChildStatistics(int node)
-        {
-            return leftChildStatistics[node];
-        }
-        
-        /**
-         * Get right child statistics for each combination of feature and threshold.
-         * 
-         * @param node The index of the node
-         * @return A reference to the right child statistics
-         */
-        std::vector<EfficientEntropyHistogram> & getRightChildStatistics(int node)
-        {
-            return rightChildStatistics[node];
-        }
-        
-    protected:
-        /**
-         * Adds a plain new node.
-         */
-        virtual void addNodeDerived(int depth);
-        
-    private:
-        /**
-         * The histograms for each node. We only store actual histograms at 
-         * leaf nodes. 
-         */
-        std::vector< std::vector<float> > histograms;
-        /**
-         * NOTE ON THE FOLLOWING ATTRIBUTES: It is not clear whether these 
-         * statistics (mainly used for online learning) should reside in the 
-         * decision tree or the learner. We decided to put them in the decision
-         * tree such that a model can be updated/learned independent of the
-         * learner.
-         * 
-         * These statistics are saved as entropy histograms.
-         * 
-         * @see http://lrs.icg.tugraz.at/pubs/saffari_olcv_09.pdf
-         */
-        /**
-         * Whether to save statistics or not.
-         */
-        bool statistics;
+    };
+    
+    /**
+     * This is the data each node in a decision tree carries
+     */
+    class DecisionTreeNodeData : public AbstractTreeClassifierNodeData {};
+    
+    /**
+     * Overload the read binary method to also read DecisionTreeNodeData
+     */
+    template <>
+    inline void readBinary(std::istream & stream, DecisionTreeNodeData & v)
+    {
+        readBinary(stream, v.histogram);
+    }
+    
+    /**
+     * Overload the write binary method to also write DecisionTreeNodeData
+     */
+    template <>
+    inline void writeBinary(std::ostream & stream, const DecisionTreeNodeData & v)
+    {
+        writeBinary(stream, v.histogram);
+    }
+    
+    /**
+     * This class represents a decision tree.
+     */
+    class DecisionTree : public AbstractTreeClassifier<DecisionTreeNodeData> {
+    public:
+        typedef std::shared_ptr<DecisionTree> ptr;
+    };
+    
+    /**
+     * This is the data each node in an online decision tree carries
+     * 
+     * These following statistics are saved as entropy histograms.
+     * @see http://lrs.icg.tugraz.at/pubs/saffari_olcv_09.pdf
+     */
+    class OnlineDecisionTreeNodeData : public AbstractTreeClassifierNodeData {
+    public:
         /**
          * The node's statistics saved as entropy histogram.
          */
-        std::vector<EfficientEntropyHistogram> nodeStatistics;
+        EfficientEntropyHistogram nodeStatistics;
         /**
          * Left child statistics for all splits.
          */
-        std::vector< std::vector<EfficientEntropyHistogram> > leftChildStatistics;
+        std::vector<EfficientEntropyHistogram> leftChildStatistics;
         /**
          * Right child statistics for all splits.
          */
-        std::vector< std::vector<EfficientEntropyHistogram> > rightChildStatistics;
+        std::vector<EfficientEntropyHistogram> rightChildStatistics;
         /**
          * Thresholds for each node.
          */
-        std::vector< std::vector< std::vector<float> > > nodeThresholds; // TODO: This is really messy!
+        std::vector< std::vector<float> > nodeThresholds; // TODO: This is really messy!
         /**
          * Features for all nodes.
          */
-        std::vector< std::vector<int> > nodeFeatures;
+        std::vector<int> nodeFeatures;
+    };
+    
+    /**
+     * Overload the read binary method to also read OnlineDecisionTreeNodeData
+     */
+    template <>
+    inline void readBinary(std::istream & stream, OnlineDecisionTreeNodeData & v)
+    {
+        // TODO: Implement this stuff
+    }
+    
+    /**
+     * Overload the write binary method to also write DecisionTreeNodeData
+     */
+    template <>
+    inline void writeBinary(std::ostream & stream, const OnlineDecisionTreeNodeData & v)
+    {
+        // TODO: Implement this stuff
+    }
+    
+    /**
+     * This class represents a decision tree.
+     */
+    class OnlineDecisionTree : public AbstractTreeClassifier<OnlineDecisionTreeNodeData> {
+    public:
+        typedef std::shared_ptr<OnlineDecisionTree> ptr;
     };
     
     /**
      * A random forests that classifies a data point that classifies a data 
      * point using the class posterior estimates of several decision trees. 
      */
-    class RandomForest : public Classifier {
+    template <class T>
+    class AbstractRandomForest : public AbstractClassifier {
     public:
-        typedef std::shared_ptr<RandomForest> ptr;
+        /**
+         * Only accept template parameters that extend AbstractClassifier.
+         * Note: The double parentheses are needed.
+         */
+        BOOST_STATIC_ASSERT((boost::is_base_of<AbstractClassifier, T>::value));
         
-        virtual ~RandomForest() {}
+        typedef std::shared_ptr<AbstractRandomForest<T> > ptr;
+        
+        virtual ~AbstractRandomForest() {}
         
         /**
          * Reads the tree from a stream. 
          * 
          * @param stream the stream to read the forest from.
          */
-        virtual void read(std::istream & stream);
+        virtual void read(std::istream & stream)
+        {
+            // Read the number of trees in this ensemble
+            int size;
+            readBinary(stream, size);
+
+            // Read the trees
+            for (int i = 0; i < size; i++)
+            {
+                std::shared_ptr<T> tree = std::make_shared<T>();
+
+                tree->read(stream);
+                addTree(tree);
+            }
+        }
         
         /**
          * Writes the tree to a stream
          * 
          * @param stream The stream to write the forest to. 
          */
-        virtual void write(std::ostream & stream) const;
+        void write(std::ostream & stream) const
+        {
+            // Write the number of trees in this ensemble
+            writeBinary(stream, getSize());
+
+            // Write the individual trees
+            for (int i = 0; i < getSize(); i++)
+            {
+                getTree(i)->write(stream);
+            }
+        }
         
         /**
          * Returns the class log posterior log(p(c | x)).
@@ -434,14 +236,35 @@ namespace libf {
          * @param x The data point x to determine the posterior distribution of
          * @param probabilities A vector of log posterior probabilities
          */
-        virtual void classLogPosterior(const DataPoint & x, std::vector<float> & probabilities) const;
+        virtual void classLogPosterior(const DataPoint & x, std::vector<float> & probabilities) const
+        {
+            BOOST_ASSERT_MSG(getSize() > 0, "Cannot classify a point from an empty ensemble.");
+
+            trees[0]->classLogPosterior(x, probabilities);
+
+            // Let the crowd decide
+            for (size_t i = 1; i < trees.size(); i++)
+            {
+                // Get the probabilities from the current tree
+                std::vector<float> currentHist;
+                trees[i]->classLogPosterior(x, currentHist);
+
+                BOOST_ASSERT(currentHist.size() > 0);
+
+                // Accumulate the votes
+                for (size_t c = 0; c < currentHist.size(); c++)
+                {
+                    probabilities[c] += currentHist[c];
+                }
+            }
+        }
         
         /**
          * Adds a tree to the ensemble
          * 
          * @param tree The tree to add to the ensemble
          */
-        void addTree( DecisionTree::ptr tree)
+        void addTree( std::shared_ptr<T> tree)
         {
             trees.push_back(tree);
         }
@@ -462,7 +285,7 @@ namespace libf {
          * @param i The index of the tree to return
          * @return The i-th tree
          */
-        DecisionTree::ptr getTree(int i) const
+        std::shared_ptr<T> getTree(int i) const
         {
             BOOST_ASSERT_MSG(0 <= i && i < getSize(), "Invalid tree index.");
             
@@ -486,13 +309,35 @@ namespace libf {
         /**
          * The individual decision trees. 
          */
-        std::vector<DecisionTree::ptr> trees;
+        std::vector<std::shared_ptr<T> > trees;
+    };
+    
+    /**
+     * This is a traditional random forest for offline learning. 
+     */
+    class RandomForest : public AbstractRandomForest<DecisionTree> 
+    {
+    public:
+        typedef std::shared_ptr<RandomForest> ptr;
+        RandomForest() : AbstractRandomForest<DecisionTree> () {}
+        virtual ~RandomForest() {}
+    };
+    
+    /**
+     * This is an online random forest for online learning. 
+     */
+    class OnlineRandomForest : public AbstractRandomForest<OnlineDecisionTree> 
+    {
+    public:
+        typedef std::shared_ptr<OnlineRandomForest> ptr;
+        OnlineRandomForest() : AbstractRandomForest<OnlineDecisionTree> () {}
+        virtual ~OnlineRandomForest() {}
     };
     
     /**
      * A boosted random forest classifier.
      */
-    class BoostedRandomForest : public Classifier {
+    class BoostedRandomForest : public AbstractClassifier {
     public:
         typedef std::shared_ptr<BoostedRandomForest> ptr;
         

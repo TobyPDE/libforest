@@ -121,7 +121,7 @@ DensityTree::ptr DensityTreeLearner::learn(AbstractDataStorage::ptr storage)
             evokeCallback(tree, 0, state);
             
             // Resize and initialize the leaf node histogram.
-            updateLeafNodeGaussian(tree->getGaussian(leaf), covariance);
+            updateLeafNodeGaussian(tree->getNodeData(leaf).gaussian, covariance);
             
             trainingExamples[leaf].clear();
             continue;
@@ -197,7 +197,7 @@ DensityTree::ptr DensityTreeLearner::learn(AbstractDataStorage::ptr storage)
             evokeCallback(tree, 0, state);
             
             // Don't split
-            updateLeafNodeGaussian(tree->getGaussian(leaf), covariance);
+            updateLeafNodeGaussian(tree->getNodeData(leaf).gaussian, covariance);
             
             trainingExamples[leaf].clear();
             continue;
@@ -506,8 +506,8 @@ KernelDensityTree::ptr KernelDensityTreeLearner::learn(AbstractDataStorage::ptr 
             evokeCallback(tree, 0, state);
             
             // Initialize the kernel density estimator at the leaf node.
-            initializeLeafNodeEstimator(tree->getGaussian(leaf), covariance,
-                    tree->getEstimator(leaf), trainingExamples[leaf], storage);
+            initializeLeafNodeEstimator(tree->getNodeData(leaf).gaussian, covariance,
+                    tree->getNodeData(leaf).estimator, trainingExamples[leaf], storage);
             
             trainingExamples[leaf].clear();
             continue;
@@ -583,8 +583,8 @@ KernelDensityTree::ptr KernelDensityTreeLearner::learn(AbstractDataStorage::ptr 
             evokeCallback(tree, 0, state);
             
             // Initialize the kernel density estimator at the leaf node.
-            initializeLeafNodeEstimator(tree->getGaussian(leaf), covariance,
-                    tree->getEstimator(leaf), trainingExamples[leaf], storage);
+            initializeLeafNodeEstimator(tree->getNodeData(leaf).gaussian, covariance,
+                    tree->getNodeData(leaf).estimator, trainingExamples[leaf], storage);
             
             trainingExamples[leaf].clear();
             continue;

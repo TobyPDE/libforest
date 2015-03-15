@@ -61,7 +61,7 @@ const char* colorCodeHighToLow(const float x, const float t1, const float t2)
 /// AccuracyTool
 ////////////////////////////////////////////////////////////////////////////////
 
-float AccuracyTool::measure(Classifier::ptr classifier, AbstractDataStorage::ptr storage) const
+float AccuracyTool::measure(AbstractClassifier::ptr classifier, AbstractDataStorage::ptr storage) const
 {
     // Classify all points
     std::vector<int> res;
@@ -85,7 +85,7 @@ void AccuracyTool::print(float accuracy) const
     printf("Accuracy: %2.2f%% (Error: %2.2f%%)\n", accuracy*100, (1-accuracy)*100);
 }
 
-void AccuracyTool::measureAndPrint(Classifier::ptr classifier, AbstractDataStorage::ptr storage) const
+void AccuracyTool::measureAndPrint(AbstractClassifier::ptr classifier, AbstractDataStorage::ptr storage) const
 {
     float accuracy = measure(classifier, storage);
     print(accuracy);
@@ -95,7 +95,7 @@ void AccuracyTool::measureAndPrint(Classifier::ptr classifier, AbstractDataStora
 /// ConfusionMatrixTool
 ////////////////////////////////////////////////////////////////////////////////
 
-void ConfusionMatrixTool::measure(Classifier::ptr classifier, AbstractDataStorage::ptr storage, std::vector<std::vector<float> >& result) const
+void ConfusionMatrixTool::measure(AbstractClassifier::ptr classifier, AbstractDataStorage::ptr storage, std::vector<std::vector<float> >& result) const
 {
     const int C = storage->getClasscount();
     
@@ -181,7 +181,7 @@ void ConfusionMatrixTool::print(const std::vector<std::vector<float> >& result) 
     }
 }
 
-void ConfusionMatrixTool::measureAndPrint(Classifier::ptr classifier, AbstractDataStorage::ptr storage) const
+void ConfusionMatrixTool::measureAndPrint(AbstractClassifier::ptr classifier, AbstractDataStorage::ptr storage) const
 {
     std::vector< std::vector<float> > result;
     measure(classifier, storage, result);
