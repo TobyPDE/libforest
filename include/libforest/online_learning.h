@@ -155,8 +155,8 @@ namespace libf {
      * or doing online batch learning.
      */
     class OnlineDecisionTreeLearner :
-            public AbstractDecisionTreeLearner<DecisionTree, OnlineDecisionTreeLearnerState>,
-            public OnlineLearner<DecisionTree> {
+            public AbstractDecisionTreeLearner<OnlineDecisionTree, OnlineDecisionTreeLearnerState>,
+            public OnlineLearner<OnlineDecisionTree> {
     public:
         OnlineDecisionTreeLearner() : AbstractDecisionTreeLearner(),
                 smoothingParameter(1),
@@ -173,12 +173,12 @@ namespace libf {
         /**
          * The default callback for this learner.
          */
-        static int defaultCallback(DecisionTree::ptr tree, const OnlineDecisionTreeLearnerState & state);
+        static int defaultCallback(OnlineDecisionTree::ptr tree, const OnlineDecisionTreeLearnerState & state);
         
         /**
          * Verbose callback for this learner.
          */
-        static int verboseCallback(DecisionTree::ptr tree, const OnlineDecisionTreeLearnerState & state);
+        static int verboseCallback(OnlineDecisionTree::ptr tree, const OnlineDecisionTreeLearnerState & state);
         
         /**
          * Actions for the callback function.
@@ -275,12 +275,12 @@ namespace libf {
         /**
          * Learns a decision tree.
          */
-        virtual DecisionTree::ptr learn(AbstractDataStorage::ptr storage);
+        virtual OnlineDecisionTree::ptr learn(AbstractDataStorage::ptr storage);
         
         /**
          * Updates the given decision tree on the given data.
          */
-        virtual DecisionTree::ptr learn(AbstractDataStorage::ptr storage, DecisionTree::ptr tree);
+        virtual OnlineDecisionTree::ptr learn(AbstractDataStorage::ptr storage, OnlineDecisionTree::ptr tree);
         
     protected:
         /**
@@ -345,19 +345,19 @@ namespace libf {
     /**
      * This is an offline random forest learner. 
      */
-    class OnlineRandomForestLearner : public AbstractRandomForestLearner<RandomForest, OnlineRandomForestLearnerState>,
-            public OnlineLearner<RandomForest> {
+    class OnlineRandomForestLearner : public AbstractRandomForestLearner<OnlineRandomForest, OnlineRandomForestLearnerState>,
+            public OnlineLearner<OnlineRandomForest> {
     public:
         
         /**
          * The default callback for this learner.
          */
-        static int defaultCallback(RandomForest::ptr forest, const OnlineRandomForestLearnerState & state);
+        static int defaultCallback(OnlineRandomForest::ptr forest, const OnlineRandomForestLearnerState & state);
         
         /**
          * Verbose callback for this learner.
          */
-        static int verboseCallback(RandomForest::ptr forest, const OnlineRandomForestLearnerState & state);
+        static int verboseCallback(OnlineRandomForest::ptr forest, const OnlineRandomForestLearnerState & state);
          
         /**
          * These are the actions of the learning algorithm that are passed
@@ -390,12 +390,12 @@ namespace libf {
         /**
          * Learns a decision forest.
          */
-        virtual RandomForest::ptr learn(AbstractDataStorage::ptr storage);
+        virtual OnlineRandomForest::ptr learn(AbstractDataStorage::ptr storage);
         
         /**
          * Learns a forests. 
          */
-        virtual RandomForest::ptr learn(AbstractDataStorage::ptr storage, RandomForest::ptr forest);
+        virtual OnlineRandomForest::ptr learn(AbstractDataStorage::ptr storage, OnlineRandomForest::ptr forest);
 
     protected:
         /**

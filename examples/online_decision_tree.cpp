@@ -97,7 +97,7 @@ int main(int argc, const char** argv)
     treeLearner.addCallback(OnlineDecisionTreeLearner::defaultCallback, 1);
     treeLearner.setUseBootstrap(useBootstrap);
     
-    DecisionTree::ptr tree = treeLearner.learn(storageT);
+    OnlineDecisionTree::ptr tree = treeLearner.learn(storageT);
     
     AccuracyTool accuracyTool;
     accuracyTool.measureAndPrint(tree, storage);

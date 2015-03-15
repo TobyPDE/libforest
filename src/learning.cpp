@@ -136,8 +136,8 @@ DecisionTree::ptr DecisionTreeLearner::learn(AbstractDataStorage::ptr dataStorag
         if (hist.getMass() < minSplitExamples || hist.isPure() || tree->getDepth(node) >= maxDepth)
         {
             // Resize and initialize the leaf node histogram
-            updateLeafNodeHistogram(tree->getHistogram(node), hist, smoothingParameter, useBootstrap);
-            BOOST_ASSERT(tree->getHistogram(node).size() > 0);
+            updateLeafNodeHistogram(tree->getNodeData(node).histogram, hist, smoothingParameter, useBootstrap);
+            BOOST_ASSERT(tree->getNodeData(node).histogram.size() > 0);
             continue;
         }
         
@@ -217,8 +217,8 @@ DecisionTree::ptr DecisionTreeLearner::learn(AbstractDataStorage::ptr dataStorag
         {
             // We didn't
             // Don't split
-            updateLeafNodeHistogram(tree->getHistogram(node), hist, smoothingParameter, useBootstrap);
-            BOOST_ASSERT(tree->getHistogram(node).size() > 0);
+            updateLeafNodeHistogram(tree->getNodeData(node).histogram, hist, smoothingParameter, useBootstrap);
+            BOOST_ASSERT(tree->getNodeData(node).histogram.size() > 0);
             continue;
         }
         
@@ -287,7 +287,7 @@ void DecisionTreeLearner::updateHistograms(DecisionTree::ptr tree, AbstractDataS
     {
         if (tree->isLeafNode(v))
         {
-            std::vector<float> & hist = tree->getHistogram(v);
+            std::vector<float> & hist = tree->getNodeData(v).histogram;
             
             // Make sure that hist is initialized.
             hist.resize(C);
@@ -304,7 +304,7 @@ void DecisionTreeLearner::updateHistograms(DecisionTree::ptr tree, AbstractDataS
     for (int n = 0; n < storage->getSize(); n++)
     {
         int leafNode = tree->findLeafNode(storage->getDataPoint(n));
-        tree->getHistogram(leafNode)[storage->getClassLabel(n)] += 1;
+        tree->getNodeData(leafNode).histogram[storage->getClassLabel(n)] += 1;
     }
     
     // Normalize the histograms
@@ -312,7 +312,7 @@ void DecisionTreeLearner::updateHistograms(DecisionTree::ptr tree, AbstractDataS
     {
         if (tree->isLeafNode(v))
         {
-            std::vector<float> & hist = tree->getHistogram(v);
+            std::vector<float> & hist = tree->getNodeData(v).histogram;
             float total = 0;
             for (int c = 0; c < C; c++)
             {

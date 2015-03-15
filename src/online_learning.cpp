@@ -91,15 +91,15 @@ void OnlineDecisionTreeLearner::updateSplitStatistics(std::vector<EfficientEntro
     }
 }
 
-DecisionTree::ptr OnlineDecisionTreeLearner::learn(AbstractDataStorage::ptr storage)
+OnlineDecisionTree::ptr OnlineDecisionTreeLearner::learn(AbstractDataStorage::ptr storage)
 {
-    DecisionTree::ptr tree = std::make_shared<DecisionTree>();
+    OnlineDecisionTree::ptr tree = std::make_shared<OnlineDecisionTree>();
     tree->addNode(0);
     
     return learn(storage, tree);
 }
 
-DecisionTree::ptr OnlineDecisionTreeLearner::learn(AbstractDataStorage::ptr storage, DecisionTree::ptr tree)
+OnlineDecisionTree::ptr OnlineDecisionTreeLearner::learn(AbstractDataStorage::ptr storage, OnlineDecisionTree::ptr tree)
 {
     
     // Get the number of training examples and the dimensionality of the data set
@@ -139,11 +139,11 @@ DecisionTree::ptr OnlineDecisionTreeLearner::learn(AbstractDataStorage::ptr stor
         state.node = leaf;
         state.depth = depth;
         
-        EfficientEntropyHistogram & nodeStatistics = tree->getNodeStatistics(leaf);
-        std::vector<int> & nodeFeatures = tree->getNodeFeatures(leaf);
-        std::vector< std::vector<float> > & nodeThresholds = tree->getNodeThresholds(leaf);
-        std::vector<EfficientEntropyHistogram> & leftChildStatistics = tree->getLeftChildStatistics(leaf);
-        std::vector<EfficientEntropyHistogram> & rightChildStatistics = tree->getRightChildStatistics(leaf);
+        EfficientEntropyHistogram & nodeStatistics = tree->getNodeData(leaf).nodeStatistics;
+        std::vector<int> & nodeFeatures = tree->getNodeData(leaf).nodeFeatures;
+        std::vector< std::vector<float> > & nodeThresholds = tree->getNodeData(leaf).nodeThresholds;
+        std::vector<EfficientEntropyHistogram> & leftChildStatistics = tree->getNodeData(leaf).leftChildStatistics;
+        std::vector<EfficientEntropyHistogram> & rightChildStatistics = tree->getNodeData(leaf).rightChildStatistics;
         
         // This leaf node may be a fresh one.
         if (nodeStatistics.getSize() <= 0)
@@ -240,7 +240,7 @@ DecisionTree::ptr OnlineDecisionTreeLearner::learn(AbstractDataStorage::ptr stor
                 || depth >= maxDepth)
         {
             // Do not split, update leaf histogram according to new sample.
-            updateLeafNodeHistogram(tree->getHistogram(leaf), nodeStatistics, smoothingParameter);
+            updateLeafNodeHistogram(tree->getNodeData(leaf).histogram, nodeStatistics, smoothingParameter);
         
             state.action = ACTION_NOT_SPLITTING_NODE;  
             evokeCallback(tree, 0, state);
@@ -280,7 +280,7 @@ DecisionTree::ptr OnlineDecisionTreeLearner::learn(AbstractDataStorage::ptr stor
         if (bestObjective < minSplitObjective)
         {
             // Do not split, update leaf histogram according to new sample.
-            updateLeafNodeHistogram(tree->getHistogram(leaf), 
+            updateLeafNodeHistogram(tree->getNodeData(leaf).histogram, 
                     nodeStatistics, smoothingParameter);
         
             state.action = ACTION_NOT_SPLITTING_OBJECTIVE_NODE;  
@@ -303,11 +303,11 @@ DecisionTree::ptr OnlineDecisionTreeLearner::learn(AbstractDataStorage::ptr stor
         const int rightChild = leftChild  + 1;
         
         // This may be the last sample! So initialize the leaf node histograms!
-        updateLeafNodeHistogram(tree->getHistogram(leftChild), 
+        updateLeafNodeHistogram(tree->getNodeData(leftChild).histogram, 
                 leftChildStatistics[bestThreshold + numThresholds*bestFeature], 
                 smoothingParameter);
         
-        updateLeafNodeHistogram(tree->getHistogram(rightChild), 
+        updateLeafNodeHistogram(tree->getNodeData(rightChild).histogram, 
                 rightChildStatistics[bestThreshold + numThresholds*bestFeature], 
                 smoothingParameter);
         
@@ -323,7 +323,7 @@ DecisionTree::ptr OnlineDecisionTreeLearner::learn(AbstractDataStorage::ptr stor
         nodeFeatures.clear();
         
         // Also clear the histogram as this node is not a leaf anymore!
-        tree->getHistogram(leaf).clear();
+        tree->getNodeData(leaf).histogram.clear();
         
         state.action = ACTION_SPLIT_NODE; 
         state.objective = bestObjective;
@@ -334,7 +334,7 @@ DecisionTree::ptr OnlineDecisionTreeLearner::learn(AbstractDataStorage::ptr stor
     return tree;
 }
 
-int OnlineDecisionTreeLearner::defaultCallback(DecisionTree::ptr tree, const OnlineDecisionTreeLearnerState & state)
+int OnlineDecisionTreeLearner::defaultCallback(OnlineDecisionTree::ptr tree, const OnlineDecisionTreeLearnerState & state)
 {
     switch (state.action) {
 //        case OnlineDecisionTreeLearner::ACTION_INIT_NODE:
@@ -353,7 +353,7 @@ int OnlineDecisionTreeLearner::defaultCallback(DecisionTree::ptr tree, const Onl
     return 0;
 }
 
-int OnlineDecisionTreeLearner::verboseCallback(DecisionTree::ptr tree, const OnlineDecisionTreeLearnerState & state)
+int OnlineDecisionTreeLearner::verboseCallback(OnlineDecisionTree::ptr tree, const OnlineDecisionTreeLearnerState & state)
 {
     switch (state.action) {
         case OnlineDecisionTreeLearner::ACTION_START_TREE:
@@ -396,13 +396,13 @@ int OnlineDecisionTreeLearner::verboseCallback(DecisionTree::ptr tree, const Onl
 /// RandomForestLearner
 ////////////////////////////////////////////////////////////////////////////////
 
-RandomForest::ptr OnlineRandomForestLearner::learn(AbstractDataStorage::ptr storage)
+OnlineRandomForest::ptr OnlineRandomForestLearner::learn(AbstractDataStorage::ptr storage)
 {
-    RandomForest::ptr forest = std::make_shared<RandomForest>();
+    OnlineRandomForest::ptr forest = std::make_shared<OnlineRandomForest>();
     return learn(storage, forest);
 }
 
-RandomForest::ptr OnlineRandomForestLearner::learn(AbstractDataStorage::ptr storage, RandomForest::ptr forest)
+OnlineRandomForest::ptr OnlineRandomForestLearner::learn(AbstractDataStorage::ptr storage, OnlineRandomForest::ptr forest)
 {
     const int D = storage->getDimensionality();
     
@@ -410,7 +410,7 @@ RandomForest::ptr OnlineRandomForestLearner::learn(AbstractDataStorage::ptr stor
     {
         if (i >= forest->getSize())
         {
-            DecisionTree::ptr tree = std::make_shared<DecisionTree>(true);
+            OnlineDecisionTree::ptr tree = std::make_shared<OnlineDecisionTree>();
             tree->addNode(0);
             
             forest->addTree(tree);
@@ -442,7 +442,7 @@ RandomForest::ptr OnlineRandomForestLearner::learn(AbstractDataStorage::ptr stor
             evokeCallback(forest, treeStartCounter - 1, state);
         }
         
-        DecisionTree::ptr tree = forest->getTree(i);
+        OnlineDecisionTree::ptr tree = forest->getTree(i);
         treeLearner->learn(storage, tree);
         
         #pragma omp critical
@@ -467,7 +467,7 @@ RandomForest::ptr OnlineRandomForestLearner::learn(AbstractDataStorage::ptr stor
     return forest;
 }
 
-int OnlineRandomForestLearner::defaultCallback(RandomForest::ptr forest, const OnlineRandomForestLearnerState & state)
+int OnlineRandomForestLearner::defaultCallback(OnlineRandomForest::ptr forest, const OnlineRandomForestLearnerState & state)
 {
     switch (state.action) {
         case RandomForestLearner::ACTION_START_FOREST:
@@ -481,7 +481,7 @@ int OnlineRandomForestLearner::defaultCallback(RandomForest::ptr forest, const O
     return 0;
 }
 
-int OnlineRandomForestLearner::verboseCallback(RandomForest::ptr forest, const OnlineRandomForestLearnerState & state)
+int OnlineRandomForestLearner::verboseCallback(OnlineRandomForest::ptr forest, const OnlineRandomForestLearnerState & state)
 {
     switch (state.action) {
         case RandomForestLearner::ACTION_START_FOREST:

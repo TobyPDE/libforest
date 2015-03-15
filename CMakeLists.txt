@@ -75,7 +75,7 @@ target_link_libraries(libforest
 
 # Build the examples
 # TODO: Make this a CMake option or remove it completely from the build process
-#add_subdirectory(examples)
+add_subdirectory(examples)
 
 ################################################################################
 ### SET UP UNIT TESTS

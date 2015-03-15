@@ -107,7 +107,7 @@ int main(int argc, const char** argv)
     forestLearner.setNumThreads(parameters["num-threads"].as<int>());
     forestLearner.addCallback(OnlineRandomForestLearner::verboseCallback, 1);
     
-    RandomForest::ptr forest = forestLearner.learn(storageT);
+    OnlineRandomForest::ptr forest = forestLearner.learn(storageT);
     
     AccuracyTool accuracyTool;
     accuracyTool.measureAndPrint(forest, storage);

@@ -297,14 +297,8 @@ float Gaussian::evaluate(const DataPoint & x)
 /// DensityTree
 ////////////////////////////////////////////////////////////////////////////////
 
-DensityTree::DensityTree() : Tree()
+DensityTree::DensityTree() : SplitTree<DensityTreeNodeData>()
 {
-    gaussians.reserve(LIBF_GRAPH_BUFFER_SIZE);
-}
-
-void DensityTree::addNodeDerived(int depth)
-{
-    gaussians.push_back(Gaussian());
 }
 
 float DensityTree::getPartitionFunction(int D)
@@ -324,7 +318,7 @@ float DensityTree::getPartitionFunction(int D)
                     // This is basically Monte Carlo integration, where 
                     // the proposal distribution is our target distribution.
                     DataPoint x;
-                    gaussians[node].sample(x);
+                    getNodeData(node).gaussian.sample(x);
                     
                     int leaf = findLeafNode(x);
                     if (leaf == node)
@@ -334,7 +328,7 @@ float DensityTree::getPartitionFunction(int D)
                 }
                 
                 float volume = ((float) count)/N;
-                partitionFunction += gaussians[node].getDataSupport()/volume;
+                partitionFunction += getNodeData(node).gaussian.getDataSupport()/volume;
             }
         }
         
@@ -353,7 +347,7 @@ float DensityTree::estimate(const DataPoint & x)
     // Get the normalizer for our distribution.
     const float Z = getPartitionFunction(x.rows());
     
-    return this->gaussians[node].evaluate(x)/Z;
+    return getNodeData(node).gaussian.evaluate(x)/Z;
 }
 
 void DensityTree::sample(DataPoint & x)
@@ -370,7 +364,7 @@ void DensityTree::sample(DataPoint & x)
     assert(leftChild[node] == 0);
     
     // Now sample from the final Gaussian.
-    gaussians[node].sample(x);
+    getNodeData(node).gaussian.sample(x);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -405,23 +399,15 @@ void DensityForest::sample(DataPoint & x)
     assert(tree->getLeftChild(node) == 0);
     
     // Now sample from the final Gaussian.
-    tree->getGaussian(node).sample(x);
+    tree->getNodeData(node).gaussian.sample(x);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 /// KernelDensityTree
 ////////////////////////////////////////////////////////////////////////////////
 
-KernelDensityTree::KernelDensityTree() : Tree()
+KernelDensityTree::KernelDensityTree() : SplitTree<KernelDensityTreeNodeData>()
 {
-    estimators.reserve(LIBF_GRAPH_BUFFER_SIZE);
-    gaussians.reserve(LIBF_GRAPH_BUFFER_SIZE);
-}
-
-void KernelDensityTree::addNodeDerived(int depth)
-{
-    estimators.push_back(KernelDensityEstimator());
-    gaussians.push_back(Gaussian());
 }
 
 float KernelDensityTree::getPartitionFunction(int D)
@@ -441,21 +427,21 @@ float KernelDensityTree::getPartitionFunction(int D)
                     // This is basically Monte Carlo integration. We use
                     // the Gaussian at each leaf as proposal distribution.
                     DataPoint x;
-                    gaussians[node].sample(x);
+                    getNodeData(node).gaussian.sample(x);
                     
                     int leaf = findLeafNode(x);
                     if (leaf == node)
                     {
                         // But our density is given by the kernel estimation.
-                        float p_x = estimators[node].estimate(x);
-                        float N_x = gaussians[node].evaluate(x);
+                        float p_x = getNodeData(node).estimator.estimate(x);
+                        float N_x = getNodeData(node).gaussian.evaluate(x);
                         
                         count += p_x/N_x;
                     }
                 }
                 
                 float volume = count/N;
-                partitionFunction += gaussians[node].getDataSupport()/volume;
+                partitionFunction += getNodeData(node).gaussian.getDataSupport()/volume;
             }
         }
         
@@ -474,5 +460,5 @@ float KernelDensityTree::estimate(const DataPoint & x)
     // Get the normalizer for our distribution.
     const float Z = getPartitionFunction(x.rows());
     
-    return estimators[node].estimate(x)/Z;
+    return getNodeData(node).estimator.estimate(x)/Z;
 }
