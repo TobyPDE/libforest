@@ -22,7 +22,6 @@ namespace libf {
      * Forward declarations to speed up compiling
      */
     class DataStorage;
-    class DataPoint;
     
     /**
      * An estimator can be used to estimate the probability of a data point.
@@ -32,7 +31,7 @@ namespace libf {
         /**
          * Estimate the probability of a datapoint.
          */
-        virtual float estimate(const DataPoint* x) = 0;
+        virtual float estimate(const DataPoint & x) = 0;
         
     };
     
@@ -44,7 +43,7 @@ namespace libf {
         /**
          * Sample from the estimator.
          */
-        virtual DataPoint* sample() = 0;
+        virtual void sample(DataPoint & x) = 0;
         
     };
     
@@ -66,7 +65,7 @@ namespace libf {
         /**
          * Evaluate the kernel in the given dimension.
          */
-        virtual float evaluate(DataPoint* x, int d) = 0;
+        virtual float evaluate(const DataPoint & x, int d) = 0;
         
         /**
          * Returns the coefficient for the rule of thumb bandwidth selection
@@ -88,10 +87,10 @@ namespace libf {
         /**
          * Evaluate the kernel in the given dimension.
          */
-        virtual float evaluate(DataPoint* x, int d)
+        virtual float evaluate(const DataPoint & x, int d)
         {
-            assert(d >= 0 && d < x->getDimensionality());
-            return std::sqrt(2*M_PI) * std::exp(- 1.f/2.f * x->at(d)*x->at(d));
+            assert(d >= 0 && d < x.rows());
+            return std::sqrt(2*M_PI) * std::exp(- 1.f/2.f * x(d)*x(d));
         }
         
         /**
@@ -115,11 +114,11 @@ namespace libf {
         /**
          * Evaluate the kernel in the given dimension.
          */
-        virtual float evaluate(DataPoint* x, int d)
+        virtual float evaluate(const DataPoint & x, int d)
         {
-            assert(d >= 0 && d < x->getDimensionality());
+            assert(d >= 0 && d < x.rows());
             
-            float K_x = 1 - x->at(d)*x->at(d);
+            float K_x = 1 - x(d)*x(d);
             if (K_x > 0)
             {
                 return 3.f/4.f * K_x;
@@ -151,11 +150,11 @@ namespace libf {
         /**
          * Evaluate the kernel in the given dimension.
          */
-        virtual float evaluate(DataPoint* x, int d)
+        virtual float evaluate(const DataPoint & x, int d)
         {
-            assert(d >= 0 && d < x->getDimensionality());
+            assert(d >= 0 && d < x.rows());
             
-            float K_x = 1 - x->at(d)*x->at(d);
+            float K_x = 1 - x(d)*x(d);
             if (K_x > 0)
             {
                 return 15.f/16.f * K_x*K_x;
@@ -187,11 +186,11 @@ namespace libf {
         /**
          * Evaluate the kernel in the given dimension.
          */
-        virtual float evaluate(DataPoint* x, int d)
+        virtual float evaluate(const DataPoint & x, int d)
         {
-            assert(d >= 0 && d < x->getDimensionality());
+            assert(d >= 0 && d < x.rows());
             
-            float K_x = 1 - x->at(d)*x->at(d);
+            float K_x = 1 - x(d)*x(d);
             if (K_x > 0)
             {
                 return 35.f/32.f * K_x*K_x*K_x;
@@ -233,7 +232,7 @@ namespace libf {
         /**
          * Evaluate the kernel.
          */
-        virtual float evaluate(DataPoint* x) = 0;
+        virtual float evaluate(const DataPoint & x) = 0;
         
         /**
          * Returns the coefficient for the rule of thumb bandwidth selection
@@ -287,9 +286,9 @@ namespace libf {
         /**
          * Evaluate the kernel.
          */
-        virtual float evaluate(DataPoint* x)
+        virtual float evaluate(const DataPoint & x)
         {
-            const int D = x->getDimensionality();
+            const int D = x.rows();
             
             float K_x = 1;
             for (int d = 0; d < D; d++)
@@ -323,14 +322,14 @@ namespace libf {
         /**
          * Evaluate kernel for a given data point.
          */
-        virtual float evaluate(DataPoint* x)
+        virtual float evaluate(const DataPoint & x)
         {
-            const int D = x->getDimensionality();
+            const int D = x.rows();
             
             float inner = 0;
             for (int i = 0; i < D; i++)
             {
-                inner += x->at(i)*x->at(i);
+                inner += x(i)*x(i);
             }
             
             return std::sqrt(std::pow(2*M_PI, D)) * std::exp(- 1./2. * inner);
@@ -369,14 +368,14 @@ namespace libf {
         /**
          * Evaluate kernel for a given data point.
          */
-        virtual float evaluate(DataPoint* x)
+        virtual float evaluate(const DataPoint & x)
         {
-            const int D = x->getDimensionality();
+            const int D = x.rows();
             
             float inner = 0;
             for (int i = 0; i < D; i++)
             {
-                inner += x->at(i)*x->at(i);
+                inner += x(i)*x(i);
             }
             
             float K_x = 1 - inner;
@@ -451,6 +450,7 @@ namespace libf {
      */
     class KernelDensityEstimator : public Estimator {
     public:
+        typedef std::shared_ptr<KernelDensityEstimator> ptr;
         
         /**
          * E.g. see: 
@@ -492,7 +492,7 @@ namespace libf {
          * Constructs a kernel density estimator given the data with default
          * Gaussian kernel.
          */
-        KernelDensityEstimator(UnlabeledDataStorage* _storage) : 
+        KernelDensityEstimator(AbstractDataStorage::ptr _storage) : 
                 kernel(new MultivariateGaussianKernel()),
                 bandwidthSelectionMethod(BANDWIDTH_RULE_OF_THUMB),
                 bandwidth(1),
@@ -501,7 +501,7 @@ namespace libf {
         /**
          * Create a kernel density estimator with the given data and kernel.
          */
-        KernelDensityEstimator(UnlabeledDataStorage* _storage, MultivariateKernel* _kernel) : 
+        KernelDensityEstimator(AbstractDataStorage::ptr _storage, MultivariateKernel* _kernel) : 
                 kernel(_kernel),
                 bandwidthSelectionMethod(BANDWIDTH_RULE_OF_THUMB), 
                 bandwidth(1),
@@ -587,7 +587,7 @@ namespace libf {
         /**
          * Sets the data storage to use for density estimation.
          */
-        void setDataStorage(UnlabeledDataStorage* _storage)
+        void setDataStorage(AbstractDataStorage::ptr _storage)
         {
             storage = _storage;
         }
@@ -595,7 +595,7 @@ namespace libf {
         /**
          * Returns the data storage to use for density estimation.
          */
-        UnlabeledDataStorage* getDataStorage()
+        AbstractDataStorage::ptr getDataStorage()
         {
             return storage;
         }
@@ -603,7 +603,7 @@ namespace libf {
         /**
          * Estimate the probability of a datapoint.
          */
-        virtual float estimate(const DataPoint* x);
+        virtual float estimate(const DataPoint & x);
         
     private:
         /**
@@ -660,7 +660,7 @@ namespace libf {
         /**
          * Data storage to base estimation on.
          */
-        UnlabeledDataStorage* storage;
+        AbstractDataStorage::ptr storage;
         
     };
     
@@ -703,12 +703,12 @@ namespace libf {
         /**
          * Get probability of the given data point.
          */
-        float evaluate(const DataPoint* x);
+        float evaluate(const DataPoint & x);
         
         /**
          * Sample a point from the Gaussian.
          */
-        DataPoint* sample();
+        void sample(DataPoint & x);
         
         /**
          * Get dimensionality of gaussian.
@@ -764,16 +764,6 @@ namespace libf {
         }
         
     private:
-        /**
-         * Get a data point as vector.
-         */
-        Eigen::VectorXf asEigenVector(const DataPoint* x);
-        
-        /**
-         * A vector as data point.
-         */
-        DataPoint* asDataPoint(const Eigen::VectorXf & y);
-        
         /**
          * Mean of Gaussian.
          */
@@ -837,12 +827,12 @@ namespace libf {
         /**
          * Estimate the probability of a datapoint.
          */
-        virtual float estimate(const DataPoint* x);
+        virtual float estimate(const DataPoint & x);
         
         /**
          * Sample from the model.
          */
-        virtual DataPoint* sample();
+        virtual void sample(DataPoint & x);
         
     protected:
         /**
@@ -891,7 +881,7 @@ namespace libf {
         /**
          * Adds a tree to the ensemble
          */
-        void addTree(DensityTree* tree)
+        void addTree(DensityTree::ptr tree)
         {
             trees.push_back(tree);
         }
@@ -907,7 +897,7 @@ namespace libf {
         /**
          * Returns the i-th tree
          */
-        DensityTree* getTree(int i)
+        DensityTree::ptr getTree(int i)
         {
             return trees[i];
         }
@@ -917,8 +907,6 @@ namespace libf {
          */
         void removeTree(int i)
         {
-            // Delete the tree
-            delete trees[i];
             // Remove it from the array
             trees.erase(trees.begin() + i);
         }
@@ -926,18 +914,18 @@ namespace libf {
         /**
          * Estimate the probability of a datapoint.
          */
-        virtual float estimate(const DataPoint* x);
+        virtual float estimate(const DataPoint & x);
         
         /**
          * Sample from the model.
          */
-        virtual DataPoint* sample();
+        virtual void sample(DataPoint & x);
         
     private:
         /**
          * The individual decision trees. 
          */
-        std::vector<DensityTree*> trees;
+        std::vector<DensityTree::ptr> trees;
     };
     
     /**
@@ -972,7 +960,7 @@ namespace libf {
         /**
          * Estimate probability of a point.
          */
-        virtual float estimate(const DataPoint*);
+        virtual float estimate(const DataPoint &);
         
     protected:
         /**

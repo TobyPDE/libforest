@@ -34,14 +34,14 @@ cv::Mat visualizeGaussians(int H, int W, std::vector<Gaussian> gaussians, std::v
         for (int j = 0; j < W; j++)
         {
             DataPoint x(2);
-            x.at(0) = i;
-            x.at(1) = j;
+            x(0) = i;
+            x(1) = j;
             
             float p_x = 0;
             
             for (int m = 0; m < M; m++)
             {
-                p_x += weights[m]*gaussians[m].evaluate(&x);
+                p_x += weights[m]*gaussians[m].evaluate(x);
             }
             
             if (p_x > p_max)
@@ -66,7 +66,7 @@ cv::Mat visualizeGaussians(int H, int W, std::vector<Gaussian> gaussians, std::v
     return image;
 }
 
-cv::Mat visualizeForest(int H, int W, DensityForest* forest)
+cv::Mat visualizeForest(int H, int W, DensityForest::ptr forest)
 {    
     cv::Mat image(H, W, CV_32FC1, cv::Scalar(0));
     float p_max = 0;
@@ -76,10 +76,10 @@ cv::Mat visualizeForest(int H, int W, DensityForest* forest)
         for (int j = 0; j < W; j++)
         {
             DataPoint x(2);
-            x.at(0) = i;
-            x.at(1) = j;
+            x(0) = i;
+            x(1) = j;
             
-            float p_x = forest->estimate(&x);
+            float p_x = forest->estimate(x);
             
             if (p_x > p_max)
             {
@@ -103,16 +103,16 @@ cv::Mat visualizeForest(int H, int W, DensityForest* forest)
     return image;
 }
 
-cv::Mat visualizeSamples(int H, int W, const UnlabeledDataStorage & storage)
+cv::Mat visualizeSamples(int H, int W, AbstractDataStorage::ptr storage)
 {
     cv::Mat image(H, W, CV_8UC1, cv::Scalar(255));
     
-    for (int n = 0; n < storage.getSize(); n++)
+    for (int n = 0; n < storage->getSize(); n++)
     {
-        DataPoint* x = storage.getDataPoint(n);
+        const DataPoint & x = storage->getDataPoint(n);
         
-        int i = std::floor(x->at(0));
-        int j = std::floor(x->at(1));
+        int i = std::floor(x(0));
+        int j = std::floor(x(1));
         
         if (i >= 0 && i < H && j >= 0 && j < W)
         {
@@ -221,12 +221,14 @@ int main(int argc, const char** argv)
     
     // Generate samples.
     const int N = parameters["num-samples"].as<int>();
-    UnlabeledDataStorage storage;
+    DataStorage::ptr storage = DataStorage::Factory::create();
     
     for (int n = 0; n < N; n++)
     {
         int m = std::rand() % M;
-        storage.addDataPoint(gaussians[m].sample());
+        DataPoint x;
+        gaussians[m].sample(x);
+        storage->addDataPoint(x);
     }
     
     cv::Mat image_samples = visualizeSamples(H, W, storage);
@@ -245,7 +247,7 @@ int main(int argc, const char** argv)
     learner.setNumThreads(parameters["num-threads"].as<int>());
     learner.addCallback(DensityForestLearner::defaultCallback, 1);
     
-    DensityForest* forest = learner.learn(&storage);
+    DensityForest::ptr forest = learner.learn(storage);
     
     GaussianKullbackLeiblerTool klTool;
     klTool.measureAndPrint(forest, gaussians, weights, 10*N);
@@ -256,16 +258,17 @@ int main(int argc, const char** argv)
     cv::Mat image_forest = visualizeForest(H, W, forest);
     cv::imwrite("forest.png", image_forest);
     
-    UnlabeledDataStorage storage_tree;
+    DataStorage::ptr storage_tree = DataStorage::Factory::create();
     for (int n = 0; n < N; n++)
     {
-        storage_tree.addDataPoint(forest->sample());
+        DataPoint x;
+        forest->sample(x);
+        storage_tree->addDataPoint(x);
     }
     
     cv::Mat image_samples_forest = visualizeSamples(H, W, storage_tree);
     cv::imwrite("forest_samples.png", image_samples_forest);
     
-    delete forest;
     return 0;
 }
 

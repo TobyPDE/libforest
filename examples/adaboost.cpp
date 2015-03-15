@@ -60,39 +60,35 @@ int main(int argc, const char** argv)
         return 1;
     }
     
-    DataStorage storage;
-    DataStorage storageT;
+    DataStorage::ptr storage = DataStorage::Factory::create();
+    DataStorage::ptr storageT = DataStorage::Factory::create();
     
     LibforestDataReader reader;
-    reader.read(trainDat.string(), &storageT);
-    reader.read(testDat.string(), &storage);
+    reader.read(trainDat.string(), storageT);
+    reader.read(testDat.string(), storage);
     
     // Important for sorted datasets!
-    storageT.randPermute();
+    storageT->randPermute();
     
     std::cout << "Training Data" << std::endl;
-    storageT.dumpInformation();
-    
-    DecisionTreeLearner treeLearner;
-    
-    treeLearner.setUseBootstrap(false);
-    treeLearner.setMaxDepth(parameters["max-depth"].as<int>());
-    treeLearner.setNumFeatures(parameters["num-features"].as<int>());
+    storageT->dumpInformation();
     
     BoostedRandomForestLearner forestLearner;
     forestLearner.addCallback(BoostedRandomForestLearner::defaultCallback, 1);
     
-    forestLearner.setTreeLearner(&treeLearner);
+    forestLearner.getTreeLearner().setUseBootstrap(false);
+    forestLearner.getTreeLearner().setMaxDepth(parameters["max-depth"].as<int>());
+    forestLearner.getTreeLearner().setNumFeatures(parameters["num-features"].as<int>());
+    
     forestLearner.setNumTrees(parameters["num-trees"].as<int>());
     
-    BoostedRandomForest* forest = forestLearner.learn(&storageT);
+    BoostedRandomForest::ptr forest = forestLearner.learn(storageT);
     
     AccuracyTool accuracyTool;
-    accuracyTool.measureAndPrint(forest, &storage);
+    accuracyTool.measureAndPrint(forest, storage);
     
     ConfusionMatrixTool confusionMatrixTool;
-    confusionMatrixTool.measureAndPrint(forest, &storage);
+    confusionMatrixTool.measureAndPrint(forest, storage);
     
-    delete forest;
     return 0;
 }

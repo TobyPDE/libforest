@@ -136,7 +136,7 @@ namespace libf {
         /**
          * The default callback for this learner.
          */
-        static int defaultCallback(DensityForest* forest, DensityForestLearnerState* state);
+        static int defaultCallback(DensityForest::ptr forest, const DensityForestLearnerState & state);
          
         /**
          * These are the actions of the learning algorithm that are passed

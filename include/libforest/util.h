@@ -601,21 +601,21 @@ namespace libf {
         /**
          * Add a sample and update covariance and mean estimate.
          */
-        void addOne(const DataPoint* x)
+        void addOne(const DataPoint & x)
         {
-            assert(x->getDimensionality() == mean.rows());
-            assert(x->getDimensionality() == covariance.rows());
-            assert(x->getDimensionality() == covariance.cols());
+            assert(x.rows() == mean.rows());
+            assert(x.rows() == covariance.rows());
+            assert(x.rows() == covariance.cols());
 
-            for (int i = 0; i < x->getDimensionality(); i++)
+            for (int i = 0; i < x.rows(); i++)
             {
                 // Update running estimate of mean.
-                mean(i) += x->at(i);
+                mean(i) += x(i);
 
-                for (int j = 0; j < x->getDimensionality(); j++)
+                for (int j = 0; j < x.rows(); j++)
                 {
                     // Update running estimate of covariance.
-                    covariance(i, j) += x->at(i)*x->at(j);
+                    covariance(i, j) += x(i)*x(j);
                 }
             }
             
@@ -641,21 +641,21 @@ namespace libf {
         /**
          * Remove a sample and update covariance and mean estimate.
          */
-        void subOne(const DataPoint* x)
+        void subOne(const DataPoint & x)
         {
-            assert(x->getDimensionality() == mean.rows());
-            assert(x->getDimensionality() == covariance.rows());
-            assert(x->getDimensionality() == covariance.cols());
+            assert(x.rows() == mean.rows());
+            assert(x.rows() == covariance.rows());
+            assert(x.rows() == covariance.cols());
             
-            for (int i = 0; i < x->getDimensionality(); i++)
+            for (int i = 0; i < x.rows(); i++)
             {
                 // Update running estimate of mean.
-                mean(i) -= x->at(i);
+                mean(i) -= x(i);
 
-                for (int j = 0; j < x->getDimensionality(); j++)
+                for (int j = 0; j < x.rows(); j++)
                 {
                     // Update running estimate of covariance.
-                    covariance(i, j) -= x->at(i)*x->at(j);
+                    covariance(i, j) -= x(i)*x(j);
                 }
             }
 

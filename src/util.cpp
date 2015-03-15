@@ -1,6 +1,9 @@
-#include "util.h"
+#include "libforest/util.h"
+#include <random>
 
 static std::random_device rd;
+
+using namespace libf;
 
 ////////////////////////////////////////////////////////////////////////////////
 /// Util

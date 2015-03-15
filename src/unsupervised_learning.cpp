@@ -87,7 +87,7 @@ DensityTree::ptr DensityTreeLearner::learn(AbstractDataStorage::ptr storage)
         state.node = leaf;
         state.depth = depth;
                 
-        evokeCallback(tree, 0, &state);
+        evokeCallback(tree, 0, state);
         
         const int N_leaf = trainingExamples[leaf].size();
         
@@ -107,7 +107,7 @@ DensityTree::ptr DensityTreeLearner::learn(AbstractDataStorage::ptr storage)
         assert(covariance.getMass() == N_leaf);
         
         state.action = ACTION_INIT_NODE;
-        evokeCallback(tree, 0, &state);
+        evokeCallback(tree, 0, state);
         
         // Don't split this node
         //  If the number of examples is too small
@@ -118,7 +118,7 @@ DensityTree::ptr DensityTreeLearner::learn(AbstractDataStorage::ptr storage)
             state.action = ACTION_NOT_SPLIT_NODE;
             state.maxDepth = maxDepth;
             
-            evokeCallback(tree, 0, &state);
+            evokeCallback(tree, 0, state);
             
             // Resize and initialize the leaf node histogram.
             updateLeafNodeGaussian(tree->getGaussian(leaf), covariance);
@@ -159,7 +159,7 @@ DensityTree::ptr DensityTreeLearner::learn(AbstractDataStorage::ptr storage)
                 rightCovariance.subOne(storage->getDataPoint(n));
                 assert(leftCovariance.getMass() + rightCovariance.getMass() == covariance.getMass());
                 
-                const rightFeatureValue = storage->getDataPoint(n)(feature);
+                const float rightFeatureValue = storage->getDataPoint(n)(feature);
                 assert(rightFeatureValue >= leftFeatureValue);
                 
                 if (rightFeatureValue - leftFeatureValue < 1e-6f)
@@ -194,7 +194,7 @@ DensityTree::ptr DensityTreeLearner::learn(AbstractDataStorage::ptr storage)
             state.action = ACTION_NO_SPLIT_NODE;
             state.objective = bestObjective;
             
-            evokeCallback(tree, 0, &state);
+            evokeCallback(tree, 0, state);
             
             // Don't split
             updateLeafNodeGaussian(tree->getGaussian(leaf), covariance);
@@ -220,7 +220,7 @@ DensityTree::ptr DensityTreeLearner::learn(AbstractDataStorage::ptr storage)
             const int n = trainingExamples[leaf][m];
             assert(n >= 0 && n < storage->getSize());
             
-            const float featureValue = storage->getDataPoint(n)->at(bestFeature);
+            const float featureValue = storage->getDataPoint(n)(bestFeature);
             
             if (featureValue < bestThreshold)
             {
@@ -331,7 +331,7 @@ DensityForest::ptr DensityForestLearner::learn(AbstractDataStorage::ptr storage)
         }
         
         // Learn the tree
-        DensityTree* tree = treeLearner->learn(storage);
+        DensityTree::ptr tree = treeLearner->learn(storage);
         // Add it to the forest
         #pragma omp critical
         {
@@ -389,19 +389,14 @@ void KernelDensityTreeLearner::initializeLeafNodeEstimator(Gaussian & gaussian,
         EfficientCovarianceMatrix & covariance,
         KernelDensityEstimator & estimator,
         const std::vector<int> & trainingExamples, 
-        const UnlabeledDataStorage* storage)
+        const AbstractDataStorage::ptr storage)
 {
     const int N = static_cast<int>(trainingExamples.size());
-    UnlabeledDataStorage* leafStorage = new UnlabeledDataStorage();
+    DataStorage::ptr leafStorage = DataStorage::Factory::create();
     
     for (int n = 0; n < N; n++)
     {
-        DataPoint* x_orig = storage->getDataPoint(trainingExamples[n]);
-        DataPoint* x = new DataPoint(*x_orig);
-        
-        assert(x_orig->getDimensionality() == x->getDimensionality());
-        
-        leafStorage->addDataPoint(x);
+        leafStorage->addDataPoint(storage->getDataPoint(trainingExamples[n]));
     }
     
     estimator.setKernel(kernel);
@@ -538,7 +533,7 @@ KernelDensityTree::ptr KernelDensityTreeLearner::learn(AbstractDataStorage::ptr 
             rightCovariance = covariance;
             
             // Initialize left feature value.
-            float leftFeatureValue = storage->getDataPoint(trainingExamples[leaf][0])->at(feature);
+            float leftFeatureValue = storage->getDataPoint(trainingExamples[leaf][0])(feature);
             
             // The training samples are our thresholds to optimize over.
             for (int m = 1; m < N_leaf - 1; m++)
@@ -550,7 +545,7 @@ KernelDensityTree::ptr KernelDensityTreeLearner::learn(AbstractDataStorage::ptr 
                 rightCovariance.subOne(storage->getDataPoint(n));
                 assert(leftCovariance.getMass() + rightCovariance.getMass() == covariance.getMass());
                 
-                float rightFeatureValue = storage->getDataPoint(n)->at(feature);
+                float rightFeatureValue = storage->getDataPoint(n)(feature);
                 assert(rightFeatureValue >= leftFeatureValue);
                 
                 if (rightFeatureValue - leftFeatureValue < 1e-6f)
@@ -612,7 +607,7 @@ KernelDensityTree::ptr KernelDensityTreeLearner::learn(AbstractDataStorage::ptr 
             const int n = trainingExamples[leaf][m];
             assert(n >= 0 && n < storage->getSize());
             
-            const float featureValue = storage->getDataPoint(n)->at(bestFeature);
+            const float featureValue = storage->getDataPoint(n)(bestFeature);
             
             if (featureValue < bestThreshold)
             {

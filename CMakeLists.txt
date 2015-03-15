@@ -7,7 +7,7 @@ cmake_minimum_required(VERSION 2.6)
 project(libforest)
 
 set(LIBF_INCLUDE_DIRS "${PROJECT_SOURCE_DIR}/include")
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/")
+#set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/")
 
 enable_testing()
 
@@ -68,6 +68,7 @@ add_library(libforest STATIC
                     src/online_learning.cpp 
                     src/learning.cpp 
                     src/tools.cpp 
+                    src/util.cpp 
                     src/error_handling.cpp)
 
 target_link_libraries(libforest 

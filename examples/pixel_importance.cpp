@@ -76,45 +76,41 @@ int main(int argc, const char** argv)
     
     bool useBootstrap = parameters.find("use-bootstrap") != parameters.end();
     
-    DataStorage storage;
-    DataStorage storageT;
+    DataStorage::ptr storage = DataStorage::Factory::create();
+    DataStorage::ptr storageT = DataStorage::Factory::create();
     
-    LibforestDataProvider reader;
-    reader.read(mnistTrainDat.string(), &storageT);
-    reader.read(mnistTestDat.string(), &storage);
+    LibforestDataReader reader;
+    reader.read(mnistTrainDat.string(), storageT);
+    reader.read(mnistTestDat.string(), storage);
     
     // Important for sorted datasets!
-    storageT.randPermute();
+    storageT->randPermute();
     
     std::cout << "Training Data" << std::endl;
-    storageT.dumpInformation();
-    
-    DecisionTreeLearner treeLearner;
-    
-    treeLearner.setUseBootstrap(useBootstrap);
-    treeLearner.setMaxDepth(parameters["max-depth"].as<int>());
-    treeLearner.setNumFeatures(parameters["num-features"].as<int>());
+    storageT->dumpInformation();
     
     RandomForestLearner forestLearner;
     forestLearner.addCallback(RandomForestLearner::defaultCallback, 1);
     
-    forestLearner.setTreeLearner(&treeLearner);
+    forestLearner.getTreeLearner().setUseBootstrap(useBootstrap);
+    forestLearner.getTreeLearner().setMaxDepth(parameters["max-depth"].as<int>());
+    forestLearner.getTreeLearner().setNumFeatures(parameters["num-features"].as<int>());
+    
     forestLearner.setNumTrees(parameters["num-trees"].as<int>());
     forestLearner.setNumThreads(parameters["num-threads"].as<int>());
     
-    RandomForest* forest = forestLearner.learn(&storage);
+    RandomForest::ptr forest = forestLearner.learn(storage);
     
     AccuracyTool accuracyTool;
-    accuracyTool.measureAndPrint(forest, &storageT);
+    accuracyTool.measureAndPrint(forest, storageT);
     
     ConfusionMatrixTool confusionMatrixTool;
-    confusionMatrixTool.measureAndPrint(forest, &storageT);
+    confusionMatrixTool.measureAndPrint(forest, storageT);
     
     // USPS images are 16 x 16, MNIST are 28 x 28.
     PixelImportanceTool piTool;
     piTool.measureAndPrint(&forestLearner);
     piTool.measureAndSave(&forestLearner, boost::filesystem::path(parameters["output-image"].as<std::string>()), parameters["output-width"].as<int>());
     
-    delete forest;
     return 0;
 }

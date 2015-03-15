@@ -53,15 +53,17 @@ int main(int argc, const char** argv)
     
     boost::filesystem::path outFile(parameters["out-file"].as<std::string>());
     
-    DataStorage storage;
-    DataStorage storageT;
+    DataStorage::ptr storage = DataStorage::Factory::create();
     
     if (parameters.find("csv-to-dat") != parameters.end())
     {
-        CSVDataReader reader(parameters["csv-label-col"].as<int>(), parameters["csv-separator"].as<std::string>());
-        reader.read(inFile.string(), &storage);
+        CSVDataReader reader;
+        reader.setClassLabelColumnIndex(parameters["csv-label-col"].as<int>());
+        reader.setReadClassLabels(true);
+        reader.setColumnSeparator(parameters["csv-separator"].as<std::string>());
+        reader.read(inFile.string(), storage);
         LibforestDataWriter writer;
-        writer.write(outFile.string(), &storage);
+        writer.write(outFile.string(), storage);
     }
     // Other conversions not possible yet.
     

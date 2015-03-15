@@ -68,18 +68,18 @@ int main(int argc, const char** argv)
         return 1;
     }
     
-    DataStorage storage;
-    DataStorage storageT;
+    DataStorage::ptr storage = DataStorage::Factory::create();
+    DataStorage::ptr storageT = DataStorage::Factory::create();
     
-    LibforestDataProvider reader;
-    reader.read(trainDat.string(), &storageT);
-    reader.read(testDat.string(), &storage);
+    LibforestDataReader reader;
+    reader.read(trainDat.string(), storageT);
+    reader.read(testDat.string(), storage);
     
     // Important for sorted datasets!
-    storageT.randPermute();
+    storageT->randPermute();
     
     std::cout << "Training Data" << std::endl;
-    storageT.dumpInformation();
+    storageT->dumpInformation();
     
     OnlineDecisionTreeLearner treeLearner;
     
@@ -97,14 +97,13 @@ int main(int argc, const char** argv)
     treeLearner.addCallback(OnlineDecisionTreeLearner::defaultCallback, 1);
     treeLearner.setUseBootstrap(useBootstrap);
     
-    DecisionTree* tree = treeLearner.learn(&storageT);
+    DecisionTree::ptr tree = treeLearner.learn(storageT);
     
     AccuracyTool accuracyTool;
-    accuracyTool.measureAndPrint(tree, &storage);
+    accuracyTool.measureAndPrint(tree, storage);
     
     ConfusionMatrixTool confusionMatrixTool;
-    confusionMatrixTool.measureAndPrint(tree, &storage);
+    confusionMatrixTool.measureAndPrint(tree, storage);
     
-    delete tree;
     return 0;
 }

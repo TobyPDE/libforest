@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <boost/filesystem.hpp>
+#include <memory>
 
 #include "data.h"
 #include "classifiers.h"
@@ -14,6 +15,8 @@
 
 namespace libf {
     class RandomForestLearner;
+    class Estimator;
+    class Gaussian;
     
     /**
      * Computes the accuracy on the data set.
@@ -155,7 +158,7 @@ namespace libf {
         /**
          * Measures the density accuracy using the Kulback-Leibler divergence on a discretegrid.
          */
-        float measure(Estimator* estimator, std::vector<Gaussian> & gaussians,
+        float measure(std::shared_ptr<Estimator> estimator, std::vector<Gaussian> & gaussians,
                 const std::vector<float> & weights, int N);
         
         /**
@@ -166,7 +169,7 @@ namespace libf {
         /**
          * Measure and print the accuracy in terms of the Kulback-Leibler divergence.
          */
-        void measureAndPrint(Estimator* estimator, std::vector<Gaussian> & gaussians,
+        void measureAndPrint(std::shared_ptr<Estimator> estimator, std::vector<Gaussian> & gaussians,
                 const std::vector<float> & weights, int N);
         
     };
@@ -177,7 +180,7 @@ namespace libf {
         /**
          * Measures the density accuracy in terms for squared error.
          */
-        float measure(Estimator* estimator, std::vector<Gaussian> & gaussians,
+        float measure(std::shared_ptr<Estimator> estimator, std::vector<Gaussian> & gaussians,
                 const std::vector<float> & weights, int N);
         
         /**
@@ -188,7 +191,7 @@ namespace libf {
         /**
          * Measure and print the accuracy in terms of the squared error
          */
-        void measureAndPrint(Estimator* estimator, std::vector<Gaussian> & gaussians,
+        void measureAndPrint(std::shared_ptr<Estimator> estimator, std::vector<Gaussian> & gaussians,
                 const std::vector<float> & weights, int N);
         
     };
