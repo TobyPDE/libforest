@@ -404,7 +404,6 @@ namespace libf {
         std::vector< std::vector<int> > nodeFeatures;
     };
     
-    
     /**
      * A random forests that classifies a data point that classifies a data 
      * point using the class posterior estimates of several decision trees. 

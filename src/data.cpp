@@ -4,7 +4,6 @@
 #include "libforest/tools.h"
 #include <fstream>
 #include <iterator>
-#include <boost/tokenizer.hpp>
 #include <boost/spirit/include/qi.hpp>
 #include <boost/fusion/adapted/std_pair.hpp>
 #include <cstdlib>
@@ -64,6 +63,7 @@ void ClassLabelMap::read(std::istream& stream)
     // Get the number of labels
     int numLabels;
     readBinary(stream, numLabels);
+    inverseLabelMap.resize(numLabels);
     
     // Load the label maps
     for (int i = 0; i < numLabels; i++)
@@ -224,36 +224,19 @@ void AbstractDataReader::read(const std::string& filename, DataStorage::ptr data
 /// CSVDataReader
 ////////////////////////////////////////////////////////////////////////////////
 
-void CSVDataReader::read(std::istream & stream, DataStorage::ptr dataStorage, ClassLabelMap & classLabelMap)
+void CSVDataReader::read(std::istream & stream, DataStorage::ptr dataStorage)
 {
-    // Tokenize the stream
-    typedef boost::tokenizer< boost::escaped_list_separator<char> > Tokenizer;
-
-    // @see http://www.boost.org/doc/libs/1_36_0/libs/tokenizer/escaped_list_separator.htm
-    const std::string escape("\\");
-    const std::string separator(columnSeparator);
-    const std::string quote("\"");
-
-    boost::escaped_list_separator<char> els(escape, separator, quote);
-    
-    std::vector< std::string > row;
     std::string line;
-
     while (std::getline(stream,line))
     {
-        // Tokenize the line
-        Tokenizer tok(line, els);
-        row.assign(tok.begin(), tok.end());
-
         // Do not consider blank line
-        if (row.size() == 0) continue;
+        if (line.size() == 0) continue;
         
-        int isize = static_cast<int>(row.size());
-        if (row[row.size() - 1].empty()) 
-        {
-            // We have an empty trailing column ...
-            isize--;
-        }
+        // Parse the line
+        std::vector<float> numbers;
+        parseLine(line, numbers);
+        
+        const int isize = static_cast<int>(numbers.size());
         
         // If we read class labels, the number of columns is one more than the
         // number of dimensions
@@ -278,20 +261,20 @@ void CSVDataReader::read(std::istream & stream, DataStorage::ptr dataStorage, Cl
                 {
                     // It is
                     // Get a preliminary class label
-                    label = classLabelMap.addClassLabel(row[i]);
+                    label = static_cast<int>(numbers[i]);
                 }
                 else if (i < classLabelColumnIndex)
                 {
-                    dataPoint(i) = atof(row[i].c_str());
+                    dataPoint(i) = numbers[i];
                 }
                 else
                 {
-                    dataPoint(i - 1) = atof(row[i].c_str());
+                    dataPoint(i - 1) = numbers[i];
                 }
             }
             else
             {
-                dataPoint(i) = atof(row[i].c_str());
+                dataPoint(i) = numbers[i];
             }
         }
         
@@ -304,15 +287,35 @@ void CSVDataReader::read(std::istream & stream, DataStorage::ptr dataStorage, Cl
             dataStorage->addDataPoint(dataPoint);
         }
     }
+}
+
+
+void CSVDataReader::parseLine(const std::string & line, std::vector<float> & result) const
+{
+    // Set up the iterators
+    std::string::const_iterator first = line.begin();
+    std::string::const_iterator last = line.end();
     
-    // Compute the integer class label
-    std::vector<int> intLabelMap;
-    classLabelMap.computeIntClassLabels(intLabelMap);
+    using boost::spirit::qi::float_;
+    using boost::spirit::qi::int_;
+    using boost::spirit::qi::phrase_parse;
+    using boost::spirit::ascii::space;
+    using boost::spirit::qi::lit;
     
-    // Update the class labels
-    for (int i = 0; i < dataStorage->getSize(); i++)
+    // Parse the line using boost spirit
+    bool r = phrase_parse(
+        first, 
+        last, 
+        float_ % lit(columnSeparator), 
+        space,
+        result
+    );
+    
+    // There was a mismatch. This is not a valid LIBSVM file
+    if (first != last || !r)
     {
-        dataStorage->getClassLabel(i) = intLabelMap[dataStorage->getClassLabel(i)];
+        std::cout << line << std::endl;
+        throw IOException("Invalid CSV line.");
     }
 }
 
@@ -356,6 +359,10 @@ void LIBSVMDataReader::read(std::istream& stream, DataStorage::ptr dataStorage)
         throw IOException("Invalid LIBSVM data set. No dimensions.");
     }
     
+    // Reverse the vector. We need this for the data points to stay in the same
+    // order
+    std::reverse(lines.begin(), lines.end());
+    
     // Create the data points
     // We do it like this to make the transformation in-place
     while (lines.size() > 0)
@@ -365,10 +372,28 @@ void LIBSVMDataReader::read(std::istream& stream, DataStorage::ptr dataStorage)
         for (size_t d = 0; d < lines.back().second.size(); d++)
         {
             const int id = static_cast<int>(lines.back().second[d].first);
-            x(id) = lines.back().second[d].second;
+            x(id-1) = lines.back().second[d].second;
         }
         
-        dataStorage->addDataPoint(x, lines.back().first);
+        int label = lines.back().first - 1;
+        
+        // Do we convert binary labels?
+        if (convertBinaryLabels)
+        {
+            BOOST_ASSERT_MSG(label == -2 || label == 0, "Invalid binary LIBSVM class label. Set convertBinaryLabels to false.");
+            
+            // -2 because we already subtracted 1
+            if (label == -2)
+            {
+                label = 0;
+            }
+            else
+            {
+                label = 1;
+            }
+        }
+        
+        dataStorage->addDataPoint(x, label);
         
         lines.pop_back();
     }
@@ -384,16 +409,14 @@ void LIBSVMDataReader::parseLine(const std::string & line, std::pair<int, std::v
     using boost::spirit::qi::int_;
     using boost::spirit::qi::phrase_parse;
     using boost::spirit::ascii::space;
-std::pair<int, std::vector< std::pair<int, float> > > result2;
     // Parse the line using boost spirit
     bool r = phrase_parse(
         first, 
         last, 
         int_ >> *(int_ >> ':' >> float_),
         space,
-        result2
+        result
     );
-    result = result2;
     
     // There was a mismatch. This is not a valid LIBSVM file
     if (first != last || !r)
@@ -415,23 +438,13 @@ void LibforestDataReader::read(std::istream& stream, DataStorage::ptr dataStorag
     // Read the data set
     for (int n = 0; n < N; n++)
     {
-        if (readClassLabels)
-        {
-            // Read the class label
-            int label;
-            readBinary(stream, label);
-            // Set up the data point
-            DataPoint v;
-            readDataPoint(stream, v);
-            dataStorage->addDataPoint(v, label);
-        }
-        else
-        {
-            // Set up the data point
-            DataPoint v;
-            readDataPoint(stream, v);
-            dataStorage->addDataPoint(v);
-        }
+        // Read the class label
+        int label;
+        readBinary(stream, label);
+        // Set up the data point
+        DataPoint v;
+        readDataPoint(stream, v);
+        dataStorage->addDataPoint(v, label);
     }
 }
 
@@ -459,6 +472,7 @@ void AbstractDataWriter::write(const std::string & filename, DataStorage::ptr da
 {
     // Open the file
     std::ofstream stream(filename, std::ios::binary);
+    stream.precision(8);
     if (!stream.is_open())
     {
         throw IOException("Could not open data file.");
@@ -489,7 +503,7 @@ void CSVDataWriter::write(std::ostream& stream, DataStorage::ptr dataStorage)
                 }
                 else if (d == classLabelColumnIndex)
                 {
-                    stream << dataStorage->getClassLabel(d);
+                    stream << dataStorage->getClassLabel(n);
                 }
                 else
                 {
@@ -511,7 +525,7 @@ void CSVDataWriter::write(std::ostream& stream, DataStorage::ptr dataStorage)
                 stream << v(d);
                 
                 // Write the column separator?
-                if (d < v.rows())
+                if (d < v.rows()-1)
                 {
                     stream << columnSeparator;
                 }
@@ -532,17 +546,14 @@ void LibforestDataWriter::write(std::ostream& stream, DataStorage::ptr dataStora
     // Write the content
     for (int n = 0; n < dataStorage->getSize(); n++)
     {
-        if (writeClassLabels)
-        {
-            writeBinary(stream, dataStorage->getClassLabel(n));
-        }
+        writeBinary(stream, dataStorage->getClassLabel(n));
         writeDataPoint(stream, dataStorage->getDataPoint(n));
     }
 }
 
 void LibforestDataWriter::writeDataPoint(std::ostream& stream, DataPoint& v)
 {
-    writeBinary(stream, v.rows());
+    writeBinary(stream, static_cast<int>(v.rows()));
     for (int d = 0; d < v.rows(); d++)
     {
         writeBinary(stream, v(d));
@@ -559,19 +570,19 @@ void LIBSVMDataWriter::write(std::ostream& stream, DataStorage::ptr dataStorage)
     
     for (int n = 0; n < dataStorage->getSize(); n++)
     {
-        std::cout << dataStorage->getClassLabel(n) << " ";
+        stream << dataStorage->getClassLabel(n) + 1 << " ";
         writeDataPoint(stream, dataStorage->getDataPoint(n));
-        std::cout << std::endl;
+        stream << std::endl;
     }
 }
 
-void LIBSVMDataWriter::writeDataPoint(std::ostream& stream, DataPoint& v)
+void LIBSVMDataWriter::writeDataPoint(std::ostream& stream, const DataPoint& v)
 {
     for (int d = 0; d < v.rows(); d++)
     {
         if (std::abs(v(d)) > 1e-15)
         {
-            std::cout << (d+1) << ':' << v(d) << ' ';
+            stream << (d+1) << ':' << v(d) << ' ';
         }
     }
 }

@@ -112,15 +112,15 @@ namespace libf {
      * Reads anything from a binary file
      */
     template <class T>
-    void read(const std::string & filename, T* o)
+    void read(const std::string & filename, T & o) throw(IOException)
     {
         // Open the file
         std::ifstream stream(filename, std::ios::binary);
         if (!stream.is_open())
         {
-            throw Exception("Could not open file.");
+            throw IOException("Could not open file.");
         }
-        o->read(stream);
+        o.read(stream);
         stream.close();
     }
     
@@ -128,15 +128,15 @@ namespace libf {
      * Reads anything from a binary file
      */
     template <class T>
-    void write(const std::string & filename, T* o)
+    void write(const std::string & filename, const T & o) throw(IOException)
     {
         // Open the file
         std::ofstream stream(filename, std::ios::binary);
         if (!stream.is_open())
         {
-            throw Exception("Could not open file.");
+            throw IOException("Could not open file.");
         }
-        o->write(stream);
+        o.write(stream);
         stream.close();
     }
 }

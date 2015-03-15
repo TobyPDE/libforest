@@ -9,8 +9,6 @@ project(libforest)
 set(LIBF_INCLUDE_DIRS "${PROJECT_SOURCE_DIR}/include")
 #set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/")
 
-enable_testing()
-
 ################################################################################
 ### CMAKE OPTIONS
 ################################################################################
@@ -26,7 +24,7 @@ ENDIF(ENABLE_ASSERT)
 ### THIRD PARTY LIBRARIES
 ################################################################################
 
-find_package(GTest REQUIRED)
+find_package(GTest)
 find_package(Boost COMPONENTS system REQUIRED)
 find_package(Eigen3 REQUIRED)
 # TODO: For PixelImportanceTool, should not be required - should be optional
@@ -77,15 +75,20 @@ target_link_libraries(libforest
 
 # Build the examples
 # TODO: Make this a CMake option or remove it completely from the build process
-add_subdirectory(examples)
+#add_subdirectory(examples)
 
-message(STATUS "GTest_INCLUDE_DIR=${GTest_INCLUDE_DIR}")
-message(STATUS "GTest_LIBRARIES=${GTest_LIBRARIES}")
+################################################################################
+### SET UP UNIT TESTS
+################################################################################
 
-# Build the test suite
-add_executable(tests
-                    tests/data.cpp
-                    tests/util.cpp)
-target_link_libraries(tests
-                    libforest 
-                    ${GTEST_BOTH_LIBRARIES})
+if(GTEST_FOUND)
+    enable_testing()
+
+    # Build the test suite
+    add_executable(tests
+                        tests/data.cpp
+                        tests/util.cpp)
+    target_link_libraries(tests
+                        libforest 
+                        ${GTEST_BOTH_LIBRARIES})
+endif(GTEST_FOUND)
