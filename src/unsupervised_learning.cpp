@@ -1,6 +1,5 @@
 #include "libforest/unsupervised_learning.h"
 #include "libforest/data.h"
-#include "libforest/classifiers.h"
 #include "libforest/util.h"
 
 #include <algorithm>
@@ -37,7 +36,7 @@ DensityTree::ptr DensityTreeLearner::learn(AbstractDataStorage::ptr storage)
     
     // Set up a new density tree. 
     DensityTree::ptr tree = std::make_shared<DensityTree>();
-    tree->addNode(0);
+    tree->addNode();
     
     // Set up the state for the callbacks.
     DensityTreeLearnerState state;
@@ -81,7 +80,7 @@ DensityTree::ptr DensityTreeLearner::learn(AbstractDataStorage::ptr storage)
         const int leaf = splitStack.back();
         splitStack.pop_back();
 
-        const int depth = tree->getDepth(leaf);
+        const int depth = tree->getNodeConfig(leaf).getDepth();
         
         state.action = ACTION_PROCESS_NODE;
         state.node = leaf;
@@ -113,7 +112,7 @@ DensityTree::ptr DensityTreeLearner::learn(AbstractDataStorage::ptr storage)
         //  If the number of examples is too small
         //  If the training examples are all of the same class
         //  If the maximum depth is reached
-        if (covariance.getMass() < minSplitExamples || tree->getDepth(leaf) >= maxDepth)
+        if (covariance.getMass() < minSplitExamples || tree->getNodeConfig(leaf).getDepth() >= maxDepth)
         {
             state.action = ACTION_NOT_SPLIT_NODE;
             state.maxDepth = maxDepth;
@@ -204,8 +203,8 @@ DensityTree::ptr DensityTreeLearner::learn(AbstractDataStorage::ptr storage)
         }
 
         // Ok, split the node
-        tree->setThreshold(leaf, bestThreshold);
-        tree->setSplitFeature(leaf, bestFeature);
+        tree->getNodeConfig(leaf).setThreshold(bestThreshold);
+        tree->getNodeConfig(leaf).setSplitFeature(bestFeature);
         
         const int leftChild = tree->splitNode(leaf);
         const int rightChild = leftChild + 1;
@@ -422,7 +421,7 @@ KernelDensityTree::ptr KernelDensityTreeLearner::learn(AbstractDataStorage::ptr 
     
     // Set up a new density tree. 
     KernelDensityTree::ptr tree = std::make_shared<KernelDensityTree>();
-    tree->addNode(0);
+    tree->addNode();
     
     // Set up the state for the callbacks.
     KernelDensityTreeLearnerState state;
@@ -466,7 +465,7 @@ KernelDensityTree::ptr KernelDensityTreeLearner::learn(AbstractDataStorage::ptr 
         const int leaf = splitStack.back();
         splitStack.pop_back();
 
-        const int depth = tree->getDepth(leaf);
+        const int depth = tree->getNodeConfig(leaf).getDepth();
         
         state.action = ACTION_PROCESS_NODE;
         state.node = leaf;
@@ -498,7 +497,7 @@ KernelDensityTree::ptr KernelDensityTreeLearner::learn(AbstractDataStorage::ptr 
         //  If the number of examples is too small
         //  If the training examples are all of the same class
         //  If the maximum depth is reached
-        if (covariance.getMass() < minSplitExamples || tree->getDepth(leaf) >= maxDepth)
+        if (covariance.getMass() < minSplitExamples || tree->getNodeConfig(leaf).getDepth() >= maxDepth)
         {
             state.action = ACTION_NOT_SPLIT_NODE;
             state.maxDepth = maxDepth;
@@ -591,8 +590,8 @@ KernelDensityTree::ptr KernelDensityTreeLearner::learn(AbstractDataStorage::ptr 
         }
         
         // Ok, split the node
-        tree->setThreshold(leaf, bestThreshold);
-        tree->setSplitFeature(leaf, bestFeature);
+        tree->getNodeConfig(leaf).setThreshold(bestThreshold);
+        tree->getNodeConfig(leaf).setSplitFeature(bestFeature);
         
         const int leftChild = tree->splitNode(leaf);
         const int rightChild = leftChild + 1;

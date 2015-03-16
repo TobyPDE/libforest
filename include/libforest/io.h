@@ -5,6 +5,7 @@
 
 #include <iostream>
 #include <fstream>
+#include <utility>
 
 /**
  * These are color codes that can be used with prinft
@@ -84,7 +85,7 @@ namespace libf {
      * Writes a vector to a stream
      */
     template <class T>
-    void writeBinary(std::ostream & stream, const std::vector<T> & v)
+    inline void writeBinary(std::ostream & stream, const std::vector<T> & v)
     {
         writeBinary(stream, static_cast<int>(v.size()));
         for (size_t i = 0; i < v.size(); i++)
@@ -97,7 +98,7 @@ namespace libf {
      * Reads a vector of N elements from a stream. 
      */
     template <class T>
-    void readBinary(std::istream & stream, std::vector<T> & v)
+    inline void readBinary(std::istream & stream, std::vector<T> & v)
     {
         int N;
         readBinary(stream, N);
@@ -106,6 +107,26 @@ namespace libf {
         {
             readBinary(stream, v[i]);
         }
+    }
+    
+    /**
+     * Writes a pair to a stream
+     */
+    template <class T, class S>
+    inline void writeBinary(std::ostream & stream, const std::pair<T, S> & p)
+    {
+        writeBinary(stream, p.first);
+        writeBinary(stream, p.second);
+    }
+
+    /**
+     * Reads a pair from a stream. 
+     */
+    template <class T, class S>
+    inline void readBinary(std::istream & stream, std::pair<T, S> & p)
+    {
+        readBinary(stream, p.first);
+        readBinary(stream, p.second);
     }
     
     /**

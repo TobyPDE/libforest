@@ -16,8 +16,6 @@ namespace libf {
      * Forward declarations
      */
     class ReferenceDataStorage;
-    class DataWriter;
-    class DataReader;
     
     /**
      * We use eigen3 vectors for data points. This allows us to build quickly
