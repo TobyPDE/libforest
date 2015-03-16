@@ -776,11 +776,11 @@ namespace libf {
         /**
          * Inverse covariance can be cached.
          */
-        bool cachedInverse = false;
+        bool cachedInverse;
         /**
          * Covariance determinant can be cached.
          */
-        bool cachedDeterminant = false;
+        bool cachedDeterminant;
         /**
          * Cached covariance inverse.
          */

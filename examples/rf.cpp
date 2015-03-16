@@ -88,6 +88,7 @@ int main(int argc, const char** argv)
     RandomForestLearner forestLearner;
     forestLearner.addCallback(RandomForestLearner::defaultCallback, 1);
     
+    forestLearner.getTreeLearner().setNumBootstrapExamples(storageT->getSize());
     forestLearner.getTreeLearner().setUseBootstrap(useBootstrap);
     forestLearner.getTreeLearner().setMaxDepth(parameters["max-depth"].as<int>());
     forestLearner.getTreeLearner().setNumFeatures(parameters["num-features"].as<int>());

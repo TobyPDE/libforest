@@ -487,7 +487,7 @@ void AbstractDataWriter::write(const std::string & filename, DataStorage::ptr da
 
 void CSVDataWriter::write(std::ostream& stream, DataStorage::ptr dataStorage)
 {
-    for (size_t n = 0; n < dataStorage->getSize(); n++)
+    for (int n = 0; n < dataStorage->getSize(); n++)
     {
         const DataPoint & v = dataStorage->getDataPoint(n);
         
