@@ -297,7 +297,7 @@ float Gaussian::evaluate(const DataPoint & x)
 /// DensityTree
 ////////////////////////////////////////////////////////////////////////////////
 
-DensityTree::DensityTree() : SplitTree<DensityTreeNodeData>()
+DensityTree::DensityTree() : AbstractAxisAlignedSplitTree<DensityTreeNodeData>()
 {
 }
 
@@ -306,11 +306,11 @@ float DensityTree::getPartitionFunction(int D)
     if (!cachedPartitionFunction)
     {
         const int N = 100 * pow(10, D);
-        const int nodes = static_cast<int>(leftChild.size());
+        const int nodes = getNumNodes();
         
         for (int node = 0; node < nodes; node++)
         {
-            if (leftChild[node] == 0)
+            if (getNodeConfig(node).isLeafNode())
             {
                 int count = 0;
                 for (int n = 0; n < N; n++)
@@ -340,7 +340,7 @@ float DensityTree::getPartitionFunction(int D)
 
 float DensityTree::estimate(const DataPoint & x)
 {
-    assert(leftChild.size() > 0);
+    assert(getNumNodes() > 0);
     
     int node = findLeafNode(x);
     
@@ -352,16 +352,16 @@ float DensityTree::estimate(const DataPoint & x)
 
 void DensityTree::sample(DataPoint & x)
 {
-    assert(leftChild.size() > 0);
+    assert(getNumNodes() > 0);
     
     // We begin by sampling a random path in the tree.
-    int node = std::rand()%leftChild.size();
-    while (leftChild[node] > 0)
+    int node = std::rand()%getNumNodes();
+    while (!getNodeConfig(node).isLeafNode())
     {
-        node = std::rand()%leftChild.size();
+        node = std::rand()%getNumNodes();
     }
     
-    assert(leftChild[node] == 0);
+    assert(getNodeConfig(node).isLeafNode());
     
     // Now sample from the final Gaussian.
     getNodeData(node).gaussian.sample(x);
@@ -391,12 +391,12 @@ void DensityForest::sample(DataPoint & x)
     
     // We begin by sampling a random path in the tree.
     int node = std::rand()%tree->getNumNodes();
-    while (tree->getLeftChild(node) > 0)
+    while (tree->getNodeConfig(node).getLeftChild() > 0)
     {
         node = std::rand()%tree->getNumNodes();
     }
     
-    assert(tree->getLeftChild(node) == 0);
+    assert(tree->getNodeConfig(node).getLeftChild() == 0);
     
     // Now sample from the final Gaussian.
     tree->getNodeData(node).gaussian.sample(x);
@@ -406,7 +406,7 @@ void DensityForest::sample(DataPoint & x)
 /// KernelDensityTree
 ////////////////////////////////////////////////////////////////////////////////
 
-KernelDensityTree::KernelDensityTree() : SplitTree<KernelDensityTreeNodeData>()
+KernelDensityTree::KernelDensityTree() : AbstractAxisAlignedSplitTree<KernelDensityTreeNodeData>()
 {
 }
 
@@ -415,11 +415,11 @@ float KernelDensityTree::getPartitionFunction(int D)
     if (!cachedPartitionFunction)
     {
         const int N = 100 * pow(10, D);
-        const int nodes = static_cast<int>(leftChild.size());
+        const int nodes = getNumNodes();
         
         for (int node = 0; node < nodes; node++)
         {
-            if (leftChild[node] == 0)
+            if (getNodeConfig(node).isLeafNode())
             {
                 float count = 0;
                 for (int n = 0; n < N; n++)
@@ -453,7 +453,7 @@ float KernelDensityTree::getPartitionFunction(int D)
 
 float KernelDensityTree::estimate(const DataPoint & x)
 {
-    assert(leftChild.size() > 0);
+    assert(getNumNodes() > 0);
     
     int node = findLeafNode(x);
     

@@ -94,7 +94,7 @@ void OnlineDecisionTreeLearner::updateSplitStatistics(std::vector<EfficientEntro
 OnlineDecisionTree::ptr OnlineDecisionTreeLearner::learn(AbstractDataStorage::ptr storage)
 {
     OnlineDecisionTree::ptr tree = std::make_shared<OnlineDecisionTree>();
-    tree->addNode(0);
+    tree->addNode();
     
     return learn(storage, tree);
 }
@@ -134,7 +134,7 @@ OnlineDecisionTree::ptr OnlineDecisionTreeLearner::learn(AbstractDataStorage::pt
         const DataPoint & x = storage->getDataPoint(n);
         const int label = storage->getClassLabel(n);
         const int leaf = tree->findLeafNode(x);
-        const int depth = tree->getDepth(leaf);
+        const int depth = tree->getNodeConfig(leaf).getDepth();
         
         state.node = leaf;
         state.depth = depth;
@@ -296,8 +296,8 @@ OnlineDecisionTree::ptr OnlineDecisionTreeLearner::learn(AbstractDataStorage::pt
                 && nodeFeatures[bestFeature] < D);
         
         // We split this node!
-        tree->setThreshold(leaf, nodeThresholds[bestFeature][bestThreshold]); // Save the actual threshold value.
-        tree->setSplitFeature(leaf, nodeFeatures[bestFeature]); // Save the index of the feature.
+        tree->getNodeConfig(leaf).setThreshold(nodeThresholds[bestFeature][bestThreshold]); // Save the actual threshold value.
+        tree->getNodeConfig(leaf).setSplitFeature(nodeFeatures[bestFeature]); // Save the index of the feature.
         
         const int leftChild = tree->splitNode(leaf);
         const int rightChild = leftChild  + 1;
@@ -411,7 +411,7 @@ OnlineRandomForest::ptr OnlineRandomForestLearner::learn(AbstractDataStorage::pt
         if (i >= forest->getSize())
         {
             OnlineDecisionTree::ptr tree = std::make_shared<OnlineDecisionTree>();
-            tree->addNode(0);
+            tree->addNode();
             
             forest->addTree(tree);
         }

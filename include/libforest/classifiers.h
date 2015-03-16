@@ -60,7 +60,7 @@ namespace libf {
      * This is the base class for all tree classifiers
      */
     template <class Data>
-    class AbstractTreeClassifier : public SplitTree<Data>, public AbstractClassifier {
+    class AbstractTreeClassifier : public AbstractAxisAlignedSplitTree<Data>, public AbstractClassifier {
     public:
         
         virtual ~AbstractTreeClassifier() {}
