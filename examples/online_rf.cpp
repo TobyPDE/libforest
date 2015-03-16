@@ -102,7 +102,7 @@ int main(int argc, const char** argv)
     
     OnlineRandomForestLearner forestLearner;
     
-    forestLearner.setTreeLearner(&treeLearner);
+    forestLearner.setTreeLearner(treeLearner);
     forestLearner.setNumTrees(parameters["num-trees"].as<int>());
     forestLearner.setNumThreads(parameters["num-threads"].as<int>());
     forestLearner.addCallback(OnlineRandomForestLearner::verboseCallback, 1);
