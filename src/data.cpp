@@ -407,13 +407,14 @@ void LIBSVMDataReader::parseLine(const std::string & line, std::pair<int, std::v
     
     using boost::spirit::qi::float_;
     using boost::spirit::qi::int_;
+    using boost::spirit::qi::lit;
     using boost::spirit::qi::phrase_parse;
     using boost::spirit::ascii::space;
     // Parse the line using boost spirit
     bool r = phrase_parse(
         first, 
         last, 
-        int_ >> *(int_ >> ':' >> float_),
+        int_ >> -(lit('.')>>+lit('0')) >> *(int_ >> ':' >> float_),
         space,
         result
     );
@@ -487,7 +488,7 @@ void AbstractDataWriter::write(const std::string & filename, DataStorage::ptr da
 
 void CSVDataWriter::write(std::ostream& stream, DataStorage::ptr dataStorage)
 {
-    for (size_t n = 0; n < dataStorage->getSize(); n++)
+    for (int n = 0; n < dataStorage->getSize(); n++)
     {
         const DataPoint & v = dataStorage->getDataPoint(n);
         

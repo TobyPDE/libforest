@@ -51,8 +51,17 @@ include_directories(
 # -g: Debuggin with Valgrind
 # -Wall: All warnings
 # OpenMP
-set(CMAKE_CXX_FLAGS "-std=c++11 -g -Wall ${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
-
+set(CMAKE_CXX_FLAGS "-g -Wall ${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
+include(CheckCXXCompilerFlag)
+CHECK_CXX_COMPILER_FLAG("-std=c++11" COMPILER_SUPPORTS_CXX11)
+CHECK_CXX_COMPILER_FLAG("-std=c++0x" COMPILER_SUPPORTS_CXX0X)
+if(COMPILER_SUPPORTS_CXX11)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+elseif(COMPILER_SUPPORTS_CXX0X)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x")
+else()
+        message(STATUS "The compiler ${CMAKE_CXX_COMPILER} has no C++11 support. Please use a different C++ compiler.")
+endif()
 ################################################################################
 ### SET UP TARGETS
 ################################################################################
@@ -71,7 +80,8 @@ add_library(libforest STATIC
 
 target_link_libraries(libforest 
                     ${Boost_LIBRARIES} 
-                    ${OpenCV_LIBRARIES})
+                    ${OpenCV_LIBRARIE}
+                    ${OpenCV_LIBS})
 
 # Build the examples
 # TODO: Make this a CMake option or remove it completely from the build process
