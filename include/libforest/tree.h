@@ -139,8 +139,6 @@ namespace libf {
         AxisAlignedSplitTreeNodeConfig() : depth(0), splitFeature(0), threshold(0), leftChild(0) {}
         template <class T>
         friend class AbstractAxisAlignedSplitTree;
-        friend void writeBinary(std::ostream & stream, const AxisAlignedSplitTreeNodeConfig & v);
-        friend void readBinary(std::istream & stream, AxisAlignedSplitTreeNodeConfig & v);
         
         /**
          * Sets the split feature for a node
