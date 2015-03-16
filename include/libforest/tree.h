@@ -387,6 +387,261 @@ namespace libf {
             return node;
         }
     };
-}
+    
+    /**
+     * This is the node configuration for projective split trees.
+     */
+    class ProjectiveSplitTreeNodeConfig {
+    public:
+        ProjectiveSplitTreeNodeConfig() : depth(0), projection(), threshold(0), leftChild(0) {}
+        template <class T>
+        friend class AbstractProjectiveSplitTree;
+        
+        /**
+         * Returns the projection
+         * 
+         * @return The projection vector
+         */
+        DataPoint & getProjection()
+        {
+            return projection;
+        }
+        
+        /**
+         * Returns the projection
+         * 
+         * @return The projection vector
+         */
+        const DataPoint & getProjection() const
+        {
+            return projection;
+        }
+        
+        /**
+         * Sets the threshold for a node
+         * 
+         * @param _threshold The new threshold value
+         */
+        void setThreshold(float _threshold)
+        {
+            threshold = _threshold;
+        }
+        
+        /**
+         * Returns the threshold for a node
+         * 
+         * @return The threshold 
+         */
+        float getThreshold() const
+        {
+            return threshold;
+        }
+        
+        /**
+         * Returns true if the given node is a leaf node. 
+         * 
+         * @return True if the node is a leaf node
+         */
+        bool isLeafNode() const 
+        {
+            return leftChild == 0;
+        }
+        
+        /**
+         * Returns the index of the left child node for a node. 
+         * 
+         * @return The index of the left child node
+         */
+        int getLeftChild() const
+        {
+            return leftChild;
+        }
+        
+        /**
+         * Returns the index of the right child node for a node. 
+         * 
+         * @return The index of the right child node
+         */
+        int getRightChild() const
+        {
+            return leftChild + 1;
+        }
+        
+        /**
+         * Get depth of a node where the root node has depth 0. 
+         * 
+         * @return The depth of the node
+         */
+        int getDepth() const
+        {
+            return depth;
+        }
+        
+        /**
+         * Reads the tree from a stream. 
+         * 
+         * @param stream The stream to read the tree from
+         */
+        void read(std::istream & stream)
+        {
+            readBinary(stream, depth);
+            // TODO: Implement writeBinary for DataPoint
+            // readBinary(stream, projection);
+            readBinary(stream, threshold);
+            readBinary(stream, leftChild);
+        }
+        
+        /**
+         * Writes the tree to a stream
+         * 
+         * @param stream The stream to write the tree to.
+         */
+        void write(std::ostream & stream) const
+        {
+            writeBinary(stream, depth);
+            // TODO: Implement writeBinary for DataPoint
+            // writeBinary(stream, projection);
+            writeBinary(stream, threshold);
+            writeBinary(stream, leftChild);
+        }
+        
+    private:
+        
+        /**
+         * Sets depth of a node where the root node has depth 0. 
+         * 
+         * @param _depth The depth of the node
+         */
+        void setDepth(int _depth)
+        {
+            depth = _depth;
+        }
+        
+        /**
+         * Returns the index of the left child node for a node. 
+         * 
+         * @param _leftChild The index of the left child node
+         */
+        void setLeftChild(int _leftChild)
+        {
+            leftChild = _leftChild;
+        }
+        
+        /**
+         * The depth of the node.
+         */
+        int depth;
+        /**
+         * The split projection
+         */
+        DataPoint projection;
+        /**
+         * The threshold of the node
+         */
+        float threshold;
+        /**
+         * The left child node index of the node. If the left child node is 0, then 
+         * this is a leaf node. The right child node is left + 1. 
+         */
+        int leftChild;
+    };
+    
+    /**
+     * Overload the read binary method to also read ProjectiveSplitTreeNodeConfig
+     */
+    inline void readBinary(std::istream & stream, ProjectiveSplitTreeNodeConfig & v)
+    {
+        v.read(stream);
+    }
+    
+    /**
+     * Overload the write binary method to also write ProjectiveSplitTreeNodeConfig
+     */
+    inline void writeBinary(std::ostream & stream, const ProjectiveSplitTreeNodeConfig & v)
+    {
+        v.write(stream);
+    }
+    
+    /**
+     * This is a base class for trees that split the space using projective
+     * splits. Each node in the tree can carry some specified data. 
+     */
+    template <class Data>
+    class AbstractProjectiveSplitTree : public AbstractSplitTree<ProjectiveSplitTreeNodeConfig, Data> {
+    public:
+        /**
+         * Creates an empty split tree.
+         */
+        AbstractProjectiveSplitTree() : AbstractSplitTree<ProjectiveSplitTreeNodeConfig, Data>() {}
+        
+        /**
+         * Destructor.
+         */
+        virtual ~AbstractProjectiveSplitTree() {}
+        
+        /**
+         * Splits a child node and returns the index of the left child. 
+         * 
+         * @param node The node index
+         * @return The index of the left child node
+         */
+        int splitNode(int node)
+        {
+            // Make sure this is a valid node ID
+            BOOST_ASSERT_MSG(0 <= node && node < this->getNumNodes(), "Invalid node index.");
+            // Make sure this is a former leaf node
+            BOOST_ASSERT_MSG(this->getNodeConfig(node).isLeafNode(), "Cannot split non-leaf node.");
+
+            // Add the child nodes
+            const int leftNode = this->addNode();
+            const int rightNode = this->addNode();
+            
+            ProjectiveSplitTreeNodeConfig & config = this->getNodeConfig(node);
+            
+            // Update the depth
+            const int depth = config.getDepth() + 1;
+            this->getNodeConfig(leftNode).setDepth(depth);
+            this->getNodeConfig(rightNode).setDepth(depth);
+
+            // Set the child relation
+            config.setLeftChild(leftNode);
+
+            return leftNode;
+        }
+        
+        /**
+         * Passes the data point through the tree and returns the index of the
+         * leaf node it ends up in. 
+         * 
+         * @param x The data point to pass down the tree
+         * @return The index of the leaf node v ends up in
+         */
+        int findLeafNode(const DataPoint & x) const
+        {
+            // Select the root node as current node
+            int node = 0;
+
+            // Follow the tree until we hit a leaf node
+            while (!this->getNodeConfig(node).isLeafNode())
+            {
+                const ProjectiveSplitTreeNodeConfig & config = this->getNodeConfig(node);
+                const float inner = config.getProjection().adjoint()*x;
+                
+                // Check the threshold
+                if (inner < config.getThreshold())
+                {
+                    // Go to the left
+                    node = config.getLeftChild();
+                }
+                else
+                {
+                    // Go to the right
+                    node = config.getRightChild();
+                }
+            }
+
+            return node;
+        }
+    };}
 
 #endif

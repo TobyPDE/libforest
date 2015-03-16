@@ -233,7 +233,7 @@ namespace libf {
          */
         float getImportance(int feature) const
         {
-            BOOST_ASSERT(0 <= feature && feature < importance.size());
+            BOOST_ASSERT(0 <= feature && feature < static_cast<int>(importance.size()));
             return importance[feature];
         }
         
@@ -412,6 +412,104 @@ namespace libf {
         int numBootstrapExamples;
     };
     
+    
+    /**
+     * This is a projective decision tree learning algorithm. It learns the
+     * tree using the information gain criterion.
+     */
+    class ProjectiveDecisionTreeLearner : 
+            public AbstractDecisionTreeLearner<ProjectiveDecisionTree, DecisionTreeLearnerState>, 
+            public Learner<ProjectiveDecisionTree> {
+    public:
+        ProjectiveDecisionTreeLearner() : AbstractDecisionTreeLearner(),
+                smoothingParameter(1),
+                useBootstrap(false),
+                numBootstrapExamples(1) {}
+                
+        /**
+         * The default callback for this learner.
+         */
+        static int defaultCallback(ProjectiveDecisionTree::ptr tree, const DecisionTreeLearnerState & state);
+                
+        /**
+         * Actions for the callback function.
+         */
+        const static int ACTION_START_TREE = 1;
+        const static int ACTION_SPLIT_NODE = 2;
+        
+        /**
+         * Sets the smoothing parameter
+         */
+        void setSmoothingParameter(float _smoothingParameter)
+        {
+            smoothingParameter = _smoothingParameter;
+        }
+        
+        /**
+         * Returns the smoothing parameter
+         */
+        float getSmoothingParameter() const
+        {
+            return smoothingParameter;
+        }
+        
+        /**
+         * Sets whether or not bootstrapping shall be used
+         */
+        void setUseBootstrap(bool _useBootstrap)
+        {
+            useBootstrap = _useBootstrap;
+        }
+
+        /**
+         * Returns whether or not bootstrapping is used
+         */
+        bool getUseBootstrap() const
+        {
+            return useBootstrap;
+        }
+        
+        /**
+         * Sets the number of samples to use for bootstrapping.
+         */
+        void setNumBootstrapExamples(int _numBootstrapExamples)
+        {
+            numBootstrapExamples = _numBootstrapExamples;
+        }
+        
+        /**
+         * Returns the number of samples used for bootstrapping.
+         */
+        int getNumBootstrapExamples() const
+        {
+            return numBootstrapExamples;
+        }
+        
+        /**
+         * Learns a decision tree on a data set.
+         */
+        virtual ProjectiveDecisionTree::ptr learn(AbstractDataStorage::ptr storage);
+        
+        /**
+         * Updates the histograms
+         */
+        void updateHistograms(ProjectiveDecisionTree::ptr tree, AbstractDataStorage::ptr storage) const;
+        
+    protected:
+        /**
+         * The smoothing parameter for the histograms
+         */
+        float smoothingParameter;
+        /**
+         * Whether or not bootstrapping shall be used
+         */
+        bool useBootstrap;
+        /**
+         * The number of bootstrap examples that shall be used.
+         */
+        int numBootstrapExamples;
+    };
+    
     /**
      * This is a an abstract random forest learner providing functionality for
      * online and offline learning.
@@ -567,6 +665,66 @@ namespace libf {
          * The tree learner
          */
         DecisionTreeLearner treeLearner;
+    };
+    
+
+    /**
+     * This is an offline random forest learner. 
+     */
+    class ProjectiveRandomForestLearner : public AbstractRandomForestLearner<ProjectiveRandomForest, RandomForestLearnerState>,
+            public Learner<ProjectiveRandomForest> {
+    public:
+        
+        /**
+         * The default callback for this learner.
+         */
+        static int defaultCallback(ProjectiveRandomForest::ptr forest, const RandomForestLearnerState & state);
+        
+        /**
+         * These are the actions of the learning algorithm that are passed
+         * to the callback functions.
+         */
+        const static int ACTION_START_TREE = 1;
+        const static int ACTION_FINISH_TREE = 2;
+        const static int ACTION_START_FOREST = 3;
+        const static int ACTION_FINISH_FOREST = 4;
+        
+        ProjectiveRandomForestLearner() : AbstractRandomForestLearner() {}
+        
+        /**
+         * Sets the decision tree learner
+         */
+        void setTreeLearner(const ProjectiveDecisionTreeLearner & _treeLearner)
+        {
+            treeLearner = _treeLearner;
+        }
+        
+        /**
+         * Returns the decision tree learner
+         */
+        const ProjectiveDecisionTreeLearner & getTreeLearner() const
+        {
+            return treeLearner;
+        }
+        
+        /**
+         * Returns the decision tree learner
+         */
+        ProjectiveDecisionTreeLearner & getTreeLearner()
+        {
+            return treeLearner;
+        }
+        
+        /**
+         * Learns a forests. 
+         */
+        virtual ProjectiveRandomForest::ptr learn(AbstractDataStorage::ptr storage);
+
+    protected:
+        /**
+         * The tree learner
+         */
+        ProjectiveDecisionTreeLearner treeLearner;
     };
     
     /**

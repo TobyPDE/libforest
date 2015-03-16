@@ -312,6 +312,70 @@ namespace libf {
         std::vector<std::shared_ptr<T> > trees;
     };
     
+    
+    /**
+     * This is the base class for all tree classifiers
+     */
+    template <class Data>
+    class AbstractProjectiveTreeClassifier : public AbstractProjectiveSplitTree<Data>, public AbstractClassifier {
+    public:
+        
+        virtual ~AbstractProjectiveTreeClassifier() {}
+        
+        /**
+         * Only accept template parameters that extend AbstractTreeClassifierNodeData.
+         * Note: The double parentheses are needed.
+         */
+        BOOST_STATIC_ASSERT((boost::is_base_of<AbstractTreeClassifierNodeData, Data>::value));
+        
+        typedef std::shared_ptr<AbstractTreeClassifier<Data> >  ptr;
+        
+        /**
+         * Returns the class log posterior log(p(c | x)). The probabilities are
+         * not normalized. 
+         * 
+         * @param x The data point for which the log posterior shall be evaluated. 
+         * @param probabilities The vector of log posterior probabilities
+         */
+        void classLogPosterior(const DataPoint & x, std::vector<float> & probabilities) const
+        {
+            // Get the leaf node
+            const int leafNode = this->findLeafNode(x);
+            probabilities = this->getNodeData(leafNode).histogram;
+        }
+    };
+    
+    /**
+     * This is the data each node in a decision tree carries
+     */
+    class ProjectiveDecisionTreeNodeData : public AbstractTreeClassifierNodeData {};
+    
+    /**
+     * Overload the read binary method to also read DecisionTreeNodeData
+     */
+    template <>
+    inline void readBinary(std::istream & stream, ProjectiveDecisionTreeNodeData & v)
+    {
+        readBinary(stream, v.histogram);
+    }
+    
+    /**
+     * Overload the write binary method to also write DecisionTreeNodeData
+     */
+    template <>
+    inline void writeBinary(std::ostream & stream, const ProjectiveDecisionTreeNodeData & v)
+    {
+        writeBinary(stream, v.histogram);
+    }
+    
+    /**
+     * This class represents a decision tree.
+     */
+    class ProjectiveDecisionTree : public AbstractProjectiveTreeClassifier<ProjectiveDecisionTreeNodeData> {
+    public:
+        typedef std::shared_ptr<ProjectiveDecisionTree> ptr;
+    };
+    
     /**
      * This is a traditional random forest for offline learning. 
      */
@@ -332,6 +396,17 @@ namespace libf {
         typedef std::shared_ptr<OnlineRandomForest> ptr;
         OnlineRandomForest() : AbstractRandomForest<OnlineDecisionTree> () {}
         virtual ~OnlineRandomForest() {}
+    };
+    
+    /**
+     * This is random forest of projective decision trees. 
+     */
+    class ProjectiveRandomForest : public AbstractRandomForest<ProjectiveDecisionTree> 
+    {
+    public:
+        typedef std::shared_ptr<ProjectiveRandomForest> ptr;
+        ProjectiveRandomForest() : AbstractRandomForest<ProjectiveDecisionTree> () {}
+        virtual ~ProjectiveRandomForest() {}
     };
     
     /**

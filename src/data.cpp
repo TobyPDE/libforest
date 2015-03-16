@@ -407,13 +407,14 @@ void LIBSVMDataReader::parseLine(const std::string & line, std::pair<int, std::v
     
     using boost::spirit::qi::float_;
     using boost::spirit::qi::int_;
+    using boost::spirit::qi::lit;
     using boost::spirit::qi::phrase_parse;
     using boost::spirit::ascii::space;
     // Parse the line using boost spirit
     bool r = phrase_parse(
         first, 
         last, 
-        int_ >> *(int_ >> ':' >> float_),
+        int_ >> -(lit('.')>>+lit('0')) >> *(int_ >> ':' >> float_),
         space,
         result
     );

@@ -135,7 +135,14 @@ void ConfusionMatrixTool::measure(AbstractClassifier::ptr classifier, AbstractDa
     {
         for (int cc = 0; cc < C; cc++)
         {
-            result[c][cc] /= classCounts[c];
+            if (classCounts[c] > 0)
+            {
+                result[c][cc] /= classCounts[c];
+            }
+            else
+            {
+                result[c][cc] = 0;
+            }
         }
     }
 }
