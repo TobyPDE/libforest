@@ -15,7 +15,7 @@ set(LIBF_INCLUDE_DIRS "${PROJECT_SOURCE_DIR}/include")
 
 # Let's you switch assertions on/off
 # This must be switched on for the unit tests
-OPTION(ENABLE_ASSERT "Enables assertions throughout the library" OFF)
+OPTION(ENABLE_ASSERT "Enables assertions throughout the library" ON)
 IF(ENABLE_ASSERT)
     ADD_DEFINITIONS(-DLIBF_ENABLE_ASSERT)
 ENDIF(ENABLE_ASSERT)
