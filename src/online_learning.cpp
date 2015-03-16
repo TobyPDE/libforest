@@ -402,20 +402,21 @@ OnlineRandomForest::ptr OnlineRandomForestLearner::learn(AbstractDataStorage::pt
     return learn(storage, forest);
 }
 
-OnlineRandomForest::ptr OnlineRandomForestLearner::learn(AbstractDataStorage::ptr storage, OnlineRandomForest::ptr forest)
+OnlineRandomForest::ptr OnlineRandomForestLearner::learn(AbstractDataStorage::ptr storage, 
+        OnlineRandomForest::ptr forest)
 {
-    const int D = storage->getDimensionality();
-    
     for (int i = 0; i < numTrees; i++)
     {
         if (i >= forest->getSize())
         {
             OnlineDecisionTree::ptr tree = std::make_shared<OnlineDecisionTree>();
             tree->addNode();
-            
+
             forest->addTree(tree);
         }
     }
+    
+    const int D = storage->getDimensionality();
     
     // Initialize variable importance values.
     importance = std::vector<float>(D, 0.f);
@@ -443,7 +444,7 @@ OnlineRandomForest::ptr OnlineRandomForestLearner::learn(AbstractDataStorage::pt
         }
         
         OnlineDecisionTree::ptr tree = forest->getTree(i);
-        treeLearner->learn(storage, tree);
+        treeLearner.learn(storage, tree);
         
         #pragma omp critical
         {
@@ -455,7 +456,7 @@ OnlineRandomForest::ptr OnlineRandomForestLearner::learn(AbstractDataStorage::pt
             // Update variable importance.
             for (int f = 0; f < D; ++f)
             {
-                importance[f] += treeLearner->getImportance(f);
+                importance[f] += treeLearner.getImportance(f);
             }
         }
     }
