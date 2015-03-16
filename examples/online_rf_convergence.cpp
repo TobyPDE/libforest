@@ -101,7 +101,7 @@ int main(int argc, const char** argv)
     
     OnlineRandomForestLearner onlineForestLearner;
     
-    onlineForestLearner.setTreeLearner(&onlineTreeLearner);
+    onlineForestLearner.setTreeLearner(onlineTreeLearner);
     onlineForestLearner.setNumTrees(parameters["num-trees"].as<int>());
     onlineForestLearner.setNumThreads(parameters["num-threads"].as<int>());
     // onlineForestLearner.addCallback(OnlineRandomForestLearner::verboseCallback, 1);

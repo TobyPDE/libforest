@@ -37,9 +37,9 @@ int main(int argc, const char** argv)
         ("file-test", boost::program_options::value<std::string>(), "path to test DAT file")
         ("num-features", boost::program_options::value<int>()->default_value(10), "number of features to use (set to dimensionality of data to learn deterministically)")
         ("use-bootstrap", "use bootstrapping for training")
-        ("num-trees", boost::program_options::value<int>()->default_value(100), "number of trees in forest")
+        ("num-trees", boost::program_options::value<int>()->default_value(8), "number of trees in forest")
         ("max-depth", boost::program_options::value<int>()->default_value(100), "maximum depth of trees")
-        ("num-threads", boost::program_options::value<int>()->default_value(1), "number of threads for learning");
+        ("num-threads", boost::program_options::value<int>()->default_value(8), "number of threads for learning");
 
     boost::program_options::positional_options_description positionals;
     positionals.add("file-train", 1);
@@ -71,37 +71,64 @@ int main(int argc, const char** argv)
     
     const bool useBootstrap = parameters.find("use-bootstrap") != parameters.end();
     
-    DataStorage::ptr storage = DataStorage::Factory::create();
-    DataStorage::ptr storageT = DataStorage::Factory::create();
+    DataStorage::ptr readStorage = DataStorage::Factory::create();
     
-    LibforestDataReader reader;
-    reader.read(trainDat.string(), storageT);
-    reader.read(testDat.string(), storage);
+    LIBSVMDataReader reader;
+    reader.setConvertBinaryLabels(true);
+    reader.read(trainDat.string(), readStorage);
     
-    // Important for sorted datasets!
-    storageT->randPermute();
+    AbstractDataStorage::ptr permuted = readStorage->copy();
+    permuted->randPermute();
+    AbstractDataStorage::ptr storageTrain = permuted->excerpt(0, floor(0.7*permuted->getSize()));
+    AbstractDataStorage::ptr storageTest = permuted->excerpt(ceil(0.7*permuted->getSize()), permuted->getSize() - 1);
     
     std::cout << "Training Data" << std::endl;
-    storageT->dumpInformation();
-    
-    
-    RandomForestLearner forestLearner;
-    forestLearner.addCallback(RandomForestLearner::defaultCallback, 1);
-    
-    forestLearner.getTreeLearner().setUseBootstrap(useBootstrap);
-    forestLearner.getTreeLearner().setMaxDepth(parameters["max-depth"].as<int>());
-    forestLearner.getTreeLearner().setNumFeatures(parameters["num-features"].as<int>());
-    
-    forestLearner.setNumTrees(parameters["num-trees"].as<int>());
-    forestLearner.setNumThreads(parameters["num-threads"].as<int>());
-    
-    RandomForest::ptr forest = forestLearner.learn(storageT);
-    
-    AccuracyTool accuracyTool;
-    accuracyTool.measureAndPrint(forest, storage);
-    
-    ConfusionMatrixTool confusionMatrixTool;
-    confusionMatrixTool.measureAndPrint(forest, storage);
+    storageTrain->dumpInformation();
+    storageTest->dumpInformation();
+#if 1
+    {
+        ProjectiveRandomForestLearner forestLearner;
+        forestLearner.addCallback(ProjectiveRandomForestLearner::defaultCallback, 1);
+
+        forestLearner.getTreeLearner().setMinSplitExamples(10);
+        forestLearner.getTreeLearner().setUseBootstrap(useBootstrap);
+        forestLearner.getTreeLearner().setMaxDepth(parameters["max-depth"].as<int>());
+        forestLearner.getTreeLearner().setNumFeatures(parameters["num-features"].as<int>());
+
+        forestLearner.setNumTrees(parameters["num-trees"].as<int>());
+        forestLearner.setNumThreads(parameters["num-threads"].as<int>());
+
+        ProjectiveRandomForest::ptr forest = forestLearner.learn(storageTrain);
+
+        AccuracyTool accuracyTool;
+        accuracyTool.measureAndPrint(forest, storageTest);
+
+        ConfusionMatrixTool confusionMatrixTool;
+        confusionMatrixTool.measureAndPrint(forest, storageTest);
+    }
+#endif
+#if 1
+    {
+        RandomForestLearner forestLearner;
+        forestLearner.addCallback(RandomForestLearner::defaultCallback, 1);
+
+        forestLearner.getTreeLearner().setMinSplitExamples(10);
+        forestLearner.getTreeLearner().setUseBootstrap(useBootstrap);
+        forestLearner.getTreeLearner().setMaxDepth(parameters["max-depth"].as<int>());
+        forestLearner.getTreeLearner().setNumFeatures(parameters["num-features"].as<int>());
+
+        forestLearner.setNumTrees(parameters["num-trees"].as<int>());
+        forestLearner.setNumThreads(parameters["num-threads"].as<int>());
+
+        RandomForest::ptr forest = forestLearner.learn(storageTrain);
+
+        AccuracyTool accuracyTool;
+        accuracyTool.measureAndPrint(forest, storageTest);
+
+        ConfusionMatrixTool confusionMatrixTool;
+        confusionMatrixTool.measureAndPrint(forest, storageTest);
+    }
+#endif
     
 //    VariableImportanceTool variableImportanceTool;
 //    variableImportanceTool.measureAndPrint(&forestLearner);

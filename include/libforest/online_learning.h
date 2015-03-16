@@ -259,7 +259,7 @@ namespace libf {
         /**
          * Sets the threshold generator to use.
          */
-        void setThresholdGenerator(RandomThresholdGenerator _thresholdGenerator)
+        void setThresholdGenerator(RandomThresholdGenerator & _thresholdGenerator)
         {
             thresholdGenerator = _thresholdGenerator;
         }
@@ -369,12 +369,12 @@ namespace libf {
         const static int ACTION_FINISH_FOREST = 4;
         
         OnlineRandomForestLearner() : AbstractRandomForestLearner(),
-                treeLearner(0) {}
+                treeLearner() {}
         
         /**
          * Sets the decision tree learner
          */
-        void setTreeLearner(OnlineDecisionTreeLearner* _treeLearner)
+        void setTreeLearner(OnlineDecisionTreeLearner & _treeLearner)
         {
             treeLearner = _treeLearner;
         }
@@ -382,7 +382,7 @@ namespace libf {
         /**
          * Returns the decision tree learner
          */
-        OnlineDecisionTreeLearner* getTreeLearner() const
+        OnlineDecisionTreeLearner & getTreeLearner()
         {
             return treeLearner;
         }
@@ -401,7 +401,7 @@ namespace libf {
         /**
          * The tree learner
          */
-        OnlineDecisionTreeLearner* treeLearner;
+        OnlineDecisionTreeLearner treeLearner;
     };
 }
 
