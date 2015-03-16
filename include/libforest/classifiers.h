@@ -264,7 +264,7 @@ namespace libf {
          * 
          * @param tree The tree to add to the ensemble
          */
-        void addTree( std::shared_ptr<T> tree)
+        void addTree(std::shared_ptr<T> tree)
         {
             trees.push_back(tree);
         }
@@ -309,7 +309,7 @@ namespace libf {
         /**
          * The individual decision trees. 
          */
-        std::vector<std::shared_ptr<T> > trees;
+        std::vector< std::shared_ptr<T> > trees;
     };
     
     /**
