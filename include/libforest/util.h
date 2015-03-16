@@ -272,7 +272,12 @@ namespace libf {
          * 
          * @param other The histogram to copy
          */
-        EfficientEntropyHistogram(const EfficientEntropyHistogram & other) : EfficientEntropyHistogram()
+        EfficientEntropyHistogram(const EfficientEntropyHistogram & other) : 
+                bins(0),
+                histogram(0),
+                mass(0),
+                entropies(0),
+                totalEntropy(0) 
         {
             resize(other.bins);
             for (int i = 0; i < bins; i++)
