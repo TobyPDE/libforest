@@ -354,22 +354,22 @@ DensityForest::ptr DensityForestLearner::learn(AbstractDataStorage::ptr storage)
 int DensityForestLearner::defaultCallback(DensityForest::ptr forest, const DensityForestLearnerState & state)
 {
     switch (state.action) {
-        case RandomForestLearner::ACTION_START_FOREST:
+        case DensityForestLearner::ACTION_START_FOREST:
             std::cout << "Start random forest training" << "\n";
             break;
-        case RandomForestLearner::ACTION_START_TREE:
+        case DensityForestLearner::ACTION_START_TREE:
             std::cout << std::setw(15) << std::left << "Start tree " 
                     << std::setw(4) << std::right << state.tree 
                     << " out of " 
                     << std::setw(4) << state.numTrees << "\n";
             break;
-        case RandomForestLearner::ACTION_FINISH_TREE:
+        case DensityForestLearner::ACTION_FINISH_TREE:
             std::cout << std::setw(15) << std::left << "Finish tree " 
                     << std::setw(4) << std::right << state.tree 
                     << " out of " 
                     << std::setw(4) << state.numTrees << "\n";
             break;
-        case RandomForestLearner::ACTION_FINISH_FOREST:
+        case DensityForestLearner::ACTION_FINISH_FOREST:
             std::cout << "Finished forest in " << state.getPassedTime().count()/1000000. << "s\n";
             break;
         default:

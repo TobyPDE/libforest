@@ -297,10 +297,6 @@ float Gaussian::evaluate(const DataPoint & x)
 /// DensityTree
 ////////////////////////////////////////////////////////////////////////////////
 
-DensityTree::DensityTree() : AbstractAxisAlignedSplitTree<DensityTreeNodeData>()
-{
-}
-
 float DensityTree::getPartitionFunction(int D)
 {
     if (!cachedPartitionFunction)
@@ -405,10 +401,6 @@ void DensityForest::sample(DataPoint & x)
 ////////////////////////////////////////////////////////////////////////////////
 /// KernelDensityTree
 ////////////////////////////////////////////////////////////////////////////////
-
-KernelDensityTree::KernelDensityTree() : AbstractAxisAlignedSplitTree<KernelDensityTreeNodeData>()
-{
-}
 
 float KernelDensityTree::getPartitionFunction(int D)
 {

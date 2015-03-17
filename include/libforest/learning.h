@@ -6,19 +6,14 @@
 #include <chrono>
 #include <cmath>
 #include <vector>
+#include <iomanip>
+#include <random>
 
 #include "error_handling.h"
 #include "data.h"
 #include "classifiers.h"
 
 namespace libf {
-    /**
-     * Forward declarations to reduce compile time
-     */
-    class DecisionTreeLearner;
-    class RandomForestLearner;
-    class BoostedRandomForestLearner;
-    
     /**
      * AbstractLearner: Combines all common functionality of offline and online
      * learners. It allows you to set a callback function that is called very n
@@ -226,6 +221,8 @@ namespace libf {
         
         /**
          * Get the Mean Decrease Impurity importance.
+         * 
+         * TODO: This implementation is not thread safe. 
          * 
          * @see http://orbi.ulg.ac.be/bitstream/2268/170309/1/thesis.pdf
          * @param feature TODO
@@ -556,6 +553,8 @@ namespace libf {
         /**
          * Get the Mean Impurity Decrease variable importance.
          * 
+         * TODO: This implementation is not thread safe. 
+         * 
          * @see http://orbi.ulg.ac.be/bitstream/2268/170309/1/thesis.pdf
          */
         float getImportance(int feature) const
@@ -609,17 +608,12 @@ namespace libf {
     };
     
     /**
-     * This is an offline random forest learner. 
+     * This is an offline random forest learner. T is the classifier learner. 
      */
-    class RandomForestLearner : public AbstractRandomForestLearner<RandomForest, RandomForestLearnerState>,
-            public Learner<RandomForest> {
+    template <class Classifier, class L>
+    class RandomForestLearner : public AbstractRandomForestLearner<RandomForest<Classifier>, RandomForestLearnerState>,
+            public Learner< RandomForest<Classifier> > {
     public:
-        
-        /**
-         * The default callback for this learner.
-         */
-        static int defaultCallback(RandomForest::ptr forest, const RandomForestLearnerState & state);
-        
         /**
          * These are the actions of the learning algorithm that are passed
          * to the callback functions.
@@ -629,72 +623,41 @@ namespace libf {
         const static int ACTION_START_FOREST = 3;
         const static int ACTION_FINISH_FOREST = 4;
         
-        RandomForestLearner() : AbstractRandomForestLearner() {}
-        
-        /**
-         * Sets the decision tree learner
-         */
-        void setTreeLearner(const DecisionTreeLearner & _treeLearner)
-        {
-            treeLearner = _treeLearner;
-        }
-        
-        /**
-         * Returns the decision tree learner
-         */
-        const DecisionTreeLearner & getTreeLearner() const
-        {
-            return treeLearner;
-        }
-        
-        /**
-         * Returns the decision tree learner
-         */
-        DecisionTreeLearner & getTreeLearner()
-        {
-            return treeLearner;
-        }
-        
-        /**
-         * Learns a forests. 
-         */
-        virtual RandomForest::ptr learn(AbstractDataStorage::ptr storage);
-
-    protected:
-        /**
-         * The tree learner
-         */
-        DecisionTreeLearner treeLearner;
-    };
-    
-
-    /**
-     * This is an offline random forest learner. 
-     */
-    class ProjectiveRandomForestLearner : public AbstractRandomForestLearner<ProjectiveRandomForest, RandomForestLearnerState>,
-            public Learner<ProjectiveRandomForest> {
-    public:
-        
         /**
          * The default callback for this learner.
          */
-        static int defaultCallback(ProjectiveRandomForest::ptr forest, const RandomForestLearnerState & state);
-        
-        /**
-         * These are the actions of the learning algorithm that are passed
-         * to the callback functions.
-         */
-        const static int ACTION_START_TREE = 1;
-        const static int ACTION_FINISH_TREE = 2;
-        const static int ACTION_START_FOREST = 3;
-        const static int ACTION_FINISH_FOREST = 4;
-        
-        ProjectiveRandomForestLearner() : AbstractRandomForestLearner() {}
+        static int defaultCallback(typename RandomForest<Classifier>::ptr forest, const RandomForestLearnerState & state)
+        {
+            switch (state.action) {
+                case ACTION_START_FOREST:
+                    std::cout << "Start random forest training" << "\n";
+                    break;
+                case ACTION_START_TREE:
+                    std::cout << std::setw(15) << std::left << "Start tree " 
+                            << std::setw(4) << std::right << state.tree 
+                            << " out of " 
+                            << std::setw(4) << state.numTrees << "\n";
+                    break;
+                case ACTION_FINISH_TREE:
+                    std::cout << std::setw(15) << std::left << "Finish tree " 
+                            << std::setw(4) << std::right << state.tree 
+                            << " out of " 
+                            << std::setw(4) << state.numTrees << "\n";
+                    break;
+                case ACTION_FINISH_FOREST:
+                    std::cout << "Finished forest in " << state.getPassedTime().count()/1000000. << "s\n";
+                    break;
+                default:
+                    std::cout << "UNKNOWN ACTION CODE " << state.action << "\n";
+                    break;
+            }
+            return 0;
+        }
         
         /**
          * Sets the decision tree learner
          */
-        void setTreeLearner(const ProjectiveDecisionTreeLearner & _treeLearner)
+        void setTreeLearner(const L & _treeLearner)
         {
             treeLearner = _treeLearner;
         }
@@ -702,7 +665,7 @@ namespace libf {
         /**
          * Returns the decision tree learner
          */
-        const ProjectiveDecisionTreeLearner & getTreeLearner() const
+        const L & getTreeLearner() const
         {
             return treeLearner;
         }
@@ -710,7 +673,7 @@ namespace libf {
         /**
          * Returns the decision tree learner
          */
-        ProjectiveDecisionTreeLearner & getTreeLearner()
+        L & getTreeLearner()
         {
             return treeLearner;
         }
@@ -718,13 +681,66 @@ namespace libf {
         /**
          * Learns a forests. 
          */
-        virtual ProjectiveRandomForest::ptr learn(AbstractDataStorage::ptr storage);
+        virtual typename RandomForest<Classifier>::ptr learn(AbstractDataStorage::ptr storage)
+        {
+            // Set up the empty random forest
+            typename RandomForest<Classifier>::ptr forest = std::make_shared< RandomForest<Classifier> >();
+
+            const int D = storage->getDimensionality();
+
+            // Initialize variable importance values.
+            this->importance = std::vector<float>(D, 0.f);
+
+            // Set up the state for the call backs
+            RandomForestLearnerState state;
+            state.numTrees = this->getNumTrees();
+            state.tree = 0;
+            state.action = ACTION_START_FOREST;
+
+            this->evokeCallback(forest, 0, state);
+
+            int treeStartCounter = 0; 
+            int treeFinishCounter = 0; 
+            #pragma omp parallel for num_threads(numThreads)
+            for (int i = 0; i < this->getNumTrees(); i++)
+            {
+                #pragma omp critical
+                {
+                    state.tree = ++treeStartCounter;
+                    state.action = ACTION_START_TREE;
+                    this->evokeCallback(forest, treeStartCounter - 1, state);
+                }
+
+                // Learn the tree
+                auto tree = treeLearner.learn(storage);
+                // Add it to the forest
+                #pragma omp critical
+                {
+                    state.tree = ++treeFinishCounter;
+                    state.action = ACTION_FINISH_TREE;
+                    this->evokeCallback(forest, treeFinishCounter - 1, state);
+                    forest->addTree(tree);
+
+                    // Update variable importance.
+                    for (int f = 0; f < D; ++f)
+                    {
+                        this->importance[f] += treeLearner.getImportance(f)/this->numTrees;
+                    }
+                }
+            }
+
+            state.tree = 0;
+            state.action = ACTION_FINISH_FOREST;
+            this->evokeCallback(forest, 0, state);
+
+            return forest;
+        }
 
     protected:
         /**
          * The tree learner
          */
-        ProjectiveDecisionTreeLearner treeLearner;
+        L treeLearner;
     };
     
     /**
@@ -760,13 +776,43 @@ namespace libf {
     /**
      * This is a random forest learner. 
      */
-    class BoostedRandomForestLearner : public AbstractLearner<BoostedRandomForest, BoostedRandomForestLearnerState> {
+    template <class Classifier, class L>
+    class BoostedRandomForestLearner : public AbstractLearner<BoostedRandomForest<Classifier>, BoostedRandomForestLearnerState> {
     public:
         
         /**
          * The default callback for this learner.
          */
-        static int defaultCallback(BoostedRandomForest::ptr forest, const BoostedRandomForestLearnerState & state);
+        static int defaultCallback(typename BoostedRandomForest<Classifier>::ptr forest, const BoostedRandomForestLearnerState & state)
+        {
+            switch (state.action) {
+                case ACTION_START_FOREST:
+                    std::cout << "Start boosted random forest training\n" << "\n";
+                    break;
+                case ACTION_START_TREE:
+                    std::cout   << std::setw(15) << std::left << "Start tree " 
+                                << std::setw(4) << std::right << state.tree 
+                                << " out of " 
+                                << std::setw(4) << state.numTrees << "\n";
+                    break;
+                case ACTION_FINISH_TREE:
+                    std::cout   << std::setw(15) << std::left << "Finish tree " 
+                                << std::setw(4) << std::right << state.tree 
+                                << " out of " 
+                                << std::setw(4) << state.numTrees
+                                << " error = " << state.error 
+                                << ", alpha = " << state.alpha << "\n";
+                    break;
+                case ACTION_FINISH_FOREST:
+                    std::cout << "Finished boosted forest in " << state.getPassedTime().count()/1000000. << "s\n";
+                    break;
+                default:
+                    std::cout << "UNKNOWN ACTION CODE " << state.action << "\n";
+                    break;
+            }
+
+            return 0;
+        }
         
         /**
          * These are the actions of the learning algorithm that are passed
@@ -777,12 +823,10 @@ namespace libf {
         const static int ACTION_START_FOREST = 3;
         const static int ACTION_FINISH_FOREST = 4;
         
-        BoostedRandomForestLearner() : AbstractLearner() {}
-        
         /**
          * Sets the decision tree learner
          */
-        void setTreeLearner(const DecisionTreeLearner & _treeLearner)
+        void setTreeLearner(const L & _treeLearner)
         {
             treeLearner = _treeLearner;
         }
@@ -790,7 +834,7 @@ namespace libf {
         /**
          * Returns the decision tree learner
          */
-        const DecisionTreeLearner & getTreeLearner() const
+        const L & getTreeLearner() const
         {
             return treeLearner;
         }
@@ -798,7 +842,7 @@ namespace libf {
         /**
          * Returns the decision tree learner
          */
-        DecisionTreeLearner & getTreeLearner()
+        L & getTreeLearner()
         {
             return treeLearner;
         }
@@ -806,7 +850,126 @@ namespace libf {
         /**
          * Learns a forests. 
          */
-        virtual BoostedRandomForest::ptr learn(AbstractDataStorage::ptr storage);
+        virtual typename BoostedRandomForest<Classifier>::ptr learn(AbstractDataStorage::ptr storage)
+        {
+            // Set up the empty random forest
+             typename BoostedRandomForest<Classifier>::ptr forest = std::make_shared< BoostedRandomForest<Classifier> >();
+
+            // Set up the state for the call backs
+            BoostedRandomForestLearnerState state;
+            state.numTrees = this->getNumTrees();
+            state.tree = 0;
+            state.action = ACTION_START_FOREST;
+
+            this->evokeCallback(forest, 0, state);
+
+            // Set up the weights for the data points
+            const int N = storage->getSize();
+            std::vector<float> dataWeights(N);
+            std::vector<float> cumsum(N);
+            std::vector<bool> misclassified(N);
+            for (int n = 0; n < N; n++)
+            {
+                dataWeights[n] = 1.0f/N;
+                cumsum[n] = (n+1) * 1.0f/N;
+                misclassified[n] = false;
+            }
+
+            // We need this distribution in order to sample according to the weights
+            std::random_device rd;
+            std::mt19937 g(rd());
+            std::uniform_real_distribution<float> U(0, 1);
+
+            const int C = storage->getClasscount();
+
+            int treeStartCounter = 0; 
+            int treeFinishCounter = 0; 
+            for (int i = 0; i < this->numTrees; i++)
+            {
+                state.tree = ++treeStartCounter;
+                state.action = ACTION_START_TREE;
+                this->evokeCallback(forest, treeStartCounter - 1, state);
+
+                // Learn the tree
+                // --------------
+
+                // Sample data points according to the weights
+                ReferenceDataStorage::ptr treeData = std::make_shared<ReferenceDataStorage>(storage);
+
+                for (int n = 0; n < N; n++)
+                {
+                    const float u = U(g);
+                    int index = 0;
+                    while (u > cumsum[index] && index < N-1)
+                    {
+                        index++;
+                    }
+                    treeData->addDataPoint(index);
+                }
+
+                // Learn the tree
+                auto tree = treeLearner.learn(treeData);
+
+                // Calculate the error term
+                float error = 0;
+                for (int n = 0; n < N; n++)
+                {
+                    const int predictedLabel = tree->classify(storage->getDataPoint(n));
+                    if (predictedLabel != storage->getClassLabel(n))
+                    {
+                        error += dataWeights[n];
+                        misclassified[n] = true;
+                    }
+                    else
+                    {
+                        misclassified[n] = false;
+                    }
+                }
+
+                // Compute the classifier weight
+                const float alpha = std::log((1-error)/error) + std::log(C - 1);
+
+                // Update the weights
+                float total = 0;
+                for (int n = 0; n < N; n++)
+                {
+                    if (misclassified[n])
+                    {
+                        dataWeights[n] *= std::exp(alpha);
+                    }
+                    total += dataWeights[n];
+                }
+                dataWeights[0] /= total;
+                cumsum[0] = dataWeights[0];
+                for (int n = 1; n < N; n++)
+                {
+                    dataWeights[n] /= total;
+                    cumsum[n] = dataWeights[n] + cumsum[n-1];
+                }
+
+                // Create the weak classifier
+                typename WeakClassifier<Classifier>::ptr weakClassifier = std::make_shared<WeakClassifier<Classifier> >();
+                weakClassifier->setClassifier(tree);
+                weakClassifier->setWeight(alpha);
+                
+                // Add the classifier
+                forest->addTree(weakClassifier, alpha);
+
+                // --------------
+                // Add it to the forest
+                state.tree = ++treeFinishCounter;
+                state.error = error;
+                state.alpha = alpha;
+                state.action = ACTION_FINISH_TREE;
+                this->evokeCallback(forest, treeFinishCounter - 1, state);
+            }
+
+            state.tree = 0;
+            state.action = ACTION_FINISH_FOREST;
+            this->evokeCallback(forest, 0, state);
+
+            return forest;
+        }
         
         /**
          * Sets the number of trees. 
@@ -833,7 +996,7 @@ namespace libf {
         /**
          * The tree learner
          */
-        DecisionTreeLearner treeLearner;
+        L treeLearner;
     };
 }
 

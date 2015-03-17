@@ -1,7 +1,6 @@
 #include "libforest/data.h"
 #include "libforest/io.h"
 #include "libforest/util.h"
-#include "libforest/tools.h"
 #include <fstream>
 #include <iterator>
 #include <boost/spirit/include/qi.hpp>
@@ -167,9 +166,6 @@ void AbstractDataStorage::dumpInformation(std::ostream & stream)
     stream << std::setw(30) << "Dimensionality" << ": " << getDimensionality() << "\n";
     // Dump the class statistics of the storage
     stream << std::setw(30) << "Class statistics" << "\n";
-    
-    ClassStatisticsTool csTool;
-    csTool.measureAndPrint(shared_from_this());
 }
 
 ////////////////////////////////////////////////////////////////////////////////

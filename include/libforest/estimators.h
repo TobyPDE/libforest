@@ -832,7 +832,7 @@ namespace libf {
     /**
      * Density decision tree for unsupervised learning.
      */
-    class DensityTree : public AbstractAxisAlignedSplitTree<DensityTreeNodeData>, public Estimator, public Generator {
+    class DensityTree : public AbstractAxisAlignedSplitTree<  AbstractTree<AxisAlignedSplitTreeNodeConfig, DensityTreeNodeData, Object> >, public Estimator, public Generator {
     public:
         typedef std::shared_ptr<DensityTree> ptr;
         
@@ -974,7 +974,7 @@ namespace libf {
     /**
      * A kernel density tree.
      */
-    class KernelDensityTree : public AbstractAxisAlignedSplitTree<KernelDensityTreeNodeData>, public Estimator {
+    class KernelDensityTree : public AbstractAxisAlignedSplitTree<  AbstractTree<AxisAlignedSplitTreeNodeConfig, KernelDensityTreeNodeData, Object> >, public Estimator {
     public:
         typedef std::shared_ptr<KernelDensityTree> ptr;
         

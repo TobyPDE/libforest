@@ -809,6 +809,38 @@ TEST(LIBSVM, read_labeledData)
 }
 
 
+TEST(LIBSVM, read_labeledDataZeros)
+{
+    // Create a data small CSV file
+    std::ofstream stream("data.txt");
+    
+    ASSERT_TRUE(stream.is_open());
+    
+    stream << "1.00000 1:1 2:2" << std::endl;
+    stream << "2.0000 1:4 2:8" << std::endl;
+    stream << "1.000 1:2 2:10.5" << std::endl;
+    
+    stream.close();
+    
+    LIBSVMDataReader reader;
+    
+    DataStorage::ptr storage = DataStorage::Factory::create();
+    reader.read("data.txt", storage);
+    
+    ASSERT_EQ(storage->getSize(), 3);
+    ASSERT_EQ(storage->getClassLabel(0), 0);
+    ASSERT_EQ(storage->getClassLabel(1), 1);
+    ASSERT_EQ(storage->getClassLabel(2), 0);
+    
+    ASSERT_FLOAT_EQ(storage->getDataPoint(0)(0), 1.0f);
+    ASSERT_FLOAT_EQ(storage->getDataPoint(0)(1), 2.0f);
+    ASSERT_FLOAT_EQ(storage->getDataPoint(1)(0), 4.0f);
+    ASSERT_FLOAT_EQ(storage->getDataPoint(1)(1), 8.0f);
+    ASSERT_FLOAT_EQ(storage->getDataPoint(2)(0), 2.0f);
+    ASSERT_FLOAT_EQ(storage->getDataPoint(2)(1), 10.5f);
+}
+
+
 TEST(LIBSVM, read_binaryData)
 {
     // Create a data small CSV file
