@@ -27,6 +27,11 @@ namespace libf {
     };
     
     /**
+     * This class can be used as a base class for arbitrary objects
+     */
+    class Object {};
+    
+    /**
      * This class contains several use functions that are somewhat unrelated. 
      */
     class Util {

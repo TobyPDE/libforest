@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <functional>
+#include <boost/static_assert.hpp>
 
 #include "util.h"
 #include "error_handling.h"
@@ -15,25 +16,26 @@ namespace libf {
     class AbstractAxisAlignedSplitTree;
     
     /**
-     * This is the base class for all split trees. Each node in a tree has two
+     * This is the base class for all split trees. Each node in a tree has three
      * data unit associated with it:
-     * 1. The node config (like split information, graph structure)
+     * 1. The node config (like split information, graph structure).
      * 2. The node data (custom application specific data e.g. histograms). 
+     * 3. The base class (Either AbstractClassifier, AbstractEstimator, AbstractRegressor)
      */
-    template <class Config, class Data>
-    class AbstractSplitTree {
+    template <class Config, class Data, class Base>
+    class AbstractTree : public Base {
     public:
         /**
          * Creates an empty split tree.
          */
-        AbstractSplitTree()
+        AbstractTree()
         {
             // Reserve some memory for the nodes
             // This speeds up training a bit
             nodes.reserve(LIBF_GRAPH_BUFFER_SIZE);
         }
         
-        virtual ~AbstractSplitTree() {}
+        virtual ~AbstractTree() {}
         
         /**
          * Returns the total number of nodes. 
@@ -50,7 +52,7 @@ namespace libf {
          * 
          * @param stream The stream to read the tree from
          */
-        void read(std::istream & stream)
+        virtual void read(std::istream & stream)
         {
             readBinary(stream, nodes);
         }
@@ -60,7 +62,7 @@ namespace libf {
          * 
          * @param stream The stream to write the tree to.
          */
-        void write(std::ostream & stream) const
+        virtual void write(std::ostream & stream) const
         {
             writeBinary(stream, nodes);
         }
@@ -123,6 +125,23 @@ namespace libf {
             nodes.push_back(std::pair<Config, Data>(Config(), Data()));
             return static_cast<int>(nodes.size() - 1);
         }
+        
+        /**
+         * Splits a child node and returns the index of the left child. 
+         * 
+         * @param node The node index
+         * @return The index of the left child node
+         */
+        virtual int splitNode(int node) = 0;
+        
+        /**
+         * Passes the data point through the tree and returns the index of the
+         * leaf node it ends up in. 
+         * 
+         * @param x The data point to pass down the tree
+         * @return The index of the leaf node v ends up in
+         */
+        virtual int findLeafNode(const DataPoint & x) const = 0;
         
     private:
         /**
@@ -309,13 +328,13 @@ namespace libf {
      * This is a base class for trees that split the space using axis aligned
      * splits. Each node in the tree can carry some specified data. 
      */
-    template <class Data>
-    class AbstractAxisAlignedSplitTree : public AbstractSplitTree<AxisAlignedSplitTreeNodeConfig, Data> {
+    template <class Base>
+    class AbstractAxisAlignedSplitTree : public Base {
     public:
         /**
          * Creates an empty split tree.
          */
-        AbstractAxisAlignedSplitTree() : AbstractSplitTree<AxisAlignedSplitTreeNodeConfig, Data>() {}
+        AbstractAxisAlignedSplitTree() : Base() {}
         
         /**
          * Destructor.
@@ -328,7 +347,7 @@ namespace libf {
          * @param node The node index
          * @return The index of the left child node
          */
-        int splitNode(int node)
+        virtual int splitNode(int node)
         {
             // Make sure this is a valid node ID
             BOOST_ASSERT_MSG(0 <= node && node < this->getNumNodes(), "Invalid node index.");
@@ -359,7 +378,7 @@ namespace libf {
          * @param x The data point to pass down the tree
          * @return The index of the leaf node v ends up in
          */
-        int findLeafNode(const DataPoint & x) const
+        virtual int findLeafNode(const DataPoint & x) const
         {
             // Select the root node as current node
             int node = 0;
@@ -564,13 +583,13 @@ namespace libf {
      * This is a base class for trees that split the space using projective
      * splits. Each node in the tree can carry some specified data. 
      */
-    template <class Data>
-    class AbstractProjectiveSplitTree : public AbstractSplitTree<ProjectiveSplitTreeNodeConfig, Data> {
+    template <class Base>
+    class AbstractProjectiveSplitTree : public Base {
     public:
         /**
          * Creates an empty split tree.
          */
-        AbstractProjectiveSplitTree() : AbstractSplitTree<ProjectiveSplitTreeNodeConfig, Data>() {}
+        AbstractProjectiveSplitTree() : Base() {}
         
         /**
          * Destructor.
@@ -583,7 +602,7 @@ namespace libf {
          * @param node The node index
          * @return The index of the left child node
          */
-        int splitNode(int node)
+        virtual int splitNode(int node)
         {
             // Make sure this is a valid node ID
             BOOST_ASSERT_MSG(0 <= node && node < this->getNumNodes(), "Invalid node index.");
@@ -614,7 +633,7 @@ namespace libf {
          * @param x The data point to pass down the tree
          * @return The index of the leaf node v ends up in
          */
-        int findLeafNode(const DataPoint & x) const
+        virtual int findLeafNode(const DataPoint & x) const
         {
             // Select the root node as current node
             int node = 0;
@@ -640,6 +659,106 @@ namespace libf {
 
             return node;
         }
-    };}
+    };
+    
+    /**
+     * This is the base class for all ensembles of trees. 
+     */
+    template <class TreeType, class Base>
+    class AbstractForest : public Base {
+    public:
+        virtual ~AbstractForest() {}
+        
+        /**
+         * Reads the tree from a stream. 
+         * 
+         * @param stream the stream to read the forest from.
+         */
+        virtual void read(std::istream & stream)
+        {
+            // Read the number of trees in this ensemble
+            int size;
+            readBinary(stream, size);
+
+            // Read the trees
+            for (int i = 0; i < size; i++)
+            {
+                std::shared_ptr<TreeType> tree = std::make_shared<TreeType>();
+
+                tree->read(stream);
+                addTree(tree);
+            }
+        }
+        
+        /**
+         * Writes the tree to a stream
+         * 
+         * @param stream The stream to write the forest to. 
+         */
+        void write(std::ostream & stream) const
+        {
+            // Write the number of trees in this ensemble
+            writeBinary(stream, getSize());
+
+            // Write the individual trees
+            for (int i = 0; i < getSize(); i++)
+            {
+                getTree(i)->write(stream);
+            }
+        }
+        
+        /**
+         * Adds a tree to the ensemble
+         * 
+         * @param tree The tree to add to the ensemble
+         */
+        void addTree(std::shared_ptr<TreeType> tree)
+        {
+            trees.push_back(tree);
+        }
+        
+        /**
+         * Returns the number of trees
+         * 
+         * @return The number of trees in this ensemble
+         */
+        int getSize() const
+        {
+            return trees.size();
+        }
+        
+        /**
+         * Returns the i-th tree
+         * 
+         * @param i The index of the tree to return
+         * @return The i-th tree
+         */
+        std::shared_ptr<TreeType> getTree(int i) const
+        {
+            BOOST_ASSERT_MSG(0 <= i && i < getSize(), "Invalid tree index.");
+            
+            return trees[i];
+        }
+        
+        /**
+         * Removes the i-th tree from the ensemble. 
+         * 
+         * @param i The index of the tree
+         */
+        void removeTree(int i)
+        {
+            BOOST_ASSERT_MSG(0 <= i && i < getSize(), "Invalid tree index.");
+            
+            // Remove it from the array
+            trees.erase(trees.begin() + i);
+        }
+        
+    private:
+        /**
+         * The individual decision trees. 
+         */
+        std::vector< std::shared_ptr<TreeType> > trees;
+    };
+}
 
 #endif

@@ -71,26 +71,29 @@ int main(int argc, const char** argv)
     
     const bool useBootstrap = parameters.find("use-bootstrap") != parameters.end();
     
-    DataStorage::ptr readStorage = DataStorage::Factory::create();
+    DataStorage::ptr storageTrain = DataStorage::Factory::create();
+    DataStorage::ptr storageTest = DataStorage::Factory::create();
     
     LIBSVMDataReader reader;
-    reader.setConvertBinaryLabels(true);
-    reader.read(trainDat.string(), readStorage);
+    reader.setConvertBinaryLabels(false);
+    reader.read(trainDat.string(), storageTrain);
+    reader.read(testDat.string(), storageTest);
     
-    AbstractDataStorage::ptr permuted = readStorage->copy();
-    permuted->randPermute();
-    AbstractDataStorage::ptr storageTrain = permuted->excerpt(0, floor(0.7*permuted->getSize()));
-    AbstractDataStorage::ptr storageTest = permuted->excerpt(ceil(0.7*permuted->getSize()), permuted->getSize() - 1);
+    //AbstractDataStorage::ptr permuted = readStorage->copy();
+    //permuted->randPermute();
+    //AbstractDataStorage::ptr storageTrain = permuted->excerpt(0, floor(0.7*permuted->getSize()));
+    //AbstractDataStorage::ptr storageTest = permuted->excerpt(ceil(0.7*permuted->getSize()), permuted->getSize() - 1);
     
     std::cout << "Training Data" << std::endl;
-    storageTrain->dumpInformation();
-    storageTest->dumpInformation();
+//    storageTrain->dumpInformation();
+//    storageTest->dumpInformation();
 #if 1
     {
-        ProjectiveRandomForestLearner forestLearner;
-        forestLearner.addCallback(ProjectiveRandomForestLearner::defaultCallback, 1);
+        RandomForestLearner<ProjectiveDecisionTree, ProjectiveDecisionTreeLearner> forestLearner;
+        forestLearner.addCallback(RandomForestLearner<ProjectiveDecisionTree, ProjectiveDecisionTreeLearner>::defaultCallback, 1);
 
         forestLearner.getTreeLearner().setMinSplitExamples(10);
+        forestLearner.getTreeLearner().setNumBootstrapExamples(storageTrain->getSize());
         forestLearner.getTreeLearner().setUseBootstrap(useBootstrap);
         forestLearner.getTreeLearner().setMaxDepth(parameters["max-depth"].as<int>());
         forestLearner.getTreeLearner().setNumFeatures(parameters["num-features"].as<int>());
@@ -98,35 +101,36 @@ int main(int argc, const char** argv)
         forestLearner.setNumTrees(parameters["num-trees"].as<int>());
         forestLearner.setNumThreads(parameters["num-threads"].as<int>());
 
-        ProjectiveRandomForest::ptr forest = forestLearner.learn(storageTrain);
+        auto forest = forestLearner.learn(storageTrain);
 
         AccuracyTool accuracyTool;
         accuracyTool.measureAndPrint(forest, storageTest);
 
-        ConfusionMatrixTool confusionMatrixTool;
-        confusionMatrixTool.measureAndPrint(forest, storageTest);
+//        ConfusionMatrixTool confusionMatrixTool;
+//        confusionMatrixTool.measureAndPrint(forest, storageTest);
     }
 #endif
 #if 1
     {
-        RandomForestLearner forestLearner;
-        forestLearner.addCallback(RandomForestLearner::defaultCallback, 1);
+        RandomForestLearner<DecisionTree, DecisionTreeLearner> forestLearner;
+        forestLearner.addCallback(RandomForestLearner<DecisionTree, DecisionTreeLearner>::defaultCallback, 1);
 
         forestLearner.getTreeLearner().setMinSplitExamples(10);
+        forestLearner.getTreeLearner().setNumBootstrapExamples(storageTrain->getSize());
         forestLearner.getTreeLearner().setUseBootstrap(useBootstrap);
         forestLearner.getTreeLearner().setMaxDepth(parameters["max-depth"].as<int>());
-        forestLearner.getTreeLearner().setNumFeatures(parameters["num-features"].as<int>());
+        forestLearner.getTreeLearner().setNumFeatures(std::min(storageTrain->getDimensionality(), parameters["num-features"].as<int>()));
 
         forestLearner.setNumTrees(parameters["num-trees"].as<int>());
         forestLearner.setNumThreads(parameters["num-threads"].as<int>());
 
-        RandomForest::ptr forest = forestLearner.learn(storageTrain);
+        auto forest = forestLearner.learn(storageTrain);
 
         AccuracyTool accuracyTool;
         accuracyTool.measureAndPrint(forest, storageTest);
 
-        ConfusionMatrixTool confusionMatrixTool;
-        confusionMatrixTool.measureAndPrint(forest, storageTest);
+//        ConfusionMatrixTool confusionMatrixTool;
+//        confusionMatrixTool.measureAndPrint(forest, storageTest);
     }
 #endif
     

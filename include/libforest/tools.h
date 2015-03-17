@@ -4,9 +4,11 @@
 #include <vector>
 #include <boost/filesystem.hpp>
 #include <memory>
+#include <opencv2/opencv.hpp>
 
 #include "data.h"
 #include "classifiers.h"
+#include "learning.h"
 
 /**
  * This file contains some function that can evaluate the performance of a
@@ -14,7 +16,6 @@
  */
 
 namespace libf {
-    class RandomForestLearner;
     class Estimator;
     class Gaussian;
     
@@ -69,7 +70,7 @@ namespace libf {
         /**
          * Returns the correlation
          */
-        void measure(const RandomForest::ptr classifier, AbstractDataStorage::ptr storage, std::vector< std::vector<float> > & result) const;
+        void measure(typename RandomForest<AbstractClassifier>::ptr classifier, AbstractDataStorage::ptr storage, std::vector< std::vector<float> > & result) const;
         
         /**
          * Prints the correlation
@@ -79,7 +80,7 @@ namespace libf {
         /**
          * Prints and measures the correlation. 
          */
-        void measureAndPrint(const RandomForest::ptr classifier, AbstractDataStorage::ptr storage) const;
+        void measureAndPrint(typename RandomForest<AbstractClassifier>::ptr classifier, AbstractDataStorage::ptr storage) const;
     };
     
     /**
@@ -91,19 +92,28 @@ namespace libf {
          * Returns the variable importance (simple wrapper around 
          * getImportance).
          */
-        virtual void measure(RandomForestLearner* learner, std::vector<float> & result) const;
+        template <class S, class T>
+        void measure(RandomForestLearner<S, T> * learner, std::vector<float> & result) const
+        {
+            std::vector<float> importance = learner->getImportance();
+            result = std::vector<float>(importance.begin(), importance.end());
+        }
         
         /**
          * Prints the variable importance
          */
-        virtual void print(const std::vector<float> & result) const;
+        void print(const std::vector<float> & result) const;
         
         /**
          * Retrieves (measures) and prints the variable importance
          */
-        virtual void measureAndPrint(RandomForestLearner* learner) const;
+        template <class S, class T>
+        void measureAndPrint(RandomForestLearner<S, T>* learner) const
+        {
+            print(learner->getImportance());
+        }
     };
-    
+
     /**
      * Backprojects the variable importance onto a square image with the given
      * given width/height.
@@ -115,7 +125,36 @@ namespace libf {
          * Retrieves variable importance and stores an image visualizing variable
          * importance where the image has size rows x rows.
          */
-        void measureAndSave(RandomForestLearner* learner, boost::filesystem::path file, int rows) const;
+        template <class S, class T>
+        void measureAndSave(RandomForestLearner<S,T> learner, boost::filesystem::path file, int rows) const
+        {
+            const std::vector<float> result = learner->getImportance();
+            const int F = static_cast<int>(result.size());
+
+            cv::Mat image(rows, rows, CV_8UC3, cv::Scalar(255, 255, 255));
+
+            float max = 0;
+            for (int i = 0; i < F; i++)
+            {
+                if (result[i] > max)
+                {
+                    max = result[i];
+                }
+            }
+
+            for (int i = 0; i < rows; i++)
+            {
+                for (int j = 0; j < rows; j++)
+                {
+                    if (result[j + rows*i] > 0) 
+                    {
+                        image.at<cv::Vec3b>(i, j) = cv::Vec3b(0, (unsigned char) (result[j + rows*i]/max*255), 255);
+                    }
+                }
+            }
+
+            cv::imwrite(file.string(), image);
+        }
     };
     
     

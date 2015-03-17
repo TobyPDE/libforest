@@ -43,12 +43,26 @@ namespace libf {
          * Returns the class posterior probability p(c|x).
          */
         virtual void classLogPosterior(const DataPoint & x, std::vector<float> & probabilities) const = 0;
+        
+        /**
+         * Reads the classifier from a stream. 
+         * 
+         * @param stream The stream to read the classifier from
+         */
+        virtual void read(std::istream & stream) = 0;
+        
+        /**
+         * Writes the tree to a stream
+         * 
+         * @param stream The stream to write the tree to.
+         */
+        virtual void write(std::ostream & stream) const = 0;
     };
     
     /**
      * This is the base class for all tree classifier node data classes. 
      */
-    class AbstractTreeClassifierNodeData {
+    class TreeClassifierNodeData {
     public:
         /**
          * A histogram that represents a distribution over the class labels
@@ -57,21 +71,38 @@ namespace libf {
     };
     
     /**
+     * Overload the read binary method to also read DecisionTreeNodeData
+     */
+    template <>
+    inline void readBinary(std::istream & stream, TreeClassifierNodeData & v)
+    {
+        readBinary(stream, v.histogram);
+    }
+    
+    /**
+     * Overload the write binary method to also write DecisionTreeNodeData
+     */
+    template <>
+    inline void writeBinary(std::ostream & stream, const TreeClassifierNodeData & v)
+    {
+        writeBinary(stream, v.histogram);
+    }
+    
+    
+    /**
      * This is the base class for all tree classifiers
      */
-    template <class Data>
-    class AbstractTreeClassifier : public AbstractAxisAlignedSplitTree<Data>, public AbstractClassifier {
+    template <class Config, class Data>
+    class AbstractTreeClassifier : public AbstractTree<Config, Data, AbstractClassifier> {
     public:
         
         virtual ~AbstractTreeClassifier() {}
         
         /**
-         * Only accept template parameters that extend AbstractTreeClassifierNodeData.
+         * Only accept template parameters that extend TreeClassifierNodeData.
          * Note: The double parentheses are needed.
          */
-        BOOST_STATIC_ASSERT((boost::is_base_of<AbstractTreeClassifierNodeData, Data>::value));
-        
-        typedef std::shared_ptr<AbstractTreeClassifier<Data> >  ptr;
+        BOOST_STATIC_ASSERT((boost::is_base_of<TreeClassifierNodeData, Data>::value));
         
         /**
          * Returns the class log posterior log(p(c | x)). The probabilities are
@@ -89,35 +120,10 @@ namespace libf {
     };
     
     /**
-     * This is the data each node in a decision tree carries
+     * This is the base class for all forest classifiers. 
      */
-    class DecisionTreeNodeData : public AbstractTreeClassifierNodeData {};
-    
-    /**
-     * Overload the read binary method to also read DecisionTreeNodeData
-     */
-    template <>
-    inline void readBinary(std::istream & stream, DecisionTreeNodeData & v)
-    {
-        readBinary(stream, v.histogram);
-    }
-    
-    /**
-     * Overload the write binary method to also write DecisionTreeNodeData
-     */
-    template <>
-    inline void writeBinary(std::ostream & stream, const DecisionTreeNodeData & v)
-    {
-        writeBinary(stream, v.histogram);
-    }
-    
-    /**
-     * This class represents a decision tree.
-     */
-    class DecisionTree : public AbstractTreeClassifier<DecisionTreeNodeData> {
-    public:
-        typedef std::shared_ptr<DecisionTree> ptr;
-    };
+    template <class TreeType>
+    class AbstractForestClassifier : public AbstractForest<TreeType, AbstractClassifier> {};
     
     /**
      * This is the data each node in an online decision tree carries
@@ -125,7 +131,7 @@ namespace libf {
      * These following statistics are saved as entropy histograms.
      * @see http://lrs.icg.tugraz.at/pubs/saffari_olcv_09.pdf
      */
-    class OnlineDecisionTreeNodeData : public AbstractTreeClassifierNodeData {
+    class OnlineDecisionTreeNodeData : public TreeClassifierNodeData {
     public:
         /**
          * The node's statistics saved as entropy histogram.
@@ -170,65 +176,42 @@ namespace libf {
     /**
      * This class represents a decision tree.
      */
-    class OnlineDecisionTree : public AbstractTreeClassifier<OnlineDecisionTreeNodeData> {
+    class DecisionTree : public AbstractAxisAlignedSplitTree< AbstractTreeClassifier<AxisAlignedSplitTreeNodeConfig, TreeClassifierNodeData> > {
+    public:
+        typedef std::shared_ptr<DecisionTree> ptr;
+    };
+    
+    /**
+     * This class represents an online decision tree.
+     */
+    class OnlineDecisionTree : public AbstractAxisAlignedSplitTree< AbstractTreeClassifier<AxisAlignedSplitTreeNodeConfig, OnlineDecisionTreeNodeData> > {
     public:
         typedef std::shared_ptr<OnlineDecisionTree> ptr;
     };
     
     /**
-     * A random forests that classifies a data point that classifies a data 
-     * point using the class posterior estimates of several decision trees. 
+     * This class represents a projective decision tree.
      */
-    template <class T>
-    class AbstractRandomForest : public AbstractClassifier {
+    class ProjectiveDecisionTree : public AbstractProjectiveSplitTree< AbstractTreeClassifier<ProjectiveSplitTreeNodeConfig, TreeClassifierNodeData> > {
     public:
+        typedef std::shared_ptr<ProjectiveDecisionTree> ptr;
+    };
+    
+    /**
+     * This class implements random forest classifiers.
+     */
+    template <class TreeType>
+    class RandomForest : public AbstractForestClassifier<TreeType> {
+    public:
+        typedef std::shared_ptr< RandomForest<TreeType> > ptr;
+        
         /**
          * Only accept template parameters that extend AbstractClassifier.
          * Note: The double parentheses are needed.
          */
-        BOOST_STATIC_ASSERT((boost::is_base_of<AbstractClassifier, T>::value));
+        BOOST_STATIC_ASSERT((boost::is_base_of<AbstractClassifier, TreeType>::value));
         
-        typedef std::shared_ptr<AbstractRandomForest<T> > ptr;
-        
-        virtual ~AbstractRandomForest() {}
-        
-        /**
-         * Reads the tree from a stream. 
-         * 
-         * @param stream the stream to read the forest from.
-         */
-        virtual void read(std::istream & stream)
-        {
-            // Read the number of trees in this ensemble
-            int size;
-            readBinary(stream, size);
-
-            // Read the trees
-            for (int i = 0; i < size; i++)
-            {
-                std::shared_ptr<T> tree = std::make_shared<T>();
-
-                tree->read(stream);
-                addTree(tree);
-            }
-        }
-        
-        /**
-         * Writes the tree to a stream
-         * 
-         * @param stream The stream to write the forest to. 
-         */
-        void write(std::ostream & stream) const
-        {
-            // Write the number of trees in this ensemble
-            writeBinary(stream, getSize());
-
-            // Write the individual trees
-            for (int i = 0; i < getSize(); i++)
-            {
-                getTree(i)->write(stream);
-            }
-        }
+        virtual ~RandomForest() {}
         
         /**
          * Returns the class log posterior log(p(c | x)).
@@ -236,18 +219,18 @@ namespace libf {
          * @param x The data point x to determine the posterior distribution of
          * @param probabilities A vector of log posterior probabilities
          */
-        virtual void classLogPosterior(const DataPoint & x, std::vector<float> & probabilities) const
+        void classLogPosterior(const DataPoint & x, std::vector<float> & probabilities) const
         {
-            BOOST_ASSERT_MSG(getSize() > 0, "Cannot classify a point from an empty ensemble.");
+            BOOST_ASSERT_MSG(this->getSize() > 0, "Cannot classify a point from an empty ensemble.");
 
-            trees[0]->classLogPosterior(x, probabilities);
+            this->getTree(0)->classLogPosterior(x, probabilities);
 
             // Let the crowd decide
-            for (size_t i = 1; i < trees.size(); i++)
+            for (size_t i = 1; i < this->getSize(); i++)
             {
                 // Get the probabilities from the current tree
                 std::vector<float> currentHist;
-                trees[i]->classLogPosterior(x, currentHist);
+                this->getTree(i)->classLogPosterior(x, currentHist);
 
                 BOOST_ASSERT(currentHist.size() > 0);
 
@@ -258,249 +241,146 @@ namespace libf {
                 }
             }
         }
+    };
+    
+    /**
+     * This is a specialization for online random forests. It will be removed
+     * once the learning process is refactored. 
+     */
+    class OnlineRandomForest : public RandomForest<OnlineDecisionTree> {
+    public:
+        typedef std::shared_ptr<OnlineRandomForest> ptr;
+    };
+    
+    /**
+     * This classifier can be used for boosting. The template class names the
+     * actual classifier. 
+     */
+    template <class T>
+    class WeakClassifier : public AbstractClassifier {
+    public:
+        typedef std::shared_ptr< WeakClassifier<T> > ptr;
         
         /**
-         * Adds a tree to the ensemble
-         * 
-         * @param tree The tree to add to the ensemble
+         * Only accept template parameters that extend AbstractClassifier.
+         * Note: The double parentheses are needed.
          */
-        void addTree(std::shared_ptr<T> tree)
+        BOOST_STATIC_ASSERT((boost::is_base_of<AbstractClassifier, T>::value));
+        
+        WeakClassifier() : weight(0) {}
+        
+        /**
+         * Sets the classifier
+         * 
+         * @param _classifier
+         */
+        void setClassifier(std::shared_ptr<T> _classifier)
         {
-            trees.push_back(tree);
+            classifier = _classifier;
         }
         
         /**
-         * Returns the number of trees
+         * Returns the classifier
          * 
-         * @return The number of trees in this ensemble
+         * @return The classifier
          */
-        int getSize() const
+        std::shared_ptr<T> getClassifier() const
         {
-            return trees.size();
+            return classifier;
         }
         
         /**
-         * Returns the i-th tree
+         * Sets the weights
          * 
-         * @param i The index of the tree to return
-         * @return The i-th tree
+         * @param _weight 
          */
-        std::shared_ptr<T> getTree(int i) const
+        void setWeight(float _weight)
         {
-            BOOST_ASSERT_MSG(0 <= i && i < getSize(), "Invalid tree index.");
-            
-            return trees[i];
+            weight = _weight;
         }
         
         /**
-         * Removes the i-th tree from the ensemble. 
+         * Returns the weight
          * 
-         * @param i The index of the tree
+         * @return weight
          */
-        void removeTree(int i)
+        float getWeight() const
         {
-            BOOST_ASSERT_MSG(0 <= i && i < getSize(), "Invalid tree index.");
-            
-            // Remove it from the array
-            trees.erase(trees.begin() + i);
+            return weight;
+        }
+        
+        /**
+         * Reads the classifier from a stream. 
+         * 
+         * @param stream The stream to read the classifier from
+         */
+        void read(std::istream & stream)
+        {
+            readBinary(stream, weight);
+            classifier = std::make_shared<T>();
+            classifier->read(stream);
+        }
+        
+        /**
+         * Writes the tree to a stream
+         * 
+         * @param stream The stream to write the tree to.
+         */
+        void write(std::ostream & stream) const
+        {
+            writeBinary(stream, weight);
+            classifier->write(stream);
         }
         
     private:
         /**
-         * The individual decision trees. 
+         * The actual classifier
          */
-        std::vector< std::shared_ptr<T> > trees;
-    };
-    
-    
-    /**
-     * This is the base class for all tree classifiers
-     */
-    template <class Data>
-    class AbstractProjectiveTreeClassifier : public AbstractProjectiveSplitTree<Data>, public AbstractClassifier {
-    public:
-        
-        virtual ~AbstractProjectiveTreeClassifier() {}
-        
+        std::shared_ptr<T> classifier;
         /**
-         * Only accept template parameters that extend AbstractTreeClassifierNodeData.
-         * Note: The double parentheses are needed.
+         * The weight
          */
-        BOOST_STATIC_ASSERT((boost::is_base_of<AbstractTreeClassifierNodeData, Data>::value));
-        
-        typedef std::shared_ptr<AbstractTreeClassifier<Data> >  ptr;
-        
-        /**
-         * Returns the class log posterior log(p(c | x)). The probabilities are
-         * not normalized. 
-         * 
-         * @param x The data point for which the log posterior shall be evaluated. 
-         * @param probabilities The vector of log posterior probabilities
-         */
-        void classLogPosterior(const DataPoint & x, std::vector<float> & probabilities) const
-        {
-            // Get the leaf node
-            const int leafNode = this->findLeafNode(x);
-            probabilities = this->getNodeData(leafNode).histogram;
-        }
-    };
-    
-    /**
-     * This is the data each node in a decision tree carries
-     */
-    class ProjectiveDecisionTreeNodeData : public AbstractTreeClassifierNodeData {};
-    
-    /**
-     * Overload the read binary method to also read DecisionTreeNodeData
-     */
-    template <>
-    inline void readBinary(std::istream & stream, ProjectiveDecisionTreeNodeData & v)
-    {
-        readBinary(stream, v.histogram);
-    }
-    
-    /**
-     * Overload the write binary method to also write DecisionTreeNodeData
-     */
-    template <>
-    inline void writeBinary(std::ostream & stream, const ProjectiveDecisionTreeNodeData & v)
-    {
-        writeBinary(stream, v.histogram);
-    }
-    
-    /**
-     * This class represents a decision tree.
-     */
-    class ProjectiveDecisionTree : public AbstractProjectiveTreeClassifier<ProjectiveDecisionTreeNodeData> {
-    public:
-        typedef std::shared_ptr<ProjectiveDecisionTree> ptr;
-    };
-    
-    /**
-     * This is a traditional random forest for offline learning. 
-     */
-    class RandomForest : public AbstractRandomForest<DecisionTree> 
-    {
-    public:
-        typedef std::shared_ptr<RandomForest> ptr;
-        RandomForest() : AbstractRandomForest<DecisionTree> () {}
-        virtual ~RandomForest() {}
-    };
-    
-    /**
-     * This is an online random forest for online learning. 
-     */
-    class OnlineRandomForest : public AbstractRandomForest<OnlineDecisionTree> 
-    {
-    public:
-        typedef std::shared_ptr<OnlineRandomForest> ptr;
-        OnlineRandomForest() : AbstractRandomForest<OnlineDecisionTree> () {}
-        virtual ~OnlineRandomForest() {}
-    };
-    
-    /**
-     * This is random forest of projective decision trees. 
-     */
-    class ProjectiveRandomForest : public AbstractRandomForest<ProjectiveDecisionTree> 
-    {
-    public:
-        typedef std::shared_ptr<ProjectiveRandomForest> ptr;
-        ProjectiveRandomForest() : AbstractRandomForest<ProjectiveDecisionTree> () {}
-        virtual ~ProjectiveRandomForest() {}
+        float weight;
     };
     
     /**
      * A boosted random forest classifier.
      */
-    class BoostedRandomForest : public AbstractClassifier {
+    template <class TreeType>
+    class BoostedRandomForest : public AbstractForestClassifier< WeakClassifier<TreeType> > {
     public:
         typedef std::shared_ptr<BoostedRandomForest> ptr;
         
         virtual ~BoostedRandomForest() {}
         
         /**
-         * Reads the tree from a stream. 
+         * Returns the class log posterior log(p(c | x)).
          * 
-         * @param stream The stream to read the classifier from. 
-         */
-        virtual void read(std::istream & stream);
-        
-        /**
-         * Writes the tree to a stream
-         * 
-         * @param stream The stream to write the classifier to. 
-         */
-        virtual void write(std::ostream & stream) const;
-        
-        /**
-         * Returns the class log posterior p(c | x). In this case, this cannot
-         * be seen as a probability because of the boosting effects.
-         * 
-         * @param x The data point to calculate the posterior distribution for
+         * @param x The data point x to determine the posterior distribution of
          * @param probabilities A vector of log posterior probabilities
          */
-        virtual void classLogPosterior(const DataPoint & x, std::vector<float> & probabilities) const;
-        
-        /**
-         * Adds a tree to the ensemble
-         * 
-         * @param tree The tree to add to the ensemble
-         * @param weight The weight of the tree in the classification process
-         */
-        void addTree(DecisionTree::ptr tree, float weight)
+        void classLogPosterior(const DataPoint & x, std::vector<float> & probabilities) const
         {
-            BOOST_ASSERT_MSG(weight >= 0, "Tree weight must not be negative.");
+            BOOST_ASSERT_MSG(this->getSize() > 0, "Cannot classify a point from an empty ensemble.");
             
-            trees.push_back(tree);
-            weights.push_back(weight);
+            // TODO: This can be done way more efficient
+            // Determine the number of classes by looking at a histogram
+            this->getTree(0)->getClassifier()->classLogPosterior(x, probabilities);
+            // Initialize the result vector
+            const int C = static_cast<int>(probabilities.size());
+            for (int c = 0; c < C; c++)
+            {
+                probabilities[c] = 0;
+            }
+
+            // Let the crowd decide
+            for (size_t i = 0; i < this->getSize(); i++)
+            {
+                // Get the resulting label
+                const int label = this->getTree(i)->getClassifier()->classify(x);
+                probabilities[label] += this->getTree(i)->getWeight();
+            }
         }
-        
-        /**
-         * Returns the number of trees
-         * 
-         * @return The total number of trees.
-         */
-        int getSize() const
-        {
-            return trees.size();
-        }
-        
-        /**
-         * Returns the i-th tree
-         * 
-         * @param i The index of the tree
-         * @return The i-th tree
-         */
-        DecisionTree::ptr getTree(int i) const
-        {
-            BOOST_ASSERT_MSG(0 <= i && i < getSize(), "Invalid tree index.");
-            
-            return trees[i];
-        }
-        
-        /**
-         * Removes the i-th tree from the ensemble. 
-         * 
-         * @param i The index of the tree
-         */
-        void removeTree(int i)
-        {
-            BOOST_ASSERT_MSG(0 <= i && i < getSize(), "Invalid tree index.");
-            
-            // Remove it from the array
-            trees.erase(trees.begin() + i);
-            weights.erase(weights.begin() + i);
-        }
-        
-    private:
-        /**
-         * The individual decision trees. 
-         */
-        std::vector<DecisionTree::ptr> trees;
-        /**
-         * The tree weights
-         */
-        std::vector<float> weights;
     };
 }
 #endif

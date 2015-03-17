@@ -2,7 +2,6 @@
 #include "libforest/data.h"
 #include "libforest/classifiers.h"
 #include "libforest/estimators.h"
-#include "libforest/learning.h"
 #include "libforest/io.h"
 #include "libforest/util.h"
 
@@ -199,7 +198,7 @@ void ConfusionMatrixTool::measureAndPrint(AbstractClassifier::ptr classifier, Ab
 /// CorrelationTool
 ////////////////////////////////////////////////////////////////////////////////
 
-void CorrelationTool::measure(const RandomForest::ptr forest, AbstractDataStorage::ptr storage, std::vector<std::vector<float> >& result) const
+void CorrelationTool::measure(typename RandomForest<AbstractClassifier>::ptr forest, AbstractDataStorage::ptr storage, std::vector<std::vector<float> >& result) const
 {
     const int T = forest->getSize();
     
@@ -272,7 +271,7 @@ void CorrelationTool::print(const std::vector<std::vector<float> >& result) cons
     }
 }
 
-void CorrelationTool::measureAndPrint(const RandomForest::ptr classifier, AbstractDataStorage::ptr storage) const
+void CorrelationTool::measureAndPrint(typename RandomForest<AbstractClassifier>::ptr classifier, AbstractDataStorage::ptr storage) const
 {
     std::vector< std::vector<float> > result;
     measure(classifier, storage, result);
@@ -282,12 +281,6 @@ void CorrelationTool::measureAndPrint(const RandomForest::ptr classifier, Abstra
 ////////////////////////////////////////////////////////////////////////////////
 /// VariableImaportanceTool
 ////////////////////////////////////////////////////////////////////////////////
-
-void VariableImportanceTool::measure(RandomForestLearner* learner, std::vector<float> & result) const
-{
-    std::vector<float> importance = learner->getImportance();
-    result = std::vector<float>(importance.begin(), importance.end());
-}
 
 void VariableImportanceTool::print(const std::vector<float> & result) const
 {
@@ -314,46 +307,6 @@ void VariableImportanceTool::print(const std::vector<float> & result) const
         }
     }
 }
-
-void VariableImportanceTool::measureAndPrint(RandomForestLearner* learner) const
-{
-    print(learner->getImportance());
-}
-
-////////////////////////////////////////////////////////////////////////////////
-/// PixelImportanceTool
-////////////////////////////////////////////////////////////////////////////////
-
-void PixelImportanceTool::measureAndSave(RandomForestLearner* learner, boost::filesystem::path file, int rows) const
-{
-    const std::vector<float> result = learner->getImportance();
-    const int F = static_cast<int>(result.size());
-    
-    cv::Mat image(rows, rows, CV_8UC3, cv::Scalar(255, 255, 255));
-    
-    float max = 0;
-    for (int i = 0; i < F; i++)
-    {
-        if (result[i] > max)
-        {
-            max = result[i];
-        }
-    }
-    
-    for (int i = 0; i < rows; i++)
-    {
-        for (int j = 0; j < rows; j++)
-        {
-            if (result[j + rows*i] > 0) 
-            {
-                image.at<cv::Vec3b>(i, j) = cv::Vec3b(0, (unsigned char) (result[j + rows*i]/max*255), 255);
-            }
-        }
-    }
-    
-    cv::imwrite(file.string(), image);
-}
-
 
 ////////////////////////////////////////////////////////////////////////////////
 /// ClassStatisticsTool

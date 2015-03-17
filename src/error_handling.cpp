@@ -1,4 +1,5 @@
 #include "libforest/error_handling.h"
+#include "libforest/io.h"
 #include <iomanip>
 #include <iostream>
 
@@ -14,8 +15,6 @@ namespace boost
     void assertion_failed(char const * expr,
                           char const * function, char const * file, long line)
     {
-        std::cout << "FUCK\n";
-        exit(1);
         // Throw an assertion exception
         throw libf::AssertionException(expr, function, file, line);
     }
@@ -45,7 +44,7 @@ char const* libf::AssertionException::what() const throw()
     std::stringstream ss;
     ss << std::endl;
     ss << std::setw(16) << std::left << "Expression:" << expression << std::endl;
-    ss << std::setw(16) << std::left << "Message:" << message << std::endl;
+    ss << std::setw(16) << std::left << "Message:" << LIBF_COLOR_RED << message << LIBF_COLOR_RESET << std::endl;
     ss << std::setw(16) << std::left << "Function:" << function << std::endl;
     ss << std::setw(16) << std::left << "File:" << file << std::endl;
     ss << std::setw(16) << std::left << "Line:" << line << std::endl;
