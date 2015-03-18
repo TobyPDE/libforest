@@ -39,3 +39,6 @@ target_link_libraries(cli_online_rf_convergence libforest ${Boost_LIBRARIES})
 
 #add_executable(cli_kernel_density_tree kernel_density_tree.cpp)
 #target_link_libraries(cli_kernel_density_tree libforest ${Boost_LIBRARIES} ${OpenCV_LIBRARIES})
+
+add_executable(cli_kmeans kmeans.cpp)
+target_link_libraries(cli_kmeans libforest ${Boost_LIBRARIES})

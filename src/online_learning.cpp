@@ -432,7 +432,7 @@ OnlineRandomForest::ptr OnlineRandomForestLearner::learn(AbstractDataStorage::pt
     int treeStartCounter = 0; 
     int treeFinishCounter = 0; 
     
-    #pragma omp parallel for num_threads(numThreads)
+    #pragma omp parallel for num_threads(this->numThreads)
     for (int i = 0; i < numTrees; i++)
     {
         #pragma omp critical
