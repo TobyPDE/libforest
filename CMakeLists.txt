@@ -69,6 +69,7 @@ endif()
 # Build the actual library
 add_library(libforest STATIC 
                     src/data.cpp 
+                    src/data_tools.cpp
                     src/classifiers.cpp 
                     src/estimators.cpp
                     src/unsupervised_learning.cpp 

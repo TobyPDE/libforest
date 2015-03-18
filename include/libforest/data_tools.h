@@ -19,15 +19,17 @@ namespace libf {
     class KMeans {
     public:
         
+        typedef std::shared_ptr<KMeans> ptr;
+        
         /**
          * Choose centers from a uniform distribution over all data points.
          */
-        const int CENTERS_RANDOM = 1;
+        const static int CENTERS_RANDOM = 1;
         /**
          * Choose centers according to the k-means++ paradigm proportional to
          * their squared distance to all other centers.
          */
-        const int CENTERS_PP = 2;
+        const static int CENTERS_PP = 2;
         
         /**
          * Constructor.
@@ -140,7 +142,7 @@ namespace libf {
          * @param centers The found centers will be written here
          * @param labels The corresponding labels will be written here
          */
-        void cluster(AbstractDataStorage::ptr storage, 
+        float cluster(AbstractDataStorage::ptr storage, 
                 AbstractDataStorage::ptr centers, std::vector<int> & labels);
         
     private:
@@ -150,7 +152,7 @@ namespace libf {
          * @param storage The data storage containing all points to cluster
          * @param centers The initial centers are written here
          */
-        void initCentersPP(AbstractDataStorage::ptr storage, AbstractDataStorage::ptr centers);
+        void initCentersPP(AbstractDataStorage::ptr storage, DataStorage::ptr centers);
         
         /**
          * Initialize the centers randomly
@@ -158,7 +160,7 @@ namespace libf {
          * @param storage The data storage containing all points to cluster
          * @param centers The initial centers are written here
          */
-        void initCentersRandom(AbstractDataStorage::ptr storage, AbstractDataStorage::ptr centers);
+        void initCentersRandom(AbstractDataStorage::ptr storage, DataStorage::ptr centers);
         
         /**
          * Number of clusters to generate.

@@ -318,7 +318,8 @@ DensityForest::ptr DensityForestLearner::learn(AbstractDataStorage::ptr storage)
     
     int treeStartCounter = 0; 
     int treeFinishCounter = 0; 
-    #pragma omp parallel for num_threads(numThreads)
+    
+    #pragma omp parallel for num_threads(this->numThreads)
     for (int i = 0; i < numTrees; i++)
     {
         #pragma omp critical
@@ -331,6 +332,7 @@ DensityForest::ptr DensityForestLearner::learn(AbstractDataStorage::ptr storage)
         
         // Learn the tree
         DensityTree::ptr tree = treeLearner->learn(storage);
+        
         // Add it to the forest
         #pragma omp critical
         {

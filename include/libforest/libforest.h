@@ -2,6 +2,7 @@
 #define LIBF_H
 
 #include "data.h"
+#include "data_tools.h"
 #include "classifiers.h"
 #include "estimators.h"
 #include "learning.h"

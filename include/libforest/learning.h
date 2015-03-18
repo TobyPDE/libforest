@@ -701,7 +701,7 @@ namespace libf {
 
             int treeStartCounter = 0; 
             int treeFinishCounter = 0; 
-            #pragma omp parallel for num_threads(numThreads)
+            #pragma omp parallel for num_threads(this->numThreads)
             for (int i = 0; i < this->getNumTrees(); i++)
             {
                 #pragma omp critical
