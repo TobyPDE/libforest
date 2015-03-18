@@ -1,6 +1,7 @@
 #include "libforest/unsupervised_learning.h"
 #include "libforest/data.h"
 #include "libforest/util.h"
+#include "libforest/learning_tools.h"
 
 #include <algorithm>
 #include <random>
@@ -248,7 +249,7 @@ DensityTree::ptr DensityTreeLearner::learn(AbstractDataStorage::ptr storage)
 int DensityTreeLearner::defaultCallback(DensityTree::ptr tree, const DensityTreeLearnerState & state)
 {
     switch (state.action) {
-        case DecisionTreeLearner::ACTION_START_TREE:
+        case DensityTreeLearner::ACTION_START_TREE:
             std::cout << "Start decision tree training" << "\n";
             break;
         case DensityTreeLearner::ACTION_SPLIT_NODE:

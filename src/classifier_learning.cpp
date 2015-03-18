@@ -1,7 +1,10 @@
-#include "libforest/learning.h"
 #include "libforest/data.h"
-#include "libforest/classifiers.h"
+#include "libforest/classifier.h"
 #include "libforest/util.h"
+#include "libforest/learning.h"
+#include "libforest/learning_tools.h"
+#include "libforest/classifier_learning.h"
+#include "libforest/classifier_learning_tools.h"
 
 #include <algorithm>
 #include <random>
@@ -13,6 +16,7 @@
 using namespace libf;
 
 static std::random_device rd;
+static std::mt19937 g(rd());
 
 ////////////////////////////////////////////////////////////////////////////////
 /// DecisionTreeLearner
@@ -83,7 +87,8 @@ DecisionTree::ptr DecisionTreeLearner::learn(AbstractDataStorage::ptr dataStorag
     trainingExamplesSizes.reserve(LIBF_GRAPH_BUFFER_SIZE);
     
     // Saves the sum of impurity decrease achieved by each feature
-    importance = std::vector<float>(D, 0.f);
+    // TODO: Update importance calculation 
+    // importance = std::vector<float>(D, 0.f);
     
     // Add all training example to the root node
     trainingExamplesSizes.push_back(storage->getSize());
@@ -263,7 +268,8 @@ DecisionTree::ptr DecisionTreeLearner::learn(AbstractDataStorage::ptr dataStorag
         evokeCallback(tree, 0, state);
         
         // Save the impurity reduction for this feature if requested
-        importance[bestFeature] += N/storage->getSize()*(hist.getEntropy() - bestObjective);
+        // TODO: Update the importance calculation
+        // importance[bestFeature] += N/storage->getSize()*(hist.getEntropy() - bestObjective);
         
         // Prepare to split the child nodes
         splitStack.push_back(leftChild);
@@ -276,58 +282,10 @@ DecisionTree::ptr DecisionTreeLearner::learn(AbstractDataStorage::ptr dataStorag
     // histograms
     if (useBootstrap)
     {
-        updateHistograms(tree, dataStorage);
+        TreeLearningTools::updateHistograms(tree, dataStorage, smoothingParameter);
     }
     
     return tree;
-}
-
-void DecisionTreeLearner::updateHistograms(DecisionTree::ptr tree, AbstractDataStorage::ptr storage) const
-{
-    const int C = storage->getClasscount();
-    
-    // Reset all histograms
-    for (int v = 0; v < tree->getNumNodes(); v++)
-    {
-        if (tree->getNodeConfig(v).isLeafNode())
-        {
-            std::vector<float> & hist = tree->getNodeData(v).histogram;
-            
-            // Make sure that hist is initialized.
-            hist.resize(C);
-            
-            for (int c = 0; c < C; c++)
-            {
-                hist[c] = 0;
-            }
-        }
-    }
-    
-    
-    // Compute the weights for each data point
-    for (int n = 0; n < storage->getSize(); n++)
-    {
-        int leafNode = tree->findLeafNode(storage->getDataPoint(n));
-        tree->getNodeData(leafNode).histogram[storage->getClassLabel(n)] += 1;
-    }
-    
-    // Normalize the histograms
-    for (int v = 0; v < tree->getNumNodes(); v++)
-    {
-        if (tree->getNodeConfig(v).isLeafNode())
-        {
-            std::vector<float> & hist = tree->getNodeData(v).histogram;
-            float total = 0;
-            for (int c = 0; c < C; c++)
-            {
-                total += hist[c];
-            }
-            for (int c = 0; c < C; c++)
-            {
-                hist[c] = std::log((hist[c] + smoothingParameter)/(total + C*smoothingParameter));
-            }
-        }
-    }
 }
 
 int DecisionTreeLearner::defaultCallback(DecisionTree::ptr tree, const DecisionTreeLearnerState & state)
@@ -401,7 +359,8 @@ ProjectiveDecisionTree::ptr ProjectiveDecisionTreeLearner::learn(AbstractDataSto
     trainingExamplesSizes.reserve(LIBF_GRAPH_BUFFER_SIZE);
     
     // Saves the sum of impurity decrease achieved by each feature
-    importance = std::vector<float>(D, 0.f);
+    // TODO: Update importance calculation
+    //importance = std::vector<float>(D, 0.f);
     
     // Add all training example to the root node
     trainingExamplesSizes.push_back(storage->getSize());
@@ -624,71 +583,335 @@ ProjectiveDecisionTree::ptr ProjectiveDecisionTreeLearner::learn(AbstractDataSto
     // histograms
     if (useBootstrap)
     {
-        updateHistograms(tree, dataStorage);
+        TreeLearningTools::updateHistograms(tree, dataStorage, smoothingParameter);
     }
     
     return tree;
 }
 
-void ProjectiveDecisionTreeLearner::updateHistograms(ProjectiveDecisionTree::ptr tree, AbstractDataStorage::ptr storage) const
+////////////////////////////////////////////////////////////////////////////////
+/// OnlineDecisionTreeLearner
+////////////////////////////////////////////////////////////////////////////////
+
+void OnlineDecisionTreeLearner::updateSplitStatistics(std::vector<EfficientEntropyHistogram> & leftChildStatistics, 
+        std::vector<EfficientEntropyHistogram> & rightChildStatistics, 
+        const std::vector<int> & features,
+        const std::vector< std::vector<float> > & thresholds, 
+        const DataPoint & x, const int label)
 {
-    const int C = storage->getClasscount();
-    
-    // Reset all histograms
-    for (int v = 0; v < tree->getNumNodes(); v++)
+    for (int f = 0; f < numFeatures; f++)
     {
-        if (tree->getNodeConfig(v).isLeafNode())
+        // There may not be numThresholds thresholds yet!!!
+        for (unsigned int t = 0; t < thresholds[f].size(); t++)
         {
-            std::vector<float> & hist = tree->getNodeData(v).histogram;
-            
-            // Make sure that hist is initialized.
-            hist.resize(C);
-            
-            for (int c = 0; c < C; c++)
+            if (x(features[f]) < thresholds[f][t])
             {
-                hist[c] = 0;
+                // x would fall into left child.
+                leftChildStatistics[t + numThresholds*f].addOne(label);
             }
-        }
-    }
-    
-    
-    // Compute the weights for each data point
-    for (int n = 0; n < storage->getSize(); n++)
-    {
-        int leafNode = tree->findLeafNode(storage->getDataPoint(n));
-        tree->getNodeData(leafNode).histogram[storage->getClassLabel(n)] += 1;
-    }
-    
-    // Normalize the histograms
-    for (int v = 0; v < tree->getNumNodes(); v++)
-    {
-        if (tree->getNodeConfig(v).isLeafNode())
-        {
-            std::vector<float> & hist = tree->getNodeData(v).histogram;
-            float total = 0;
-            for (int c = 0; c < C; c++)
+            else
             {
-                total += hist[c];
-            }
-            for (int c = 0; c < C; c++)
-            {
-                hist[c] = std::log((hist[c] + smoothingParameter)/(total + C*smoothingParameter));
+                // x would fall into right child.
+                rightChildStatistics[t + numThresholds*f].addOne(label);
             }
         }
     }
 }
 
-int ProjectiveDecisionTreeLearner::defaultCallback(ProjectiveDecisionTree::ptr tree, const DecisionTreeLearnerState & state)
+OnlineDecisionTree::ptr OnlineDecisionTreeLearner::learn(AbstractDataStorage::ptr storage)
+{
+    OnlineDecisionTree::ptr tree = std::make_shared<OnlineDecisionTree>();
+    tree->addNode();
+    
+    return learn(storage, tree);
+}
+
+OnlineDecisionTree::ptr OnlineDecisionTreeLearner::learn(AbstractDataStorage::ptr storage, OnlineDecisionTree::ptr tree)
+{
+    
+    // Get the number of training examples and the dimensionality of the data set
+    const int D = storage->getDimensionality();
+    const int C = storage->getClasscount();
+    const int N = storage->getSize();
+    
+    assert(numFeatures <= D);
+    assert(thresholdGenerator.getSize() == D);
+    
+    // The tree must have at least the root note!
+    assert(tree->getNumNodes() > 0);
+    
+    // Saves the sum of impurity decrease achieved by each feature
+    // TODO: Update importance calculation
+    // importance = std::vector<float>(D, 0.f);
+    
+    OnlineDecisionTreeLearnerState state;
+    state.action = ACTION_START_TREE;
+    
+    evokeCallback(tree, 0, state);
+    
+    // Set up a list of all available features.
+    numFeatures = std::min(numFeatures, D);
+    std::vector<int> features(D);
+    for (int f = 0; f < D; f++)
+    {
+        features[f] = f;
+    }
+    
+    for (int n = 0; n < N; n++)
+    {
+        const DataPoint & x = storage->getDataPoint(n);
+        const int label = storage->getClassLabel(n);
+        const int leaf = tree->findLeafNode(x);
+        const int depth = tree->getNodeConfig(leaf).getDepth();
+        
+        state.node = leaf;
+        state.depth = depth;
+        
+        EfficientEntropyHistogram & nodeStatistics = tree->getNodeData(leaf).nodeStatistics;
+        std::vector<int> & nodeFeatures = tree->getNodeData(leaf).nodeFeatures;
+        std::vector< std::vector<float> > & nodeThresholds = tree->getNodeData(leaf).nodeThresholds;
+        std::vector<EfficientEntropyHistogram> & leftChildStatistics = tree->getNodeData(leaf).leftChildStatistics;
+        std::vector<EfficientEntropyHistogram> & rightChildStatistics = tree->getNodeData(leaf).rightChildStatistics;
+        
+        // This leaf node may be a fresh one.
+        if (nodeStatistics.getSize() <= 0)
+        {
+            nodeStatistics.resize(C);
+            
+            leftChildStatistics.resize(numFeatures*numThresholds);
+            rightChildStatistics.resize(numFeatures*numThresholds);
+            
+            nodeFeatures.resize(numFeatures, 0);
+            nodeThresholds.resize(numFeatures);
+            
+            // Sample thresholds and features.
+            std::shuffle(features.begin(), features.end(), std::default_random_engine(rd()));
+            
+            // Used to make sure, that non/trivial, different features are chosen.
+//            int f_alt = numFeatures;
+            
+            for (int f = 0; f < numFeatures; f++)
+            {
+                // Try the first feature.
+                nodeFeatures[f] = features[f];
+                assert(nodeFeatures[f] >= 0 && nodeFeatures[f] < D);
+                
+                // This may be a trivial feature, so search for the next non/trivial
+                // feature; make sure that all chosen features are different.
+                const int M = 10;
+                int m = 0;
+
+                // TODO: this should not be necessary!
+//                while(thresholdGenerator.getMin(nodeFeatures[f]) == thresholdGenerator.getMax(nodeFeatures[f])
+//                        && m < M && f_alt < D)
+//                {
+//                    nodeFeatures[f] = features[f_alt];
+//                    ++f_alt;
+//                    ++m;
+//                }
+                        
+                nodeThresholds[f].resize(numThresholds);
+                
+                for (int t = 0; t < numThresholds; t++)
+                {
+                    nodeThresholds[f][t] = thresholdGenerator.sample(nodeFeatures[f]);
+                    
+                    if (t > 0)
+                    {
+                        // Maximum 10 tries to get a better threshold.
+                        m = 0;
+                        while (std::abs(nodeThresholds[f][t] - nodeThresholds[f][t - 1]) < 1e-6f
+                                && m < M)
+                        {
+                            nodeThresholds[f][t] = thresholdGenerator.sample(nodeFeatures[f]);
+                            ++m;
+                        }
+                    }
+                    
+                    // Initialize left and right child statistic histograms.
+                    leftChildStatistics[t + numThresholds*f].resize(C);
+                    rightChildStatistics[t + numThresholds*f].resize(C);
+                    
+                    leftChildStatistics[t + numThresholds*f].reset();
+                    rightChildStatistics[t + numThresholds*f].reset();
+                }
+            }
+            
+            state.action = ACTION_INIT_NODE;
+            evokeCallback(tree, 0, state);
+        }
+        
+        int K = 1;
+        if (useBootstrap)
+        {
+            std::poisson_distribution<int> poisson(bootstrapLambda);
+            K = poisson(g); // May also give zero.
+        }
+        
+        for (int k = 0; k < K; k++)
+        {
+            // Update node statistics.
+            nodeStatistics.addOne(label);
+            // Update left and right node statistics for all splits.
+            updateSplitStatistics(leftChildStatistics, rightChildStatistics, 
+                    nodeFeatures, nodeThresholds, x, label);
+        }
+        
+        state.node = leaf;
+        state.depth = depth;
+        state.samples = nodeStatistics.getMass();
+        
+        // As in offline learning, do not split this node
+        // - if the number of examples is too small
+        // - if the maximum depth is reached
+        if (nodeStatistics.getMass() < minSplitExamples || nodeStatistics.isPure() 
+                || depth >= maxDepth)
+        {
+            // Do not split, update leaf histogram according to new sample.
+            updateLeafNodeHistogram(tree->getNodeData(leaf).histogram, nodeStatistics, smoothingParameter, false);
+        
+            state.action = ACTION_NOT_SPLITTING_NODE;  
+            evokeCallback(tree, 0, state);
+            
+            continue;
+        }
+        
+        // Get the best split.
+        float bestObjective = 0;
+        float bestThreshold = -1;
+        float bestFeature = -1;
+        
+        for (int f = 0; f < numFeatures; f++)
+        {
+            for (int t = 0; t < numThresholds; t++)
+            {
+                const int leftMass = leftChildStatistics[t + numThresholds*f].getMass();
+                const int rightMass = rightChildStatistics[t + numThresholds*f].getMass();
+                
+                if (leftMass > minChildSplitExamples && rightMass > minChildSplitExamples)
+                {
+                    const float localObjective = nodeStatistics.getEntropy()
+                            - leftChildStatistics[t + numThresholds*f].getEntropy()
+                            - rightChildStatistics[t + numThresholds*f].getEntropy();
+                    
+                    if (localObjective > bestObjective)
+                    {
+                        bestObjective = localObjective;
+                        bestThreshold = t;
+                        bestFeature = f;
+                    }
+                }
+            }
+        }
+        
+        // Split only if the minimum objective is obtained.
+        if (bestObjective < minSplitObjective)
+        {
+            // Do not split, update leaf histogram according to new sample.
+            updateLeafNodeHistogram(tree->getNodeData(leaf).histogram, 
+                    nodeStatistics, smoothingParameter, false);
+        
+            state.action = ACTION_NOT_SPLITTING_OBJECTIVE_NODE;  
+            state.objective = bestObjective;
+            state.minObjective = minSplitObjective;
+            
+            evokeCallback(tree, 0, state);
+            
+            continue;
+        }
+        
+        assert(bestFeature >= 0 && nodeFeatures[bestFeature] >= 0 
+                && nodeFeatures[bestFeature] < D);
+        
+        // We split this node!
+        tree->getNodeConfig(leaf).setThreshold(nodeThresholds[bestFeature][bestThreshold]); // Save the actual threshold value.
+        tree->getNodeConfig(leaf).setSplitFeature(nodeFeatures[bestFeature]); // Save the index of the feature.
+        
+        const int leftChild = tree->splitNode(leaf);
+        const int rightChild = leftChild  + 1;
+        
+        // This may be the last sample! So initialize the leaf node histograms!
+        updateLeafNodeHistogram(tree->getNodeData(leftChild).histogram, 
+                leftChildStatistics[bestThreshold + numThresholds*bestFeature], 
+                smoothingParameter, false);
+        
+        updateLeafNodeHistogram(tree->getNodeData(rightChild).histogram, 
+                rightChildStatistics[bestThreshold + numThresholds*bestFeature], 
+                smoothingParameter, false);
+        
+        // Save best objective for variable importance.
+        // TODO: Update importance calculation
+        //++importance[bestFeature];
+        
+        // Clean up node at this is not a leaf anymore and statistics
+        // are not required anymore.
+        // nodeStatistics.clear();
+        leftChildStatistics.clear();
+        rightChildStatistics.clear();
+        nodeThresholds.clear();
+        nodeFeatures.clear();
+        
+        // Also clear the histogram as this node is not a leaf anymore!
+        tree->getNodeData(leaf).histogram.clear();
+        
+        state.action = ACTION_SPLIT_NODE; 
+        state.objective = bestObjective;
+        
+        evokeCallback(tree, 0, state);
+    }
+    
+    return tree;
+}
+
+int OnlineDecisionTreeLearner::defaultCallback(OnlineDecisionTree::ptr tree, const OnlineDecisionTreeLearnerState & state)
 {
     switch (state.action) {
-        case DecisionTreeLearner::ACTION_START_TREE:
-            std::cout << "Start decision tree training" << "\n";
+//        case OnlineDecisionTreeLearner::ACTION_INIT_NODE:
+//            std::cout << std::setw(30) << std::left << "Init node: "
+//                    << "depth = " << std::setw(6) << state->depth << "\n";
+//            break;
+        case OnlineDecisionTreeLearner::ACTION_SPLIT_NODE:
+            std::cout << std::setw(30) << std::left << "Split node: "
+                    << "depth = " << std::setw(6) << state.depth
+                    << "samples = " << std::setw(6) << state.samples
+                    << "objective = " << std::setw(6)
+                    << std::setprecision(3) << state.objective << "\n";
             break;
-        case DecisionTreeLearner::ACTION_SPLIT_NODE:
-            std::cout << std::setw(15) << std::left << "Split node:"
-                    << "depth = " << std::setw(3) << std::right << state.depth
-                    << ", objective = " << std::setw(6) << std::left
-                    << std::setprecision(4) << state.objective << "\n";
+    }
+    
+    return 0;
+}
+
+int OnlineDecisionTreeLearner::verboseCallback(OnlineDecisionTree::ptr tree, const OnlineDecisionTreeLearnerState & state)
+{
+    switch (state.action) {
+        case OnlineDecisionTreeLearner::ACTION_START_TREE:
+            std::cout << "Start decision tree training." << "\n";
+            break; 
+        case OnlineDecisionTreeLearner::ACTION_INIT_NODE:
+            std::cout << std::setw(30) << std::left << "Init node: "
+                    << "depth = " << std::setw(6) << state.depth << "\n";
+            break;
+        case OnlineDecisionTreeLearner::ACTION_NOT_SPLITTING_NODE:
+            std::cout << std::setw(30) << std::left << "Not splitting node: "
+                    << "depth = " << std::setw(6) << state.depth
+                    << "samples = " << std::setw(6) << state.samples << "\n";
+            break;
+        case OnlineDecisionTreeLearner::ACTION_NOT_SPLITTING_OBJECTIVE_NODE:
+            std::cout << std::setw(30) << std::left << "Not splitting node: "
+                    << "depth = " << std::setw(6) << state.depth
+                    << "samples = " << std::setw(6) << state.samples
+                    << "objective = " << std::setw(6)
+                    << std::setprecision(3) << state.objective
+                    << "min objective = " << std::setw(6)
+                    << std::setprecision(3) << state.minObjective << "\n";
+            break;
+        case OnlineDecisionTreeLearner::ACTION_SPLIT_NODE:
+            std::cout << std::setw(30) << std::left << "Split node: "
+                    << "depth = " << std::setw(6) << state.depth
+                    << "samples = " << std::setw(6) << state.samples
+                    << "objective = " << std::setw(6)
+                    << std::setprecision(3) << state.objective << "\n";
             break;
         default:
             std::cout << "UNKNOWN ACTION CODE " << state.action << "\n";
@@ -696,5 +919,4 @@ int ProjectiveDecisionTreeLearner::defaultCallback(ProjectiveDecisionTree::ptr t
     }
     
     return 0;
-
 }

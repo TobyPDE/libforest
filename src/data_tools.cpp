@@ -371,3 +371,48 @@ void KMeans::initCentersRandom(AbstractDataStorage::ptr storage,
         centers->addDataPoint(center);
     }
 }
+
+
+////////////////////////////////////////////////////////////////////////////////
+/// ClassStatisticsTool
+////////////////////////////////////////////////////////////////////////////////
+
+void ClassStatisticsTool::measure(AbstractDataStorage::ptr storage, std::vector<float> & result) const
+{
+    // Count the points
+    result.resize(storage->getClasscount() + 1, 0.0f);
+    
+    for (int n = 0; n < storage->getSize(); n++)
+    {
+        if (storage->getClassLabel(n) != LIBF_NO_LABEL)
+        {
+            result[storage->getClassLabel(n)] += 1.0f;
+        }
+        else
+        {
+            // This data point has no label
+            result[storage->getClasscount()] += 1.0f;
+        }
+    }
+    
+    // Normalize the distribution
+    for (size_t c = 0; c < result.size(); c++)
+    {
+        result[c] /= storage->getSize();
+    }
+}
+
+void ClassStatisticsTool::print(const std::vector<float> & result) const
+{
+    for (size_t c = 0; c < result.size(); c++)
+    {
+        printf("Class %3d: %4f%%\n", static_cast<int>(c), result[c]*100);
+    }
+}
+
+void ClassStatisticsTool::measureAndPrint(AbstractDataStorage::ptr storage) const
+{
+    std::vector<float> result;
+    measure(storage, result);
+    print(result);
+}

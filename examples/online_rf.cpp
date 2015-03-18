@@ -100,14 +100,14 @@ int main(int argc, const char** argv)
     treeLearner.setNumThresholds(parameters["num-thresholds"].as<int>());
     treeLearner.setUseBootstrap(useBootstrap);
     
-    OnlineRandomForestLearner forestLearner;
+    OnlineRandomForestLearner<OnlineDecisionTreeLearner> forestLearner;
     
     forestLearner.setTreeLearner(treeLearner);
     forestLearner.setNumTrees(parameters["num-trees"].as<int>());
     forestLearner.setNumThreads(parameters["num-threads"].as<int>());
-    forestLearner.addCallback(OnlineRandomForestLearner::verboseCallback, 1);
+    forestLearner.addCallback(OnlineRandomForestLearner<OnlineDecisionTreeLearner>::verboseCallback, 1);
     
-    OnlineRandomForest::ptr forest = forestLearner.learn(storageT);
+    auto forest = forestLearner.learn(storageT);
     
     AccuracyTool accuracyTool;
     accuracyTool.measureAndPrint(forest, storage);

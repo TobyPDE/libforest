@@ -89,8 +89,8 @@ int main(int argc, const char** argv)
 //    storageTest->dumpInformation();
 #if 1
     {
-        RandomForestLearner<ProjectiveDecisionTree, ProjectiveDecisionTreeLearner> forestLearner;
-        forestLearner.addCallback(RandomForestLearner<ProjectiveDecisionTree, ProjectiveDecisionTreeLearner>::defaultCallback, 1);
+        RandomForestLearner<ProjectiveDecisionTreeLearner> forestLearner;
+        forestLearner.addCallback(RandomForestLearner<ProjectiveDecisionTreeLearner>::defaultCallback, 1);
 
         forestLearner.getTreeLearner().setMinSplitExamples(10);
         forestLearner.getTreeLearner().setNumBootstrapExamples(storageTrain->getSize());
@@ -112,8 +112,8 @@ int main(int argc, const char** argv)
 #endif
 #if 1
     {
-        RandomForestLearner<DecisionTree, DecisionTreeLearner> forestLearner;
-        forestLearner.addCallback(RandomForestLearner<DecisionTree, DecisionTreeLearner>::defaultCallback, 1);
+        RandomForestLearner<DecisionTreeLearner> forestLearner;
+        forestLearner.addCallback(RandomForestLearner<DecisionTreeLearner>::defaultCallback, 1);
 
         forestLearner.getTreeLearner().setMinSplitExamples(10);
         forestLearner.getTreeLearner().setNumBootstrapExamples(storageTrain->getSize());

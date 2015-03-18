@@ -99,14 +99,14 @@ int main(int argc, const char** argv)
     onlineTreeLearner.setNumThresholds(parameters["num-thresholds"].as<int>());
     onlineTreeLearner.setUseBootstrap(useBootstrap);
     
-    OnlineRandomForestLearner onlineForestLearner;
+    OnlineRandomForestLearner<OnlineDecisionTreeLearner> onlineForestLearner;
     
     onlineForestLearner.setTreeLearner(onlineTreeLearner);
     onlineForestLearner.setNumTrees(parameters["num-trees"].as<int>());
     onlineForestLearner.setNumThreads(parameters["num-threads"].as<int>());
     // onlineForestLearner.addCallback(OnlineRandomForestLearner::verboseCallback, 1);
     
-    RandomForestLearner<DecisionTree, DecisionTreeLearner> forestLearner;
+    RandomForestLearner<DecisionTreeLearner> forestLearner;
     
     forestLearner.getTreeLearner().setMinSplitExamples(parameters["min-split-examples"].as<int>());
     forestLearner.getTreeLearner().setMinChildSplitExamples(parameters["min-child-split-examples"].as<int>());
@@ -126,7 +126,7 @@ int main(int argc, const char** argv)
         const int end = (int) std::min((float) storageT->getSize() - 1, storageT->getSize()*steps[s]);
         AbstractDataStorage::ptr batch = storageT->excerpt(0, end);
         
-        OnlineRandomForest::ptr onlineForest = onlineForestLearner.learn(batch);
+        auto onlineForest = onlineForestLearner.learn(batch);
         auto forest = forestLearner.learn(batch);
         
         std::cout << steps[s]*100 << "% - Random Forest / Online Random Forest:" << std::endl;

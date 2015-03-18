@@ -226,7 +226,7 @@ namespace libf {
             this->getTree(0)->classLogPosterior(x, probabilities);
 
             // Let the crowd decide
-            for (size_t i = 1; i < this->getSize(); i++)
+            for (int i = 1; i < this->getSize(); i++)
             {
                 // Get the probabilities from the current tree
                 std::vector<float> currentHist;

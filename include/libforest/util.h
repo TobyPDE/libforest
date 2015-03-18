@@ -152,6 +152,7 @@ namespace libf {
     
         /**
          * Non recursive calculation of the factorial k!.
+         * TODO: Write unit tests
          */
         static int factorial(int k)
         {
@@ -177,6 +178,7 @@ namespace libf {
          * Non-recursive calculation of the double factorial for odd numbers k:
          *  
          * k!! = 1*3*5*...*k
+         * TODO: Write unit tests
          */
         static int doubleFactorial(int k)
         {

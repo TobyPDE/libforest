@@ -1,4 +1,4 @@
-#include "libforest/classifiers.h"
+#include "libforest/classifier.h"
 #include "libforest/estimators.h"
 #include "libforest/data.h"
 #include "libforest/io.h"

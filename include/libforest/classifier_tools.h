@@ -7,7 +7,7 @@
 #include <opencv2/opencv.hpp>
 
 #include "data.h"
-#include "classifiers.h"
+#include "classifier.h"
 #include "learning.h"
 
 /**
@@ -86,6 +86,8 @@ namespace libf {
     /**
      * Reports the variable importance computed during training.
      */
+#if 0
+    // TODO: Update importance calculation
     class VariableImportanceTool {
     public:
         /**
@@ -113,7 +115,7 @@ namespace libf {
             print(learner->getImportance());
         }
     };
-
+    
     /**
      * Backprojects the variable importance onto a square image with the given
      * given width/height.
@@ -156,36 +158,8 @@ namespace libf {
             cv::imwrite(file.string(), image);
         }
     };
+#endif 
     
-    
-    /**
-     * Computes the relative frequency of the individual classes in a data storage.
-     */
-    class ClassStatisticsTool {
-    public:
-        /**
-         * Measures the relative class frequencies. The last entry of result
-         * contains the number of data points without a label. 
-         * 
-         * @param storage The data storage to examine
-         * @param result An array of relative frequencies
-         */
-        void measure(AbstractDataStorage::ptr storage, std::vector<float> & result) const;
-        
-        /**
-         * Prints the accuracy
-         * 
-         * @param result An array of relative frequencies
-         */
-        void print(const std::vector<float> & result) const;
-        
-        /**
-         * Prints and measures the accuracy. 
-         * 
-         * @param storage The data storage to examine
-         */
-        void measureAndPrint(AbstractDataStorage::ptr storage) const;
-    };
     
     /*
      * Used to assess the quality of a density estimation given the true

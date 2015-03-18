@@ -68,16 +68,17 @@ endif()
 
 # Build the actual library
 add_library(libforest STATIC 
+                    src/classifier.cpp 
+                    src/classifier_learning.cpp 
+                    src/classifier_learning_tools.cpp 
+                    src/classifier_tools.cpp 
                     src/data.cpp 
                     src/data_tools.cpp
-                    src/classifiers.cpp 
+                    src/error_handling.cpp
                     src/estimators.cpp
-                    src/unsupervised_learning.cpp 
-                    src/online_learning.cpp 
-                    src/learning.cpp 
-                    src/tools.cpp 
-                    src/util.cpp 
-                    src/error_handling.cpp)
+                    src/learning_tools.cpp
+                    src/unsupervised_learning.cpp
+                    src/util.cpp)
 
 target_link_libraries(libforest 
                     ${Boost_LIBRARIES} 
