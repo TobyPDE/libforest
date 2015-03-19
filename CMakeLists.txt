@@ -51,7 +51,11 @@ include_directories(
 # -g: Debuggin with Valgrind
 # -Wall: All warnings
 # OpenMP
+<<<<<<< local
+set(CMAKE_CXX_FLAGS "-Ofast -Wall ${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
+=======
 set(CMAKE_CXX_FLAGS "-Wall ${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
+>>>>>>> other
 include(CheckCXXCompilerFlag)
 CHECK_CXX_COMPILER_FLAG("-std=c++11" COMPILER_SUPPORTS_CXX11)
 CHECK_CXX_COMPILER_FLAG("-std=c++0x" COMPILER_SUPPORTS_CXX0X)

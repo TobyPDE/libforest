@@ -155,7 +155,7 @@ int main(int argc, const char** argv)
     const int H = 400;
     const int W = 400;
     const int T = 100;
-    const int M = 5;
+    const int M = 25;
     
     // New seed.
     std::srand(parameters["seed"].as<int>());
@@ -236,7 +236,7 @@ int main(int argc, const char** argv)
     
     cv::Mat openCVLabels;
     cv::Mat openCVCenters;
-    cv::TermCriteria criteria {cv::TermCriteria::COUNT, T, 0.1};
+    cv::TermCriteria criteria {cv::TermCriteria::COUNT, T, 0.0};
     
     timer.restart();
     cv::kmeans(data, K, openCVLabels, criteria, M, cv::KMEANS_PP_CENTERS, openCVCenters);
