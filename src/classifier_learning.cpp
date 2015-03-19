@@ -380,12 +380,18 @@ ProjectiveDecisionTree::ptr ProjectiveDecisionTreeLearner::learn(AbstractDataSto
     std::uniform_real_distribution<float> dist2(0, 1);
     std::normal_distribution<float> normal(0.0f, 1.0f);
     std::uniform_real_distribution<float> dist3(-1, 1);
+    const int F = 4;
+    std::poisson_distribution<int> poisson(F);
+    
     const float s = std::sqrt(D);
     std::vector<float> projectionValues(storage->getSize(), 0.0f);
     
     int numProjections = numFeatures;
     // Set up some random projections
     std::vector<DataPoint> projections(numProjections);
+    
+    std::vector<int> dimensions(D);
+    for (int d = 0; d < D; d++) dimensions[d] = d;
     
     // Start training
     while (splitStack.size() > 0)
@@ -401,9 +407,9 @@ ProjectiveDecisionTree::ptr ProjectiveDecisionTreeLearner::learn(AbstractDataSto
                     {
                         projections[f](d) = -1;
                     }
-                    else if ( u <= 1/s)
+                    if ( u <= 1/s)
                     {
-                        projections[f](d) = 1;
+                        projections[f](d) = dist3(g);
                     }
                 }
 #endif
@@ -419,6 +425,17 @@ ProjectiveDecisionTree::ptr ProjectiveDecisionTreeLearner::learn(AbstractDataSto
 #endif
 #if 0
                 projections[f](dist(g)) = 1;
+#endif
+#if 0
+                int nnz;
+                do {
+                    nnz = poisson(g);
+                } while (nnz == 0);
+                
+                for (int l = 0; l < nnz; l++)
+                {
+                    projections[f](dist(g)) = 2*dist2(g) - 1;
+                }
 #endif
         }
         // Extract an element from the queue
