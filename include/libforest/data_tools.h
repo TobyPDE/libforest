@@ -209,6 +209,96 @@ namespace libf {
         void measureAndPrint(AbstractDataStorage::ptr storage) const;
     };
     
+    /**
+     * Performs Z-Score normalization on a data set. 
+     */
+    class ZScoreNormalizer {
+    public:
+        /**
+         * Trains the model. 
+         * 
+         * @param storage A data storage to train the model on
+         */
+        void learn(AbstractDataStorage::ptr storage);
+        
+        /**
+         * Applies the normalization to a data storage. This only works on
+         * real data storages (no reference storages). 
+         * 
+         * @param storage A storage to apply the normliaztion to
+         */
+        void apply(DataStorage::ptr storage) const;
+        
+        /**
+         * Writes the learned model to a stream
+         * 
+         * @param stream to write the data to
+         */
+        void write(std::ostream & stream) const;
+        
+        /**
+         * Reads the model from a stream
+         * 
+         * @param stream The stream to read the model from
+         */
+        void read(std::istream & stream);
+        
+    private:
+        /**
+         * The mean vector
+         */
+        DataPoint mean;
+        /**
+         * The standard deviation vector
+         */
+        DataPoint stdev;
+    };
+    
+    /**
+     * Performs principal components analysis on a data set. 
+     */
+    class PCA {
+    public:
+        /**
+         * Trains the model. 
+         * 
+         * @param storage A data storage to train the model on
+         */
+        void learn(AbstractDataStorage::ptr storage);
+        
+        /**
+         * Applies the normalization to a data storage. This only works on
+         * real data storages (no reference storages). 
+         * 
+         * @param storage A storage to apply the transformation 
+         * @param M The number of projected dimensions
+         */
+        void apply(DataStorage::ptr storage, int M) const;
+        
+        /**
+         * Writes the learned model to a stream
+         * 
+         * @param stream to write the data to
+         */
+        void write(std::ostream & stream) const;
+        
+        /**
+         * Reads the model from a stream
+         * 
+         * @param stream The stream to read the model from
+         */
+        void read(std::istream & stream);
+        
+    private:
+        /**
+         * The projection matrix
+         */
+        Eigen::MatrixXf V;
+        /**
+         * The mean vector
+         */
+        DataPoint mean;
+    };
 }
 
 #endif	/* LIBF_DATA_TOOLS_H */

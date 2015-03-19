@@ -1,4 +1,5 @@
 #include "libforest/data_tools.h"
+#include "libforest/io.h"
 
 using namespace libf;
 
@@ -415,4 +416,126 @@ void ClassStatisticsTool::measureAndPrint(AbstractDataStorage::ptr storage) cons
     std::vector<float> result;
     measure(storage, result);
     print(result);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+/// ZScoreNormalizer
+////////////////////////////////////////////////////////////////////////////////
+
+void ZScoreNormalizer::learn(AbstractDataStorage::ptr storage)
+{
+    const int D = storage->getDimensionality();
+    const int N = storage->getSize();
+    
+    // Reset the model
+    mean = DataPoint::Zero(D);
+    stdev = DataPoint::Zero(D);
+    
+    // Compute the mean of the data set
+    for (int n = 0; n < N; n++)
+    {
+        mean += storage->getDataPoint(n);
+    }
+    
+    // Normalize the mean
+    mean /= N;
+    
+    // Compute the standard deviation
+    for (int n = 0; n < N; n++)
+    {
+        const DataPoint temp = storage->getDataPoint(n) - mean;
+        stdev += temp.cwiseProduct(temp);
+    }
+    
+    // Normalize
+    stdev /= N;
+    
+    // Compute the square root
+    for (int d = 0; d < D; d++)
+    {
+        stdev(d) = std::sqrt(stdev(d));
+    }
+}
+
+void ZScoreNormalizer::apply(DataStorage::ptr storage) const
+{
+    const int D = storage->getDimensionality();
+    const int N = storage->getSize();
+    
+    BOOST_ASSERT_MSG(D == mean.rows(), "Mismatch between the learned model and the given data storage.");
+    
+    for (int n = 0; n < N; n++)
+    {
+        storage->getDataPoint(n) = (storage->getDataPoint(n) - mean).cwiseProduct(stdev.cwiseInverse());
+    }
+}
+
+void ZScoreNormalizer::read(std::istream& stream)
+{
+    readBinary(stream, mean);
+    readBinary(stream, stdev);
+}
+
+void ZScoreNormalizer::write(std::ostream& stream) const
+{
+    writeBinary(stream, mean);
+    writeBinary(stream, stdev);
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+/// PCA
+////////////////////////////////////////////////////////////////////////////////
+
+void PCA::learn(AbstractDataStorage::ptr storage)
+{
+    const int D = storage->getDimensionality();
+    const int N = storage->getSize();
+    
+    // Set up the data matrix
+    Eigen::MatrixXf X = Eigen::MatrixXf::Zero(D, N);
+    
+    // Compute the mean of the data points
+    mean = DataPoint::Zero(D);
+    for (int n = 0; n < N; n++)
+    {
+        mean += storage->getDataPoint(n);
+    }
+    mean /= N;
+    
+    for (int n = 0; n < N; n++)
+    {
+        X.col(n) = storage->getDataPoint(n) - mean;
+    }
+    
+    // Compute the singular value decomposition
+    Eigen::JacobiSVD<Eigen::MatrixXf> svd(X, Eigen::ComputeFullU);
+    
+    V = svd.matrixU();
+}
+
+void PCA::apply(DataStorage::ptr storage, int M) const
+{
+    BOOST_ASSERT_MSG(1 <= M && M <= V.rows(), "Invalid number of projection dimensions.");
+    
+    const int N = storage->getSize();
+    
+    for (int n = 0; n < N; n++)
+    {
+        const DataPoint temp = storage->getDataPoint(n) - mean;
+        storage->getDataPoint(n).resize(M, 1);
+        storage->getDataPoint(n) = V.topRows(M)*temp;
+    }
+}
+
+void PCA::read(std::istream& stream)
+{
+    readBinary(stream, V);
+    readBinary(stream, mean);
+}
+
+void PCA::write(std::ostream& stream) const
+{
+    writeBinary(stream, V);
+    writeBinary(stream, mean);
 }

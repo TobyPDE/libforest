@@ -71,6 +71,7 @@ int main(int argc, const char** argv)
     
     const bool useBootstrap = parameters.find("use-bootstrap") != parameters.end();
     
+#if 1
     DataStorage::ptr storageTrain = DataStorage::Factory::create();
     DataStorage::ptr storageTest = DataStorage::Factory::create();
     
@@ -78,15 +79,33 @@ int main(int argc, const char** argv)
     reader.setConvertBinaryLabels(false);
     reader.read(trainDat.string(), storageTrain);
     reader.read(testDat.string(), storageTest);
+#else
+    DataStorage::ptr storage = DataStorage::Factory::create();
+    LIBSVMDataReader reader;
+    reader.setConvertBinaryLabels(false);
+    reader.read(trainDat.string(), storage);
     
-    //AbstractDataStorage::ptr permuted = readStorage->copy();
-    //permuted->randPermute();
-    //AbstractDataStorage::ptr storageTrain = permuted->excerpt(0, floor(0.7*permuted->getSize()));
-    //AbstractDataStorage::ptr storageTest = permuted->excerpt(ceil(0.7*permuted->getSize()), permuted->getSize() - 1);
+    AbstractDataStorage::ptr permuted = storage->copy();
+    permuted->randPermute();
+    DataStorage::ptr storageTrain = permuted->excerpt(0, floor(0.7*permuted->getSize()))->hardCopy();
+    DataStorage::ptr storageTest = permuted->excerpt(ceil(0.7*permuted->getSize()), permuted->getSize() - 1)->hardCopy();
+    
+    ClassStatisticsTool st;
+    st.measureAndPrint(storage);
+    st.measureAndPrint(storageTrain);
+    st.measureAndPrint(storage);
+#endif
+     
     
     std::cout << "Training Data" << std::endl;
-//    storageTrain->dumpInformation();
-//    storageTest->dumpInformation();
+    storageTrain->dumpInformation();
+    storageTest->dumpInformation();
+    
+    ZScoreNormalizer zscore;
+    zscore.learn(storageTrain);
+    zscore.apply(storageTrain);
+    zscore.apply(storageTest);
+    
 #if 1
     {
         RandomForestLearner<ProjectiveDecisionTreeLearner> forestLearner;
@@ -109,8 +128,30 @@ int main(int argc, const char** argv)
 //        ConfusionMatrixTool confusionMatrixTool;
 //        confusionMatrixTool.measureAndPrint(forest, storageTest);
     }
+    
+    {
+        RandomForestLearner<DecisionTreeLearner> forestLearner;
+        forestLearner.addCallback(RandomForestLearner<DecisionTreeLearner>::defaultCallback, 1);
+
+        forestLearner.getTreeLearner().setMinSplitExamples(10);
+        forestLearner.getTreeLearner().setNumBootstrapExamples(storageTrain->getSize());
+        forestLearner.getTreeLearner().setUseBootstrap(useBootstrap);
+        forestLearner.getTreeLearner().setMaxDepth(parameters["max-depth"].as<int>());
+        forestLearner.getTreeLearner().setNumFeatures(parameters["num-features"].as<int>());
+
+        forestLearner.setNumTrees(parameters["num-trees"].as<int>());
+        forestLearner.setNumThreads(parameters["num-threads"].as<int>());
+
+        auto forest = forestLearner.learn(storageTrain);
+
+        AccuracyTool accuracyTool;
+        accuracyTool.measureAndPrint(forest, storageTest);
+
+//        ConfusionMatrixTool confusionMatrixTool;
+//        confusionMatrixTool.measureAndPrint(forest, storageTest);
+    }
 #endif
-#if 1
+#if 0
     {
         RandomForestLearner<DecisionTreeLearner> forestLearner;
         forestLearner.addCallback(RandomForestLearner<DecisionTreeLearner>::defaultCallback, 1);

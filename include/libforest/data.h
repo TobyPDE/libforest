@@ -15,6 +15,7 @@ namespace libf {
     /**
      * Forward declarations
      */
+    class DataStorage;
     class ReferenceDataStorage;
     
     /**
@@ -232,6 +233,14 @@ namespace libf {
         {
             return excerpt(0, getSize() - 1);
         }
+        
+        /**
+         * Creates a hard copy of the data storage copying all entries. This
+         * can be very expensive. 
+         * 
+         * @return A hard copy of the data storage
+         */
+        std::shared_ptr<DataStorage> hardCopy() const;
     };
     
     /**

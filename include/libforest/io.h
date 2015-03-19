@@ -6,6 +6,7 @@
 #include <iostream>
 #include <fstream>
 #include <utility>
+#include <Eigen/Dense>
 
 /**
  * These are color codes that can be used with prinft
@@ -78,6 +79,46 @@ namespace libf {
         for (int i = 0; i < length; i++)
         {
             readBinary(stream, value[i]);
+        }
+    }
+    
+    /**
+     * Writes an eigen vector to a stream
+     */
+    template <>
+    inline void writeBinary(std::ostream & stream, const Eigen::MatrixXf & v)
+    {
+        // Write the size of the matrix
+        writeBinary(stream, static_cast<int>(v.rows()));
+        writeBinary(stream, static_cast<int>(v.cols()));
+        // Write the individual entries
+        for (int r = 0; r < v.rows(); r++)
+        {
+            for (int c = 0; c < v.cols(); c++)
+            {
+                writeBinary(stream, v(r,c));
+            }
+        }
+    }
+
+    /**
+     * Reads a binary string from a stream
+     */
+    template <>
+    inline void readBinary(std::istream & stream, Eigen::MatrixXf & v)
+    {
+        // Read the size of the matrix
+        int rows, cols;
+        readBinary(stream, rows);
+        readBinary(stream, cols);
+        v.resize(rows, cols);
+        // Write the individual entries
+        for (int r = 0; r < v.rows(); r++)
+        {
+            for (int c = 0; c < v.cols(); c++)
+            {
+                readBinary(stream, v(r,c));
+            }
         }
     }
     

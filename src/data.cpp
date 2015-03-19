@@ -166,6 +166,17 @@ void AbstractDataStorage::dumpInformation(std::ostream & stream)
     stream << std::setw(30) << "Dimensionality" << ": " << getDimensionality() << "\n";
 }
 
+DataStorage::ptr AbstractDataStorage::hardCopy() const
+{
+    DataStorage::ptr result = DataStorage::Factory::create();
+    const int N = this->getSize();
+    for (int n = 0; n < N; n++)
+    {
+        result->addDataPoint(this->getDataPoint(n), this->getClassLabel(n));
+    }
+    return result;
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 /// DataStorage
 ////////////////////////////////////////////////////////////////////////////////
