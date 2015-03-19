@@ -29,3 +29,11 @@ The following list includes important references used for implementations within
 > M. C. Jones, J. S. Marron, S. J. Sheather. A Brief Survey of Bandwidth Selection for Density Estimation. Journal of the American Statistical Association, 91(433), 1996.
 
 > B. A. Turlach. Bandwidth Selection in Kernel Density Estimation: A Review. C.O.R.E. and Intitut de Statistique, Universite Catholique de Louvain, Belgium.
+
+* K-Means:
+
+> D. Arthur, S. Vassilvitskii. k-means++: The Advantages of Careful Seeding. Proceedings of the ACM-SIAM Symposium on Discrete Algorithms, 2007.
+
+> C. Elkan. Using the Triangle Inequality to Accelerate k-Means. International Conference on Machine Learning, 2003.
+
+> J. Han, M. Kamber, J.Pei. Data Mining: Concepts and Techniques. Morgan Kaufmann Publishers Inc. San Francisco, CA, 2005.

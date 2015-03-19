@@ -46,7 +46,7 @@ float KMeans::cluster(AbstractDataStorage::ptr storage,
         std::vector<int> currentLabels(N, 0);
         
         // u(x) in [1]:
-        std::vector<float> currentDistances(N, 1e35);
+        std::vector<float> upperBound(N, 1e35);
         
         // l(x, c) in [1]:
         Eigen::MatrixXf lowerBound(N, K);
@@ -70,22 +70,22 @@ float KMeans::cluster(AbstractDataStorage::ptr storage,
         {
             for (int k = 0; k < K; k++)
             {
-                // It holds: if d(c', c) >= 2*d(c, x) then d(x,c) >= d(x, c'):)
-//                if (clusterDistances(k, currentLabels[n]) < 2*currentDistances[n])
-//                {
-                    DataPoint difference = storage->getDataPoint(n)
-                            - currentCenters->getDataPoint(k);
-                    
-                    float distance = difference.transpose()*difference;
-                    
-                    // Set the lower bound l(x, c):
-                    lowerBound(n, k) = distance;
-                    
-                    if (distance < currentDistances[n])
-                    {
-                        currentDistances[n] = distance;
-                    }
-//                }
+                DataPoint difference = storage->getDataPoint(n)
+                        - currentCenters->getDataPoint(k);
+
+                float distance = difference.transpose()*difference;
+
+                // Set the lower bound l(x, c):
+                lowerBound(n, k) = distance;
+
+                if (distance < upperBound[n])
+                {
+                    // Update upper bound u(x):
+                    upperBound[n] = distance;
+
+                    // Assign initial label.
+                    currentLabels[n] = k;
+                }
             }
         }
         
@@ -121,33 +121,33 @@ float KMeans::cluster(AbstractDataStorage::ptr storage,
                 }
             }
             
-            for (int n = 0; n < N; n++)
+            for (int k = 0; k < K; k++)
             {
-                // Current cluster of this point.
-                const int cluster = currentLabels[n];
-                
-                // If u(x) <= 1/2 * s(c(x)), then skip this point.
-                if (currentDistances[n] <= 1.f/2.f * minClusterDistance[cluster])
+                for (int n = 0; n < N; n++)
                 {
-                    continue;
-                }
-                
-                for (int k = 0; k < K; k++)
-                {
-//                    if (k == cluster) 
-//                    {
-//                        continue;
-//                    }
-//                    
-//                    if (currentDistances[n] <= lowerBound(n, k))
-//                    {
-//                        continue;
-//                    }
-//                    
-//                    if (currentDistances[n] <= 1.f/2.f * clusterDistances(cluster, k))
-//                    {
-//                        continue;
-//                    }
+                    // Current cluster of this point.
+                    const int cluster = currentLabels[n];
+                    
+                    // If u(x) <= 1/2 * s(c(x)), then skip this point.
+                    if (upperBound[n] <= 1.f/2.f * minClusterDistance[cluster])
+                    {
+                        continue;
+                    }
+                    
+                    if (k == cluster) 
+                    {
+                        continue;
+                    }
+                    
+                    if (upperBound[n] <= lowerBound(n, k))
+                    {
+                        continue;
+                    }
+                    
+                    if (upperBound[n] <= 1.f/2.f * clusterDistances(cluster, k))
+                    {
+                        continue;
+                    }
                     
                     float distance  = 0;
                     if (computePointClusterDistance[n])
@@ -158,11 +158,17 @@ float KMeans::cluster(AbstractDataStorage::ptr storage,
                         
                         distance = difference.transpose()*difference;
                         
-//                        computePointClusterDistance[n] = false;
+                        // Update lower bound l(x, c):
+                        lowerBound(n, k) = distance;
+                        
+                        // Update upper bound u(x):
+                        upperBound[n] = distance;
+                        
+                        computePointClusterDistance[n] = false;
                     }
                     else
                     {
-                        distance = currentDistances[n];
+                        distance = upperBound[n];
                     }
                     
                     if (distance > lowerBound(n, k) 
@@ -174,8 +180,14 @@ float KMeans::cluster(AbstractDataStorage::ptr storage,
                         
                         float newDistance = difference.transpose()*difference;
                         
+                        // Update lower bound l(x, c):
+                        lowerBound(n, k) = newDistance;
+                        
                         if (newDistance < distance)
                         {
+                            // Update upper bound u(x):
+                            upperBound[n] = newDistance;
+                            
                             currentLabels[n] = k;
                         }
                     }
@@ -201,27 +213,29 @@ float KMeans::cluster(AbstractDataStorage::ptr storage,
                 newCenterCount[cluster]++;
             }
             
+            // Holds the distances d(c, m(c)) between center and new center.
+            std::vector<float> newCenterDistances(N, 0);
+            
             // Compute actual means.
             for (int k = 0; k < K; k++)
             {
                 if (newCenterCount[k] > 0)
                 {
                     newCenters->getDataPoint(k) /= newCenterCount[k];
+                    
+                    // Compute distance to new center.
+                    DataPoint difference = newCenters->getDataPoint(k)
+                            - currentCenters->getDataPoint(k);
+                
+                    newCenterDistances[k] = difference.transpose()*difference;
                 }
                 else
                 {
                     newCenters->getDataPoint(k) = currentCenters->getDataPoint(k);
+                    
+                    // Nothing changed, so distance is zero!
+                    newCenterDistances[k] = 0;
                 }
-            }
-            
-            // Compute the distance of each center to the new version.
-            std::vector<float> newCenterDistances(N, 0);
-            for (int k = 0; k < K; k++)
-            {
-                DataPoint difference = newCenters->getDataPoint(k)
-                        - currentCenters->getDataPoint(k);
-                
-                newCenterDistances[k] = difference.transpose()*difference;
             }
             
             // Update lower bounds l(x, c):
@@ -231,18 +245,14 @@ float KMeans::cluster(AbstractDataStorage::ptr storage,
                 {
                     lowerBound(n, k) = std::max(lowerBound(n, k) - newCenterDistances[k], 0.f);
                 }
-            }
-            
-            // Update upper bounds u(x):
-            for (int n = 0; n < N; n++)
-            {
+                
+                
                 const int cluster = currentLabels[n];
-                currentDistances[n] = currentDistances[n] + newCenterDistances[cluster];
-            }
-            
-            // Reset r(x):
-            for (int n = 0; n < N; n++)
-            {
+                
+                // Update upper bound u(x):
+                upperBound[n] = upperBound[n] + newCenterDistances[cluster];
+                
+                // Update r(x):
                 computePointClusterDistance[n] = true;
             }
             
@@ -254,14 +264,11 @@ float KMeans::cluster(AbstractDataStorage::ptr storage,
         float error = 0;
         for (int n = 0; n < N; n++)
         {
-            for (int k = 0; k < K; k++)
-            {
-                const int cluster = currentLabels[n];
-                DataPoint difference = storage->getDataPoint(n) 
-                        - currentCenters->getDataPoint(cluster);
-                
-                error += difference.transpose()*difference;
-            }
+            const int cluster = currentLabels[n];
+            DataPoint difference = storage->getDataPoint(n) 
+                    - currentCenters->getDataPoint(cluster);
+
+            error += difference.transpose()*difference;
         }
         
         if (error < bestError) {
