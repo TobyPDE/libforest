@@ -503,7 +503,7 @@ namespace libf {
             for (int i = 0; i < this->getNumTrees(); i++)
             {
                 // Learn the tree
-                auto tree = treeLearner.learn(storage, state.treeLearnerStates[0]);
+                auto tree = treeLearner.learn(storage, state.treeLearnerStates[omp_get_thread_num()]);
                 
                 // Add it to the forest
                 #pragma omp critical
@@ -750,6 +750,7 @@ namespace libf {
             public AbstractLearner<BoostedRandomForest<typename L::HypothesisType>, BoostedRandomForestLearnerState>, 
             public OfflineLearnerInterface< BoostedRandomForest<typename L::HypothesisType> > {
     public:
+        typedef std::shared_ptr<BoostedRandomForestLearner<L> > ptr;
         
         /**
          * The default callback for this learner.
@@ -924,7 +925,7 @@ namespace libf {
                 weakClassifier->setWeight(alpha);
                 
                 // Add the classifier
-                forest->addTree(weakClassifier, alpha);
+                forest->addTree(weakClassifier);
 
                 // --------------
                 // Add it to the forest

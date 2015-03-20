@@ -332,6 +332,14 @@ namespace libf {
             classifier->write(stream);
         }
         
+        /**
+         * Returns the class posterior probability p(c|x).
+         */
+        virtual void classLogPosterior(const DataPoint & x, std::vector<float> & probabilities) const
+        {
+            classifier->classLogPosterior(x, probabilities);
+        }
+        
     private:
         /**
          * The actual classifier
@@ -365,7 +373,7 @@ namespace libf {
             
             // TODO: This can be done way more efficient
             // Determine the number of classes by looking at a histogram
-            this->getTree(0)->getClassifier()->classLogPosterior(x, probabilities);
+            this->getTree(0)->classLogPosterior(x, probabilities);
             // Initialize the result vector
             const int C = static_cast<int>(probabilities.size());
             for (int c = 0; c < C; c++)
@@ -374,10 +382,10 @@ namespace libf {
             }
 
             // Let the crowd decide
-            for (size_t i = 0; i < this->getSize(); i++)
+            for (int i = 0; i < this->getSize(); i++)
             {
                 // Get the resulting label
-                const int label = this->getTree(i)->getClassifier()->classify(x);
+                const int label = this->getTree(i)->classify(x);
                 probabilities[label] += this->getTree(i)->getWeight();
             }
         }
