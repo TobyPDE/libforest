@@ -11,10 +11,6 @@ namespace libf {
      *  D. Arthur, S. Vassilvitskii.
      *  k-means++: The Advantage of Careful Seeding
      *  Proceedings of the ACM-SIAM Symposium on DIscrete Algorithms, 2007.
-     * 
-     *  C. Elkan.
-     *  Using the Triangle Inequality to Accelerate k-Means.
-     *  International Conference on Machine Learning, 2003.
      */
     class KMeans {
     public:
@@ -38,6 +34,7 @@ namespace libf {
                 numClusters(2),
                 numTries(5), 
                 numIterations(50),
+                minDrift(1e-6),
                 centerInitMethod(KMeans::CENTERS_PP) {};
                 
         /**
@@ -135,15 +132,35 @@ namespace libf {
         }
         
         /**
-         * Run k-means clustering on the given data storage and write the found
-         * centers and labels into the corresponding containers.
+         * Sets the minimum change required to continue iterations.
+         * 
+         * @param _minDrift The minimum change required
+         */
+        void setMinDrift(float _minDrift)
+        {
+            minDrift = _minDrift;
+        }
+        
+        /**
+         * Returns the minimum change required to continue iterations.
+         * 
+         * @return The minimum change required
+         */
+        float getMinDrift()
+        {
+            return minDrift;
+        }
+        
+        /**
+         * Run vanilla k-means clustering on the given data storage and write 
+         * the found centers and labels into the corresponding containers.
          * 
          * @param storage The data storage to run k-means on
          * @param centers The found centers will be written here
          * @param labels The corresponding labels will be written here
          */
-        float cluster(AbstractDataStorage::ptr storage, 
-                AbstractDataStorage::ptr centers, std::vector<int> & labels);
+        float cluster(DataStorage::ptr storage, DataStorage::ptr centers, 
+                std::vector<int> & labels);
         
     private:
         /**
@@ -175,9 +192,14 @@ namespace libf {
          */
         int numIterations;
         /**
+         * Minimum drift required to continue iterations.
+         */
+        float minDrift;
+        /**
          * Initialization method to find godd centers.
          */
         int centerInitMethod;
+        
     };
     
     /**
