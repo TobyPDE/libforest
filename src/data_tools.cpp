@@ -26,7 +26,188 @@ float computeDistance(const DataPoint & x, const DataPoint & y)
     return distance;
 }
 
-float KMeans::cluster(AbstractDataStorage::ptr storage, 
+float KMeans::cluster(DataStorage::ptr storage, 
+        DataStorage::ptr _centers, std::vector<int> & labels)
+{
+    BOOST_ASSERT_MSG(storage->getSize() > 0, "Cannot run k-means on an empty data storage.");
+    
+    const int N = storage->getSize();
+    const int D = storage->getDimensionality();
+    const int K = numClusters;
+    const int T = numIterations;
+    const int M = numTries;
+    const float epsilon = minDrift;
+    
+    // To identify the best clustering.
+    float error = 1e35;
+    
+    DataStorage::ptr centers = DataStorage::Factory::create();
+    DataStorage::ptr oldCenters = DataStorage::Factory::create();
+    
+    // Initialize temporal center storages.
+    for (int k = 0; k < K; k++)
+    {
+        centers->addDataPoint(storage->getDataPoint(k));
+        oldCenters->addDataPoint(storage->getDataPoint(k));
+    }
+    
+    // To decide which initialization leads to the best result.
+    float bestError = 1e35;
+    
+    // Used to stop iterations when changes are minimal.
+    bool stop = false;
+    
+    // Coutners to update the centers.
+    std::vector<int> counters(K, 0);
+    
+    labels.resize(N);
+    
+    for (int m = 0; m < M; m++)
+    {
+        stop = false;
+        
+        for (int t = 0; t < T; t++)
+        {
+            if (t == 0)
+            {
+                switch(centerInitMethod)
+                {
+                    case CENTERS_RANDOM:
+                        initCentersRandom(storage, centers);
+                        break;
+                    case CENTERS_PP:
+                        initCentersPP(storage, centers);
+                        break;
+                }
+
+                BOOST_ASSERT_MSG(centers->getSize() == K, "Could not initialize the correct number of centers.");
+            }
+            else
+            {
+                // Update the centers
+                for (int k = 0; k < K; k++)
+                {
+                    oldCenters->getDataPoint(k) = centers->getDataPoint(k);
+                    centers->getDataPoint(k) = DataPoint::Zero(D);
+                    counters[k] = 0;
+                }
+
+                for (int n = 0; n < N; n++)
+                {
+                    centers->getDataPoint(storage->getClassLabel(n)) += storage->getDataPoint(n);
+                    counters[storage->getClassLabel(n)]++;
+                }
+
+                for (int k = 0; k < K; k++)
+                {
+                    if (counters[k] != 0) continue;
+
+                    int max_k = 0;
+                    for (int k1 = 1; k1 < K; k1++)
+                    {
+                        if (counters[max_k] < counters[k1])
+                        {
+                            max_k = k1;
+                        }
+                    }
+
+                    // Find the point furthest away
+                    DataPoint oldCenter = centers->getDataPoint(max_k);
+                    oldCenter /= counters[max_k];
+                    int max_n = 0;
+                    float maxDist = 0;
+
+                    for (int n = 0; n < N; n++)
+                    {
+                        if (storage->getClassLabel(n) != max_k)
+                        {
+                            continue;
+                        }
+
+                        const float dist = computeDistance(storage->getDataPoint(n), oldCenter);
+                        if (dist > maxDist)
+                        {
+                            maxDist = dist;
+                            max_n = n;
+                        }
+                    }
+
+                    counters[max_k]--;
+                    counters[k]++;
+                    centers->getDataPoint(max_k) -= storage->getDataPoint(max_n);
+                    storage->getClassLabel(max_n) = k;
+                    centers->getDataPoint(k) = storage->getDataPoint(max_n);
+                }
+
+                // To check how much centers changed.
+                float maxDrift = 0;
+
+                // Normalize the centers
+                for (int k = 0; k < K; k++)
+                {
+                    centers->getDataPoint(k) /= counters[k];
+                    maxDrift = std::max(maxDrift, computeDistance(centers->getDataPoint(k), oldCenters->getDataPoint(k)));
+                }
+
+                // Stop if changes are minimal:
+                if (maxDrift < epsilon)
+                {
+                    stop = true;
+                }
+            }
+            
+            // Compute the distance matrix
+            error = 0;
+            
+            for (int n = 0; n < N; n++)
+            {
+                float minDistance = 1e35;
+                int bestLabel = -1;
+                const DataPoint & x = storage->getDataPoint(n);
+                
+                for (int k = 0; k < K; k++)
+                {
+                    const float distance = computeDistance(centers->getDataPoint(k), x);
+                    
+                    if (distance < minDistance)
+                    {
+                        minDistance = distance;
+                        bestLabel = k;
+                    }
+                }
+                
+                BOOST_ASSERT(bestLabel >= 0);
+                
+                // Update the error.
+                error += minDistance;
+                
+                // Set best label.
+                storage->getClassLabel(n) = bestLabel;
+            }
+            
+            BOOST_ASSERT(error >= 0);
+            
+            if (stop)
+            {
+                break;
+            }
+        }
+        
+        if (error < bestError)
+        {
+            _centers = centers->hardCopy();
+            bestError = error;
+            for (int n = 0; n < N; n++)
+            {
+                labels[n] = storage->getClassLabel(n);
+            }
+        }
+    }
+    
+    return bestError;
+}
+
+float KMeans::clusterFast(AbstractDataStorage::ptr storage, 
         AbstractDataStorage::ptr centers, std::vector<int> & labels)
 {
     BOOST_ASSERT_MSG(storage->getSize() > 0, "Cannot run k-means on an empty data storage.");
@@ -289,7 +470,7 @@ void KMeans::initCentersPP(AbstractDataStorage::ptr storage,
         DataStorage::ptr centers)
 {
     const int N = storage->getSize();
-    const int K = numClusters;
+    const int K = numClusters;  
     
     // K-means++ initialization.
     for (int k = 0; k < K; k++)
@@ -359,7 +540,7 @@ void KMeans::initCentersPP(AbstractDataStorage::ptr storage,
         // We overstepped the drawn point by one.
         n = std::max(0, n - 1);
         DataPoint center(storage->getDataPoint(n)); // Copy the center!
-        centers->addDataPoint(center);
+        centers->getDataPoint(k) = center;
     }
 }
 
@@ -375,7 +556,7 @@ void KMeans::initCentersRandom(AbstractDataStorage::ptr storage,
         int n = std::rand()%N;
         
         DataPoint center(storage->getDataPoint(n)); // Copy the center!
-        centers->addDataPoint(center);
+        centers->getDataPoint(k) = center;
     }
 }
 
