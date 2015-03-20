@@ -152,23 +152,6 @@ namespace libf {
         }
         
         /**
-         * Run fast k-means clustering on the given data storage and write the found
-         * centers and labels into the corresponding containers.
-         * 
-         * The algorithm is based on
-         * 
-         * C. Elkan.
-         *  Using the Triangle Inequality to Accelerate k-Means.
-         *  International Conference on Machine Learning, 2003.
-         * 
-         * @param storage The data storage to run k-means on
-         * @param centers The found centers will be written here
-         * @param labels The corresponding labels will be written here
-         */
-        float clusterFast(AbstractDataStorage::ptr storage, 
-                AbstractDataStorage::ptr centers, std::vector<int> & labels);
-        
-        /**
          * Run vanilla k-means clustering on the given data storage and write 
          * the found centers and labels into the corresponding containers.
          * 
@@ -176,8 +159,8 @@ namespace libf {
          * @param centers The found centers will be written here
          * @param labels The corresponding labels will be written here
          */
-        float cluster(DataStorage::ptr storage, 
-                DataStorage::ptr centers, std::vector<int> & labels);
+        float cluster(DataStorage::ptr storage, DataStorage::ptr centers, 
+                std::vector<int> & labels);
         
     private:
         /**
