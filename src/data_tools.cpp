@@ -460,6 +460,11 @@ void ZScoreNormalizer::learn(AbstractDataStorage::ptr storage)
     for (int d = 0; d < D; d++)
     {
         stdev(d) = std::sqrt(stdev(d));
+        // Perform minor regularization
+        if (stdev(d) == 0)
+        {
+            stdev(d) = 1;
+        }
     }
 }
 

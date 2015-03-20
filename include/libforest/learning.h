@@ -8,10 +8,11 @@
 #include <vector>
 #include <iomanip>
 #include <random>
-
+#include <thread>
 #include "error_handling.h"
 #include "data.h"
 #include "classifier.h"
+#include "ncurses.h"
 
 namespace libf {
     /**
@@ -73,7 +74,9 @@ namespace libf {
     public:
         AbstractLearnerState() : 
                 action(0),
-                startTime(std::chrono::high_resolution_clock::now()) {}
+                startTime(std::chrono::high_resolution_clock::now()), 
+                terminated(false), 
+                started(false) {}
         
         /**
          * The current action
@@ -83,6 +86,14 @@ namespace libf {
          * The start time
          */
         std::chrono::high_resolution_clock::time_point startTime;
+        /**
+         * Whether the learning has terminated
+         */
+        bool terminated;
+        /**
+         * Whether the learning has started yet
+         */
+        bool started;
         
         /**
          * Returns the passed time in microseconds
@@ -93,6 +104,16 @@ namespace libf {
         {
             std::chrono::high_resolution_clock::time_point now = std::chrono::high_resolution_clock::now();
             return std::chrono::duration_cast<std::chrono::microseconds>( now - startTime );
+        }
+        
+        /**
+         * Returns the passed time in seconds
+         * 
+         * @return The time passed since instantiating the state object
+         */
+        float getPassedTimeInSeconds() const
+        {
+            return static_cast<float>(getPassedTime().count()/1000000);
         }
     };
     
@@ -325,6 +346,73 @@ namespace libf {
         int numThreads;
     };
     
+    /**
+     * This class creates a GUI that outputs the learner's state from time to 
+     * time. The template parameter names the learning class. The class has
+     * to have a subclass called "State". 
+     */
+    template <class L>
+    class ConsoleGUI {
+    public:
+        ConsoleGUI(const typename L::State & state, const std::function<void(const typename L::State &)> & callback) : 
+                state(state), 
+                callback(callback)
+        {
+            workerThread = std::thread(& ConsoleGUI<L>::worker, this);
+        }
+        
+        /**
+         * This function creates the console output. 
+         */
+        void worker()
+        {
+            // Start the ncurses environment
+            initscr();
+            while (!state.terminated)
+            {
+                clear();
+                // Did the learner start yet?
+                if (!state.started)
+                {
+                    // Hm, this is odd
+                    printw("The learner hasn't started yet.\n");
+                    printw("Did you remember to call learn(storage, state) instead of learn(storage)?\n");
+                }
+                else
+                {
+                    printw("Runtime: %.2fs\n", state.getPassedTimeInSeconds());
+                    callback(state);
+                }
+                
+                refresh();
+                std::this_thread::sleep_for(std::chrono::seconds(1));
+            }
+            endwin();
+        }
+        
+        /**
+         * Waits for the worker thread to finish
+         */
+        void join()
+        {
+            workerThread.join();
+            std::cout << "Training completed in " << state.getPassedTimeInSeconds() << "s." << std::endl; 
+        }
+        
+    protected:
+        /**
+         * The state that is watched
+         */
+        const typename L::State & state;
+        /**
+         * The callback function that creates the GUI
+         */
+        std::function<void(const typename L::State &)> callback;
+        /**
+         * The worker thread
+         */
+        std::thread workerThread;
+    };
 }
 
 #endif

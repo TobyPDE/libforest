@@ -243,6 +243,20 @@ namespace libf {
     };
 
     /**
+     * This class collects functions that are useful for generating ncurses based
+     * shell GUIs. 
+     */
+    class GUIUtil {
+    public:
+        /**
+         * Shows a progress bar. 
+         * 
+         * @param p The current percentage that is completed (in [0,1])
+         */
+        static void printProgressBar(float p);
+    };
+    
+    /**
      * A histogram over the class labels. We use this for training.
      */
     class EfficientEntropyHistogram {

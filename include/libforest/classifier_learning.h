@@ -18,18 +18,34 @@
 namespace libf {
     class DecisionTreeLearnerState : public AbstractLearnerState {
     public:
-        DecisionTreeLearnerState() : AbstractLearnerState(),
-                objective(0), 
-                depth(0) {}
-        
+        DecisionTreeLearnerState() : 
+                AbstractLearnerState(), 
+                total(0), 
+                processed(0), 
+                depth(0), 
+                numNodes(0), 
+                objective(0) {}
+
         /**
-         * Objective of split node.
+         * The total number of training examples
          */
-        float objective;
+        int total;
         /**
-         * Depth of spitted node.
+         * The number of processed examples
+         */
+        int processed;
+        /**
+         * The depth of the tree
          */
         int depth;
+        /**
+         * The total number of nodes
+         */
+        int numNodes;
+        /**
+         * The current objective
+         */
+        float objective;
     };
     
     /**
@@ -40,6 +56,50 @@ namespace libf {
             public AbstractDecisionTreeLearner<DecisionTree, DecisionTreeLearnerState>, 
             public OfflineLearnerInterface<DecisionTree> {
     public:
+        
+        /**
+         * This is the learner state for the GUI
+         */
+        class State : public AbstractLearnerState {
+        public:
+            State() : 
+                    AbstractLearnerState(), 
+                    total(0), 
+                    processed(0), 
+                    depth(0), 
+                    numNodes(0) {}
+
+            /**
+             * Resets the state.
+             */
+            void reset()
+            {
+                started = false;
+                terminated = false;
+                total = 0;
+                processed = 0;
+                depth = 0;
+                numNodes = 0;
+            }
+            
+            /**
+             * The total number of training examples
+             */
+            int total;
+            /**
+             * The number of processed examples
+             */
+            int processed;
+            /**
+             * The depth of the tree
+             */
+            int depth;
+            /**
+             * The total number of nodes
+             */
+            int numNodes;
+        };
+
         DecisionTreeLearner() : AbstractDecisionTreeLearner(),
                 smoothingParameter(1),
                 useBootstrap(false),
@@ -52,7 +112,14 @@ namespace libf {
          * @param state The current state of the learning algorithm. 
          */
         static int defaultCallback(DecisionTree::ptr tree, const DecisionTreeLearnerState & state);
-                
+        
+        /**
+         * Creates the default GUI for this learner
+         * 
+         * @param state The current learner state
+         */
+        static void defaultGUI(const State & state);
+        
         /**
          * Actions for the callback function.
          */
@@ -121,13 +188,27 @@ namespace libf {
             return numBootstrapExamples;
         }
         
+        
+        /**
+         * Learns a decision tree on a data set.
+         * 
+         * @param storage The training set
+         * @param state The learning state
+         * @return The learned tree
+         */
+        virtual DecisionTree::ptr learn(AbstractDataStorage::ptr storage, State & state);
+        
         /**
          * Learns a decision tree on a data set.
          * 
          * @param storage The training set
          * @return The learned tree
          */
-        virtual DecisionTree::ptr learn(AbstractDataStorage::ptr storage);
+        virtual DecisionTree::ptr learn(AbstractDataStorage::ptr storage)
+        {
+            State state;
+            return this->learn(storage, state);
+        }
         
     protected:
         /**
@@ -277,6 +358,31 @@ namespace libf {
             public AbstractRandomForestLearner<RandomForest<typename L::HypothesisType>, RandomForestLearnerState>,
             public OfflineLearnerInterface< RandomForest<typename L::HypothesisType> > {
     public:
+        
+        /**
+         * This is the learner state for the GUI
+         */
+        class State : public AbstractLearnerState {
+        public:
+            State() : 
+                    AbstractLearnerState(), 
+                    total(0), 
+                    processed(0) {}
+
+            /**
+             * The total number of trees to process
+             */
+            int total;
+            /**
+             * The number of learned trees
+             */
+            int processed;
+            /**
+             * The states of the individual tree learners (per thread)
+             */
+            std::vector<typename L::State> treeLearnerStates;
+        };
+        
         /**
          * These are the actions of the learning algorithm that are passed
          * to the callback functions.
@@ -332,6 +438,30 @@ namespace libf {
         }
 
         /**
+         * Creates the default GUI for this learner
+         * 
+         * @param state The current learner state
+         */
+        static void defaultGUI(const State & state)
+        {
+            // Show the overall progress
+            float progress = 0;
+            if (state.total > 0)
+            {
+                progress = state.processed / static_cast<float>(state.total);
+            }
+            printw("Random Forest Progress: %4d/%4d Trees learned\n", state.processed, state.total);
+            GUIUtil::printProgressBar(progress);
+            printw("\n");
+            
+            for(size_t t = 0; t < state.treeLearnerStates.size(); t++)
+            {
+                printw("Thread %d\n", static_cast<int>(t)+1);
+                L::defaultGUI(state.treeLearnerStates[t]);
+            }
+        }
+        
+        /**
          * Sets the decision tree learner
          */
         void setTreeLearner(const L & _treeLearner)
@@ -358,63 +488,45 @@ namespace libf {
         /**
          * Learns a forests. 
          */
-        virtual typename RandomForest<typename L::HypothesisType>::ptr learn(AbstractDataStorage::ptr storage)
+        virtual typename RandomForest<typename L::HypothesisType>::ptr learn(AbstractDataStorage::ptr storage, State & state)
         {
+            state.started = true;
+            
             // Set up the empty random forest
             auto forest = std::make_shared< RandomForest<typename L::HypothesisType> >();
 
-            const int D = storage->getDimensionality();
-
-            // Initialize variable importance values.
-            // TODO: Update importance calculation
-            // this->importance = std::vector<float>(D, 0.f);
-
             // Set up the state for the call backs
-            RandomForestLearnerState state;
-            state.numTrees = this->getNumTrees();
-            state.tree = 0;
-            state.action = ACTION_START_FOREST;
+            state.total = this->getNumTrees();
+            state.treeLearnerStates.resize(this->getNumThreads());
 
-            this->evokeCallback(forest, 0, state);
-
-            int treeStartCounter = 0; 
-            int treeFinishCounter = 0; 
             #pragma omp parallel for num_threads(this->numThreads)
             for (int i = 0; i < this->getNumTrees(); i++)
             {
-                #pragma omp critical
-                {
-                    state.tree = ++treeStartCounter;
-                    state.action = ACTION_START_TREE;
-                    this->evokeCallback(forest, treeStartCounter - 1, state);
-                }
-
                 // Learn the tree
-                auto tree = treeLearner.learn(storage);
+                auto tree = treeLearner.learn(storage, state.treeLearnerStates[0]);
+                
                 // Add it to the forest
                 #pragma omp critical
                 {
-                    state.tree = ++treeFinishCounter;
-                    state.action = ACTION_FINISH_TREE;
-                    this->evokeCallback(forest, treeFinishCounter - 1, state);
+                    state.processed++;
                     forest->addTree(tree);
-
-                    // Update variable importance.
-                    for (int f = 0; f < D; ++f)
-                    {
-                        // TODO: Update importance calculation
-                        // this->importance[f] += treeLearner.getImportance(f)/this->numTrees;
-                    }
                 }
             }
-
-            state.tree = 0;
-            state.action = ACTION_FINISH_FOREST;
-            this->evokeCallback(forest, 0, state);
-
+            
+            state.terminated = true;
+            
             return forest;
         }
 
+        /**
+         * Learns a forests. 
+         */
+        virtual typename RandomForest<typename L::HypothesisType>::ptr learn(AbstractDataStorage::ptr storage)
+        {
+            State state;
+            return this->learn(storage, state);
+        }
+        
     protected:
         /**
          * The tree learner

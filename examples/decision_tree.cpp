@@ -82,7 +82,12 @@ int main(int argc, const char** argv)
     treeLearner.setNumFeatures(parameters["num-features"].as<int>());
     treeLearner.addCallback(DecisionTreeLearner::defaultCallback, 1);
     
-    DecisionTree::ptr tree = treeLearner.learn(storageT);
+    DecisionTreeLearner::State state;
+    ConsoleGUI<DecisionTreeLearner> gui(state, DecisionTreeLearner::defaultGUI);
+    
+    DecisionTree::ptr tree = treeLearner.learn(storageT, state);
+    
+    gui.join();
     
     AccuracyTool accuracyTool;
     accuracyTool.measureAndPrint(tree, storage);

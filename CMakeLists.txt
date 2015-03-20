@@ -27,6 +27,7 @@ ENDIF(ENABLE_ASSERT)
 find_package(GTest)
 find_package(Boost COMPONENTS system REQUIRED)
 find_package(Eigen3 REQUIRED)
+find_package(Curses REQUIRED)
 # TODO: For PixelImportanceTool, should not be required - should be optional
 # via CMake option!
 # TODO: Also for OpenCV matrix reader. Add general "OpenCV Package option"
@@ -44,18 +45,15 @@ include_directories(
                     ${LIBF_INCLUDE_DIRS} 
                     ${Boost_INCLUDE_DIR} 
                     ${OpenCV_INCLUDE_DIRS} 
-                    ${GTEST_INCLUDE_DIRS})
+                    ${GTEST_INCLUDE_DIRS}
+                    ${CURSES_INCLUDE_PATH})
 
 # Add the necessary g++ flags:
 # -std=c++11: C++11
 # -g: Debuggin with Valgrind
 # -Wall: All warnings
 # OpenMP
-<<<<<<< local
-set(CMAKE_CXX_FLAGS "-Ofast -Wall ${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
-=======
-set(CMAKE_CXX_FLAGS "-Wall ${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
->>>>>>> other
+set(CMAKE_CXX_FLAGS "-g -Wall ${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
 include(CheckCXXCompilerFlag)
 CHECK_CXX_COMPILER_FLAG("-std=c++11" COMPILER_SUPPORTS_CXX11)
 CHECK_CXX_COMPILER_FLAG("-std=c++0x" COMPILER_SUPPORTS_CXX0X)
@@ -87,7 +85,9 @@ add_library(libforest STATIC
 target_link_libraries(libforest 
                     ${Boost_LIBRARIES} 
                     ${OpenCV_LIBRARIE}
-                    ${OpenCV_LIBS})
+                    ${OpenCV_LIBS}
+                    ${CURSES_CURSES_LIBRARY}
+                    ${CURSES_NCURSES_LIBRARY})
 
 # Build the examples
 # TODO: Make this a CMake option or remove it completely from the build process

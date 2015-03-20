@@ -5,6 +5,7 @@
 #include "libforest/learning_tools.h"
 #include "libforest/classifier_learning.h"
 #include "libforest/classifier_learning_tools.h"
+#include "ncurses.h"
 
 #include <algorithm>
 #include <random>
@@ -41,8 +42,11 @@ inline void updateLeafNodeHistogram(std::vector<float> & leafNodeHistogram, cons
     }
 }
 
-DecisionTree::ptr DecisionTreeLearner::learn(AbstractDataStorage::ptr dataStorage)
+DecisionTree::ptr DecisionTreeLearner::learn(AbstractDataStorage::ptr dataStorage, State & state)
 {
+    state.reset();
+    state.started = true;
+    
     BOOST_ASSERT(numFeatures <= dataStorage->getDimensionality());
     
     AbstractDataStorage::ptr storage;
@@ -63,15 +67,11 @@ DecisionTree::ptr DecisionTreeLearner::learn(AbstractDataStorage::ptr dataStorag
     const int D = storage->getDimensionality();
     const int C = storage->getClasscount();
     
+    state.total = storage->getSize();
+    
     // Set up a new tree. 
     DecisionTree::ptr tree = std::make_shared<DecisionTree>();
     tree->addNode();
-    
-    // Set up the state for the call backs
-    DecisionTreeLearnerState state;
-    state.action = ACTION_START_TREE;
-    
-    evokeCallback(tree, 0, state);
     
     // This is the list of nodes that still have to be split
     std::vector<int> splitStack;
@@ -85,10 +85,6 @@ DecisionTree::ptr DecisionTreeLearner::learn(AbstractDataStorage::ptr dataStorag
     std::vector< int > trainingExamplesSizes;
     trainingExamples.reserve(LIBF_GRAPH_BUFFER_SIZE);
     trainingExamplesSizes.reserve(LIBF_GRAPH_BUFFER_SIZE);
-    
-    // Saves the sum of impurity decrease achieved by each feature
-    // TODO: Update importance calculation 
-    // importance = std::vector<float>(D, 0.f);
     
     // Add all training example to the root node
     trainingExamplesSizes.push_back(storage->getSize());
@@ -123,6 +119,9 @@ DecisionTree::ptr DecisionTreeLearner::learn(AbstractDataStorage::ptr dataStorag
         const int node = splitStack.back();
         splitStack.pop_back();
         
+        state.numNodes = tree->getNumNodes();
+        state.depth = std::max(state.depth, tree->getNodeConfig(node).getDepth());
+        
         // Get the training example list
         int* trainingExampleList = trainingExamples[node];
         const int N = trainingExamplesSizes[node];
@@ -147,6 +146,8 @@ DecisionTree::ptr DecisionTreeLearner::learn(AbstractDataStorage::ptr dataStorag
             // Resize and initialize the leaf node histogram
             updateLeafNodeHistogram(tree->getNodeData(node).histogram, hist, smoothingParameter, useBootstrap);
             BOOST_ASSERT(tree->getNodeData(node).histogram.size() > 0);
+            state.processed += N;
+            delete[] trainingExampleList;
             continue;
         }
         
@@ -228,6 +229,8 @@ DecisionTree::ptr DecisionTreeLearner::learn(AbstractDataStorage::ptr dataStorag
             // Don't split
             updateLeafNodeHistogram(tree->getNodeData(node).histogram, hist, smoothingParameter, useBootstrap);
             BOOST_ASSERT(tree->getNodeData(node).histogram.size() > 0);
+            state.processed += N;
+            delete[] trainingExampleList;
             continue;
         }
         
@@ -246,6 +249,8 @@ DecisionTree::ptr DecisionTreeLearner::learn(AbstractDataStorage::ptr dataStorag
             const int n = trainingExampleList[m];
             const float featureValue = storage->getDataPoint(n)(bestFeature);
             
+            BOOST_ASSERT(!std::isnan(featureValue));
+            
             if (featureValue < bestThreshold)
             {
                 leftList[--bestLeftMass] = n;
@@ -261,16 +266,6 @@ DecisionTree::ptr DecisionTreeLearner::learn(AbstractDataStorage::ptr dataStorag
         tree->getNodeConfig(node).setSplitFeature(bestFeature);
         const int leftChild = tree->splitNode(node);
         
-        state.action = ACTION_SPLIT_NODE;
-        state.depth = tree->getNodeConfig(node).getDepth();
-        state.objective = bestObjective;
-        
-        evokeCallback(tree, 0, state);
-        
-        // Save the impurity reduction for this feature if requested
-        // TODO: Update the importance calculation
-        // importance[bestFeature] += N/storage->getSize()*(hist.getEntropy() - bestObjective);
-        
         // Prepare to split the child nodes
         splitStack.push_back(leftChild);
         splitStack.push_back(leftChild + 1);
@@ -284,6 +279,8 @@ DecisionTree::ptr DecisionTreeLearner::learn(AbstractDataStorage::ptr dataStorag
     {
         TreeLearningTools::updateHistograms(tree, dataStorage, smoothingParameter);
     }
+    
+    state.terminated = true;
     
     return tree;
 }
@@ -309,6 +306,16 @@ int DecisionTreeLearner::defaultCallback(DecisionTree::ptr tree, const DecisionT
 
 }
 
+void DecisionTreeLearner::defaultGUI(const State& state)
+{
+    printw("Nodes: %10d Depth: %10d\n", state.numNodes, state.depth);
+    float p = 0;
+    if (state.total > 0)
+    {
+        p = state.processed/static_cast<float>(state.total);
+    }
+    GUIUtil::printProgressBar(p);
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 /// ProjectiveDecisionTreeLearner

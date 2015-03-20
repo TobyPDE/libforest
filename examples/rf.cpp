@@ -75,8 +75,7 @@ int main(int argc, const char** argv)
     DataStorage::ptr storageTrain = DataStorage::Factory::create();
     DataStorage::ptr storageTest = DataStorage::Factory::create();
     
-    LIBSVMDataReader reader;
-    reader.setConvertBinaryLabels(false);
+    LibforestDataReader reader;
     reader.read(trainDat.string(), storageTrain);
     reader.read(testDat.string(), storageTest);
 #else
@@ -106,7 +105,7 @@ int main(int argc, const char** argv)
     zscore.apply(storageTrain);
     zscore.apply(storageTest);
     
-#if 1
+#if 0
     {
         RandomForestLearner<ProjectiveDecisionTreeLearner> forestLearner;
         forestLearner.addCallback(RandomForestLearner<ProjectiveDecisionTreeLearner>::defaultCallback, 1);
@@ -121,7 +120,7 @@ int main(int argc, const char** argv)
         forestLearner.setNumThreads(parameters["num-threads"].as<int>());
 
         auto forest = forestLearner.learn(storageTrain);
-
+        
         AccuracyTool accuracyTool;
         accuracyTool.measureAndPrint(forest, storageTest);
 
@@ -129,9 +128,10 @@ int main(int argc, const char** argv)
 //        confusionMatrixTool.measureAndPrint(forest, storageTest);
     }
     
+#endif
+#if 1
     {
         RandomForestLearner<DecisionTreeLearner> forestLearner;
-        forestLearner.addCallback(RandomForestLearner<DecisionTreeLearner>::defaultCallback, 1);
 
         forestLearner.getTreeLearner().setMinSplitExamples(10);
         forestLearner.getTreeLearner().setNumBootstrapExamples(storageTrain->getSize());
@@ -142,8 +142,13 @@ int main(int argc, const char** argv)
         forestLearner.setNumTrees(parameters["num-trees"].as<int>());
         forestLearner.setNumThreads(parameters["num-threads"].as<int>());
 
-        auto forest = forestLearner.learn(storageTrain);
-
+        RandomForestLearner<DecisionTreeLearner>::State state;
+        ConsoleGUI<RandomForestLearner<DecisionTreeLearner> > gui(state, RandomForestLearner<DecisionTreeLearner>::defaultGUI);
+    
+        auto forest = forestLearner.learn(storageTrain, state);
+        
+        gui.join();
+    
         AccuracyTool accuracyTool;
         accuracyTool.measureAndPrint(forest, storageTest);
 

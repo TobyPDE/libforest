@@ -10,6 +10,10 @@
 #undef NDEBUG
 #define BOOST_ENABLE_ASSERT_HANDLER
 
+#else
+
+#define BOOST_DISABLE_ASSERTS
+
 #endif
 
 #include <boost/assert.hpp>
