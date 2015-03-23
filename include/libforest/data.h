@@ -9,6 +9,7 @@
 #include <iostream>
 #include <Eigen/Dense>
 #include <memory>
+#include <functional>
 #include "error_handling.h"
 
 namespace libf {
@@ -241,6 +242,13 @@ namespace libf {
          * @return A hard copy of the data storage
          */
         std::shared_ptr<DataStorage> hardCopy() const;
+        
+        /**
+         * Creates a reference storage with a subset of data points from this 
+         * storage. The subset is defined by all points for which the given
+         * callback function evaluates to true. 
+         */
+        AbstractDataStorage::ptr select(const std::function<bool(const DataPoint &, int)> & f) const;
     };
     
     /**
@@ -376,7 +384,14 @@ namespace libf {
                 classcount = label + 1;
             }
         }
-
+        
+        /**
+         * Adds all data points from the given storage to this one.
+         * 
+         * @param storage the storage to copy data points from
+         */
+        void addDataPoints(AbstractDataStorage::ptr storage);
+        
         /**
          * Permutes the data points according to some permutation. Please 
          * notice that this will also change reference data storage that depend
