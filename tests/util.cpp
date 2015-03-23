@@ -96,7 +96,7 @@ TEST(Util, hammingDist_correctly_1)
     
     size_t distance = Util::hammingDist(v, u);
     
-    ASSERT_EQ(distance, 2);
+    ASSERT_EQ(static_cast<int>(distance), 2);
 }
 
 /**
@@ -109,7 +109,7 @@ TEST(Util, hammingDist_correctly_2)
     
     size_t distance = Util::hammingDist(v, u);
     
-    ASSERT_EQ(distance, 2);
+    ASSERT_EQ(static_cast<int>(distance), 2);
 }
 
 /**
@@ -122,7 +122,7 @@ TEST(Util, hammingDist_correctly_3)
     
     size_t distance = Util::hammingDist(v, u);
     
-    ASSERT_EQ(distance, 1);
+    ASSERT_EQ(static_cast<int>(distance), 1);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

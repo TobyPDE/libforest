@@ -177,6 +177,20 @@ DataStorage::ptr AbstractDataStorage::hardCopy() const
     return result;
 }
 
+AbstractDataStorage::ptr AbstractDataStorage::select(const std::function<bool(const DataPoint &, int)> & f) const
+{
+    ReferenceDataStorage::ptr storage = std::make_shared<ReferenceDataStorage>(shared_from_this());
+    const int N = this->getSize();
+    for (int n = 0; n < N; n++)
+    {
+        if (f(this->getDataPoint(n), this->getClassLabel(n)))
+        {
+            storage->addDataPoint(n);
+        }
+    }
+    return storage;
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 /// DataStorage
 ////////////////////////////////////////////////////////////////////////////////
@@ -191,6 +205,15 @@ void DataStorage::permute(const std::vector<int> & permutation)
     Util::permute(permutation, dataPointsCopy, dataPoints);
 }
 
+void DataStorage::addDataPoints(AbstractDataStorage::ptr storage)
+{
+    for (int n = 0; n < storage->getSize(); n++)
+    {
+        this->addDataPoint(storage->getDataPoint(n), storage->getClassLabel(n));
+    }
+}
+
+
 ////////////////////////////////////////////////////////////////////////////////
 /// ReferenceDataStorage
 ////////////////////////////////////////////////////////////////////////////////
@@ -204,7 +227,7 @@ void ReferenceDataStorage::permute(const std::vector<int> & permutation)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-/// DataReader
+/// AbstractDataReader
 ////////////////////////////////////////////////////////////////////////////////
 
 void AbstractDataReader::read(const std::string& filename, DataStorage::ptr dataStorage) throw(IOException)
