@@ -5,8 +5,8 @@ find_package(Eigen3 REQUIRED)
 find_package(Curses REQUIRED)
 include_directories(../include ${EIGEN3_INCLUDE_DIR} ${Boost_INCLUDE_DIRS} ${Boost_INCLUDE_DIRS} ${CURSES_INCLUDE_PATH})
 
-#add_executable(cli_convert convert.cpp)
-#target_link_libraries(cli_convert libforest ${Boost_LIBRARIES})
+add_executable(cli_convert convert.cpp)
+target_link_libraries(cli_convert libforest ${Boost_LIBRARIES})
 
 add_executable(cli_rf rf.cpp)
 target_link_libraries(cli_rf libforest ${Boost_LIBRARIES})
@@ -23,11 +23,11 @@ target_link_libraries(cli_decision_tree libforest ${Boost_LIBRARIES})
 #add_executable(cli_online_decision_tree online_decision_tree.cpp)
 #target_link_libraries(cli_online_decision_tree libforest ${Boost_LIBRARIES})
 
-#add_executable(cli_online_rf online_rf.cpp)
-#target_link_libraries(cli_online_rf libforest ${Boost_LIBRARIES})
+add_executable(cli_online_rf online_rf.cpp)
+target_link_libraries(cli_online_rf libforest ${Boost_LIBRARIES})
 
-#add_executable(cli_online_rf_convergence online_rf_convergence.cpp)
-#target_link_libraries(cli_online_rf_convergence libforest ${Boost_LIBRARIES})
+add_executable(cli_online_rf_convergence online_rf_convergence.cpp)
+target_link_libraries(cli_online_rf_convergence libforest ${Boost_LIBRARIES})
 
 #add_executable(cli_density_tree density_tree.cpp)
 #target_link_libraries(cli_density_tree libforest ${Boost_LIBRARIES} ${OpenCV_LIBRARIES})

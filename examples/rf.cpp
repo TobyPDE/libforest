@@ -152,8 +152,8 @@ int main(int argc, const char** argv)
         AccuracyTool accuracyTool;
         accuracyTool.measureAndPrint(forest, storageTest);
 
-//        ConfusionMatrixTool confusionMatrixTool;
-//        confusionMatrixTool.measureAndPrint(forest, storageTest);
+        ConfusionMatrixTool confusionMatrixTool;
+        confusionMatrixTool.measureAndPrint(forest, storageTest);
     }
 #endif
 #if 0

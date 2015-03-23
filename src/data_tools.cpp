@@ -394,6 +394,7 @@ void ZScoreNormalizer::learn(AbstractDataStorage::ptr storage)
 void ZScoreNormalizer::apply(DataStorage::ptr storage) const
 {
     const int N = storage->getSize();
+    const int D = storage->getDimensionality();
     
     BOOST_ASSERT_MSG(D == mean.rows(), "Mismatch between the learned model and the given data storage.");
     
