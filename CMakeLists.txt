@@ -15,16 +15,17 @@ set(LIBF_INCLUDE_DIRS "${PROJECT_SOURCE_DIR}/include")
 
 # Let's you switch assertions on/off
 # This must be switched on for the unit tests
-OPTION(ENABLE_ASSERT "Enables assertions throughout the library" ON)
+OPTION(ENABLE_ASSERT "Enables assertions throughout the library" On)
 IF(ENABLE_ASSERT)
     ADD_DEFINITIONS(-DLIBF_ENABLE_ASSERT)
 ENDIF(ENABLE_ASSERT)
+
+OPTION(BUILD_TESTS "If on, gtest is built and the unit tests are built" Off)
 
 ################################################################################
 ### THIRD PARTY LIBRARIES
 ################################################################################
 
-find_package(GTest)
 find_package(Boost COMPONENTS system REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(Curses REQUIRED)
@@ -45,7 +46,7 @@ include_directories(
                     ${LIBF_INCLUDE_DIRS} 
                     ${Boost_INCLUDE_DIR} 
                     ${OpenCV_INCLUDE_DIRS} 
-                    ${GTEST_INCLUDE_DIRS}
+                    lib/gtest-1.7.0/include
                     ${CURSES_INCLUDE_PATH})
 
 # Add the necessary g++ flags:
@@ -97,8 +98,10 @@ add_subdirectory(examples)
 ### SET UP UNIT TESTS
 ################################################################################
 
-if(GTEST_FOUND)
+IF(BUILD_TESTS)
     enable_testing()
+
+    add_subdirectory(lib/gtest-1.7.0)
 
     # Build the test suite
     add_executable(tests
@@ -106,5 +109,5 @@ if(GTEST_FOUND)
                         tests/util.cpp)
     target_link_libraries(tests
                         libforest 
-                        ${GTEST_BOTH_LIBRARIES})
-endif(GTEST_FOUND)
+                        gtest gtest_main)
+ENDIF(BUILD_TESTS)

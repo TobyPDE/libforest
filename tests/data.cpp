@@ -316,7 +316,7 @@ TEST(DataStorage, bootstrap)
         AbstractDataStorage::ptr newStorage = storage->bootstrap(100, sampled);
         
         ASSERT_EQ(newStorage->getSize(), 100);
-        ASSERT_EQ(sampled.size(), 2);
+        ASSERT_EQ(static_cast<int>(sampled.size()), 2);
         
         for (int n = 0; n < newStorage->getSize(); n++)
         {
@@ -395,6 +395,43 @@ TEST(DataStorage, addDataPoint_invalidLabel)
     storage->addDataPoint(x);
     
     ASSERT_THROW(storage->addDataPoint(x, -1), AssertionException);
+}
+
+TEST(DataStorage, select)
+{
+    DataStorage::ptr storage = DataStorage::Factory::create();
+    DataPoint x(1), y(1), z(1);
+    x(0) = 1; y(0) = 2, z(0) = 3;
+    
+    storage->addDataPoint(x);
+    storage->addDataPoint(y, 0);
+    storage->addDataPoint(z, 2);
+    
+    AbstractDataStorage::ptr selection = storage->select([](const DataPoint & x, int c) {
+        return c == 2;
+    });
+    
+    ASSERT_EQ(selection->getSize(), 1);
+    ASSERT_EQ(selection->getDataPoint(0), z);
+    ASSERT_EQ(selection->getClassLabel(0), 2);
+}
+
+TEST(DataStorage, addDataPoints)
+{
+    DataStorage::ptr storage1 = DataStorage::Factory::create();
+    DataStorage::ptr storage2 = DataStorage::Factory::create();
+    DataPoint x(1), y(1), z(1);
+    x(0) = 1; y(0) = 2, z(0) = 3;
+    
+    storage1->addDataPoint(x);
+    storage1->addDataPoint(y, 0);
+    storage2->addDataPoint(z, 2);
+    
+    storage1->addDataPoints(storage2);
+    
+    ASSERT_EQ(storage1->getSize(), 3);
+    ASSERT_EQ(storage1->getDataPoint(2), z);
+    ASSERT_EQ(storage1->getClassLabel(2), 2);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
