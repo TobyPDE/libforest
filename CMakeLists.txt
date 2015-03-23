@@ -20,6 +20,8 @@ IF(ENABLE_ASSERT)
     ADD_DEFINITIONS(-DLIBF_ENABLE_ASSERT)
 ENDIF(ENABLE_ASSERT)
 
+OPTION(BUILD_TESTS "If on, gtest is built and the unit tests are built" Off)
+
 ################################################################################
 ### THIRD PARTY LIBRARIES
 ################################################################################
@@ -96,14 +98,16 @@ add_subdirectory(examples)
 ### SET UP UNIT TESTS
 ################################################################################
 
-enable_testing()
+IF(BUILD_TESTS)
+    enable_testing()
 
-add_subdirectory(lib/gtest-1.7.0)
+    add_subdirectory(lib/gtest-1.7.0)
 
-# Build the test suite
-add_executable(tests
-                    tests/data.cpp
-                    tests/util.cpp)
-target_link_libraries(tests
-                    libforest 
-                    gtest gtest_main)
+    # Build the test suite
+    add_executable(tests
+                        tests/data.cpp
+                        tests/util.cpp)
+    target_link_libraries(tests
+                        libforest 
+                        gtest gtest_main)
+ENDIF(BUILD_TESTS)
