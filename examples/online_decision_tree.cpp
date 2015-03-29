@@ -94,7 +94,6 @@ int main(int argc, const char** argv)
     treeLearner.setMaxDepth(parameters["max-depth"].as<int>());
     treeLearner.setNumFeatures(parameters["num-features"].as<int>());
     treeLearner.setNumThresholds(parameters["num-thresholds"].as<int>());
-    treeLearner.addCallback(OnlineDecisionTreeLearner::defaultCallback, 1);
     treeLearner.setUseBootstrap(useBootstrap);
     
     OnlineDecisionTree::ptr tree = treeLearner.learn(storageT);

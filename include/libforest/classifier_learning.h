@@ -8,6 +8,7 @@
 #include <vector>
 #include <iomanip>
 #include <random>
+#include <type_traits>
 
 #include "error_handling.h"
 #include "data.h"
@@ -16,115 +17,17 @@
 #include "learning_tools.h"
 
 namespace libf {
-    class DecisionTreeLearnerState : public AbstractLearnerState {
-    public:
-        DecisionTreeLearnerState() : 
-                AbstractLearnerState(), 
-                total(0), 
-                processed(0), 
-                depth(0), 
-                numNodes(0), 
-                objective(0) {}
-
-        /**
-         * The total number of training examples
-         */
-        int total;
-        /**
-         * The number of processed examples
-         */
-        int processed;
-        /**
-         * The depth of the tree
-         */
-        int depth;
-        /**
-         * The total number of nodes
-         */
-        int numNodes;
-        /**
-         * The current objective
-         */
-        float objective;
-    };
-    
     /**
-     * This is an ordinary offline decision tree learning algorithm. It learns the
-     * tree using the information gain criterion.
+     * This is the base class for all tree classifer learners. It includes 
+     * parameter settings all learners have in common. 
      */
-    class DecisionTreeLearner : 
-            public AbstractDecisionTreeLearner<DecisionTree, DecisionTreeLearnerState>, 
-            public OfflineLearnerInterface<DecisionTree> {
+    class AbstractTreeClassifierLearner : public AbstractTreeLearner {
     public:
         
-        /**
-         * This is the learner state for the GUI
-         */
-        class State : public AbstractLearnerState {
-        public:
-            State() : 
-                    AbstractLearnerState(), 
-                    total(0), 
-                    processed(0), 
-                    depth(0), 
-                    numNodes(0) {}
-
-            /**
-             * Resets the state.
-             */
-            void reset()
-            {
-                started = false;
-                terminated = false;
-                total = 0;
-                processed = 0;
-                depth = 0;
-                numNodes = 0;
-            }
-            
-            /**
-             * The total number of training examples
-             */
-            int total;
-            /**
-             * The number of processed examples
-             */
-            int processed;
-            /**
-             * The depth of the tree
-             */
-            int depth;
-            /**
-             * The total number of nodes
-             */
-            int numNodes;
-        };
-
-        DecisionTreeLearner() : AbstractDecisionTreeLearner(),
+        AbstractTreeClassifierLearner() : 
                 smoothingParameter(1),
                 useBootstrap(false),
                 numBootstrapExamples(1) {}
-                
-        /**
-         * The default callback for this learner.
-         * 
-         * @param tree The current version of the learned tree
-         * @param state The current state of the learning algorithm. 
-         */
-        static int defaultCallback(DecisionTree::ptr tree, const DecisionTreeLearnerState & state);
-        
-        /**
-         * Creates the default GUI for this learner
-         * 
-         * @param state The current learner state
-         */
-        static void defaultGUI(const State & state);
-        
-        /**
-         * Actions for the callback function.
-         */
-        const static int ACTION_START_TREE = 1;
-        const static int ACTION_SPLIT_NODE = 2;
         
         /**
          * Sets the smoothing parameter. The smoothing parameter is the value 
@@ -188,6 +91,36 @@ namespace libf {
             return numBootstrapExamples;
         }
         
+    protected:
+        /**
+         * The smoothing parameter for the histograms
+         */
+        float smoothingParameter;
+        /**
+         * Whether or not bootstrapping shall be used
+         */
+        bool useBootstrap;
+        /**
+         * The number of bootstrap examples that shall be used.
+         */
+        int numBootstrapExamples;
+    };
+    
+    /**
+     * This is an ordinary offline decision tree learning algorithm. It learns the
+     * tree using the information gain criterion.
+     */
+    class DecisionTreeLearner : 
+            public AbstractTreeClassifierLearner, 
+            public OfflineLearnerInterface<DecisionTree> {
+    public:
+        
+        /**
+         * This is the learner state for the GUI
+         */
+        using State = TreeLearnerState;
+            
+        DecisionTreeLearner() : AbstractTreeClassifierLearner() {}
         
         /**
          * Learns a decision tree on a data set.
@@ -206,106 +139,35 @@ namespace libf {
          */
         virtual DecisionTree::ptr learn(AbstractDataStorage::ptr storage)
         {
+            // Just create a state and don't do anything with it
             State state;
             return this->learn(storage, state);
         }
-        
-    protected:
-        /**
-         * The smoothing parameter for the histograms
-         */
-        float smoothingParameter;
-        /**
-         * Whether or not bootstrapping shall be used
-         */
-        bool useBootstrap;
-        /**
-         * The number of bootstrap examples that shall be used.
-         */
-        int numBootstrapExamples;
     };
-    
     
     /**
      * This is a projective decision tree learning algorithm. It learns the
      * tree using the information gain criterion.
      */
     class ProjectiveDecisionTreeLearner : 
-            public AbstractDecisionTreeLearner<ProjectiveDecisionTree, DecisionTreeLearnerState>, 
+            public AbstractTreeClassifierLearner, 
             public OfflineLearnerInterface<ProjectiveDecisionTree> {
     public:
-        ProjectiveDecisionTreeLearner() : AbstractDecisionTreeLearner(),
-                smoothingParameter(1),
-                useBootstrap(false),
-                numBootstrapExamples(1) {}
-                
-        /**
-         * Actions for the callback function.
-         */
-        const static int ACTION_START_TREE = 1;
-        const static int ACTION_SPLIT_NODE = 2;
+        ProjectiveDecisionTreeLearner() : AbstractTreeClassifierLearner() {}
         
         /**
-         * Sets the smoothing parameter. The smoothing parameter is the value 
-         * the histograms at the leaf nodes are initialized with. 
-         * 
-         * @param _smoothingParameter The smoothing parameter
+         * This is the learner state for the GUI
          */
-        void setSmoothingParameter(float _smoothingParameter)
-        {
-            smoothingParameter = _smoothingParameter;
-        }
+        using State = TreeLearnerState;
         
         /**
-         * Returns the smoothing parameter. 
+         * Learns a decision tree on a data set.
          * 
-         * @return The smoothing parameter
+         * @param storage The training set
+         * @param state The learning state
+         * @return The learned tree
          */
-        float getSmoothingParameter() const
-        {
-            return smoothingParameter;
-        }
-        
-        /**
-         * Sets whether or not bootstrapping shall be used. If true, then the
-         * tree is learned on an iid sampled subset of the training data. 
-         * 
-         * @param _useBootstrap If true, the bootstrap sampling is performed
-         */
-        void setUseBootstrap(bool _useBootstrap)
-        {
-            useBootstrap = _useBootstrap;
-        }
-
-        /**
-         * Returns whether or not bootstrapping is used
-         * 
-         * @return True if bootstrap sampling is performed
-         */
-        bool getUseBootstrap() const
-        {
-            return useBootstrap;
-        }
-        
-        /**
-         * Sets the number of samples to use for bootstrapping.
-         * 
-         * @param _numBootstrapExamples The number of bootstrap samples
-         */
-        void setNumBootstrapExamples(int _numBootstrapExamples)
-        {
-            numBootstrapExamples = _numBootstrapExamples;
-        }
-        
-        /**
-         * Returns the number of samples used for bootstrapping.
-         * 
-         * @return The number of bootstrap samples
-         */
-        int getNumBootstrapExamples() const
-        {
-            return numBootstrapExamples;
-        }
+        virtual ProjectiveDecisionTree::ptr learn(AbstractDataStorage::ptr storage, State & state);
         
         /**
          * Learns a decision tree on a data set.
@@ -313,41 +175,189 @@ namespace libf {
          * @param storage The training set
          * @return The learned tree
          */
-        virtual ProjectiveDecisionTree::ptr learn(AbstractDataStorage::ptr storage);
-        
-    protected:
-        /**
-         * The smoothing parameter for the histograms
-         */
-        float smoothingParameter;
-        /**
-         * Whether or not bootstrapping shall be used
-         */
-        bool useBootstrap;
-        /**
-         * The number of bootstrap examples that shall be used.
-         */
-        int numBootstrapExamples;
+        virtual ProjectiveDecisionTree::ptr learn(AbstractDataStorage::ptr storage)
+        {
+            // Just create a state and don't do anything with it
+            State state;
+            return this->learn(storage, state);
+        }
     };
     
     /**
-     * This class holds the current state of the random forest learning
-     * algorithm.
+     * Learn a decision tree online, either by passing a single sample at a time
+     * or doing online batch learning.
      */
-    class RandomForestLearnerState : public AbstractLearnerState {
+    class OnlineDecisionTreeLearner :
+            public AbstractTreeClassifierLearner, 
+            public OnlineLearnerInterface<OnlineDecisionTree> {
     public:
-        RandomForestLearnerState() : AbstractLearnerState(),
-                tree(0),
-                numTrees(0) {}
         
         /**
-         * The current tree
+         * This is the learner state for the GUI
          */
-        int tree;
+        using State = TreeLearnerState;
+        
+        OnlineDecisionTreeLearner() : AbstractTreeClassifierLearner(),
+                bootstrapLambda(1.f),
+                numThresholds(2*numFeatures),
+                minSplitObjective(1.f)
+        {
+            // Overwrite min split examples.
+            minSplitExamples = 30;
+            minChildSplitExamples = 15;
+        }
+        
         /**
-         * Total number of trees learned.
+         * Sets the minimum objective required for a split.
+         * 
+         * @param _minSplitObjective The new split objective
          */
-        int numTrees;
+        void setMinSplitObjective(float _minSplitObjective)
+        {
+            BOOST_ASSERT(_minSplitObjective > 0);
+            minSplitObjective = _minSplitObjective;
+        }
+        
+        /**
+         * Returns the minimum objective required for a split.
+         * 
+         * @return The min split objective
+         */
+        float getMinSplitObjective() const
+        {
+            return minSplitObjective;
+        }
+        
+        /**
+         * Sets the number of thresholds randomly sampled for each node.
+         * 
+         * @param _numThresholds The number of thresholds
+         */
+        void setNumThresholds(int _numThresholds)
+        {
+            BOOST_ASSERT(_numThresholds > 0);
+            numThresholds = _numThresholds;
+        }
+        
+        /**
+         * Returns the number of thresholds randomly sampled for each node.
+         * 
+         * @return The number of thresholds
+         */
+        int getNumThresholds() const
+        {
+            return numThresholds;
+        }
+        
+        /**
+         * Sets the threshold generator to use.
+         */
+        void setThresholdGenerator(RandomThresholdGenerator & _thresholdGenerator)
+        {
+            thresholdGenerator = _thresholdGenerator;
+        }
+        
+        /**
+         * Returns the used threshold generator.
+         * 
+         * @return A reference to the random threshold generator
+         */
+        RandomThresholdGenerator & getThresholdGenerator()
+        {
+            return thresholdGenerator;
+        }
+        
+        /**
+         * Returns the used threshold generator.
+         * 
+         * @return A const reference to the random threshold generator
+         */
+        const RandomThresholdGenerator & getThresholdGenerator() const
+        {
+            return thresholdGenerator;
+        }
+        
+        /**
+         * Updates the given decision tree on the given data.
+         * 
+         * @param storage The data to train on
+         * @param tree The tree to update
+         * @param state The learner state
+         * @return The learned decision tree
+         */
+        virtual OnlineDecisionTree::ptr learn(AbstractDataStorage::ptr storage, OnlineDecisionTree::ptr tree, State & state);
+        
+        /**
+         * Learns a decision tree.
+         * 
+         * @param storage The data to train on
+         * @return The learned decision tree
+         */
+        virtual OnlineDecisionTree::ptr learn(AbstractDataStorage::ptr storage)
+        {
+            State state;
+            auto tree = std::make_shared<OnlineDecisionTree>();
+            tree->addNode();
+            return learn(storage, tree, state);
+        }
+        
+        /**
+         * Learns a decision tree.
+         * 
+         * @param storage The data to train on
+         * @param state The learner state
+         * @return The learned decision tree
+         */
+        virtual OnlineDecisionTree::ptr learn(AbstractDataStorage::ptr storage, State & state)
+        {
+            auto tree = std::make_shared<OnlineDecisionTree>();
+            tree->addNode();
+            return learn(storage, tree, state);
+        }
+        
+        /**
+         * Learns a decision tree.
+         * 
+         * @param storage The data to train on
+         * @param tree The tree to update
+         * @return The learned decision tree
+         */
+        virtual OnlineDecisionTree::ptr learn(AbstractDataStorage::ptr storage, OnlineDecisionTree::ptr tree)
+        {
+            State state;
+            return learn(storage, tree, state);
+        }
+        
+    protected:
+        /**
+         * For all splits, update left and right child statistics.
+         */
+        void updateSplitStatistics(std::vector<EfficientEntropyHistogram> & leftChildStatistics, 
+                std::vector<EfficientEntropyHistogram> & rightChildStatistics, 
+                const std::vector<int> & features,
+                const std::vector< std::vector<float> > & thresholds, 
+                const DataPoint & x, const int label);
+        
+        /**
+         * Lambda used for poisson distribution for online bootstrapping.
+         */
+        float bootstrapLambda;
+        /**
+         * Number of thresholds randomly sampled. Together with the sampled
+         * features these define the tests over which to optimize at
+         * each node in online learning.
+         * 
+         * @see http://lrs.icg.tugraz.at/pubs/saffari_olcv_09.pdf
+         */
+        int numThresholds;
+        /**
+         * Minimum objective required for a node to split.
+         */
+        float minSplitObjective;
+        /**
+         * The generator to sample random thresholds.
+         */
+        RandomThresholdGenerator thresholdGenerator;
     };
     
     /**
@@ -355,119 +365,14 @@ namespace libf {
      */
     template <class L>
     class RandomForestLearner : 
-            public AbstractRandomForestLearner<RandomForest<typename L::HypothesisType>, RandomForestLearnerState>,
+            public AbstractForestLearner,
             public OfflineLearnerInterface< RandomForest<typename L::HypothesisType> > {
     public:
         
         /**
-         * This is the learner state for the GUI
+         * The state type for this learner
          */
-        class State : public AbstractLearnerState {
-        public:
-            State() : 
-                    AbstractLearnerState(), 
-                    total(0), 
-                    processed(0) {}
-
-            /**
-             * The total number of trees to process
-             */
-            int total;
-            /**
-             * The number of learned trees
-             */
-            int processed;
-            /**
-             * The states of the individual tree learners (per thread)
-             */
-            std::vector<typename L::State> treeLearnerStates;
-        };
-        
-        /**
-         * These are the actions of the learning algorithm that are passed
-         * to the callback functions.
-         */
-        const static int ACTION_START_TREE = 1;
-        const static int ACTION_FINISH_TREE = 2;
-        const static int ACTION_START_FOREST = 3;
-        const static int ACTION_FINISH_FOREST = 4;
-        
-        /**
-         * The default callback for this learner.
-         */
-        static int verboseCallback(typename RandomForest<typename L::HypothesisType>::ptr forest, const RandomForestLearnerState & state)
-        {
-            switch (state.action) {
-                case ACTION_START_FOREST:
-                    std::cout << "Start random forest training" << "\n";
-                    break;
-                case ACTION_START_TREE:
-                    std::cout << std::setw(15) << std::left << "Start tree " 
-                            << std::setw(4) << std::right << state.tree 
-                            << " out of " 
-                            << std::setw(4) << state.numTrees << "\n";
-                    break;
-                case ACTION_FINISH_TREE:
-                    std::cout << std::setw(15) << std::left << "Finish tree " 
-                            << std::setw(4) << std::right << state.tree 
-                            << " out of " 
-                            << std::setw(4) << state.numTrees << "\n";
-                    break;
-                case ACTION_FINISH_FOREST:
-                    std::cout << "Finished forest in " << state.getPassedTime().count()/1000000. << "s\n";
-                    break;
-                default:
-                    std::cout << "UNKNOWN ACTION CODE " << state.action << "\n";
-                    break;
-            }
-            return 0;
-        }
-        
-        static int defaultCallback(typename RandomForest<typename L::HypothesisType>::ptr forest, const RandomForestLearnerState & state)
-        {
-            switch (state.action) {
-                case ACTION_START_FOREST:
-                    std::cout << "Start random forest training" << "\n";
-                    break;
-                case ACTION_FINISH_FOREST:
-                    std::cout << "Finished forest in " << state.getPassedTime().count()/1000000. << "s\n";
-                    break;
-            }
-
-            return 0;
-        }
-
-        /**
-         * Creates the default GUI for this learner
-         * 
-         * @param state The current learner state
-         */
-        static void defaultGUI(const State & state)
-        {
-            // Show the overall progress
-            float progress = 0;
-            if (state.total > 0)
-            {
-                progress = state.processed / static_cast<float>(state.total);
-            }
-            printw("Random Forest Progress: %4d/%4d Trees learned\n", state.processed, state.total);
-            GUIUtil::printProgressBar(progress);
-            printw("\n");
-            
-            for(size_t t = 0; t < state.treeLearnerStates.size(); t++)
-            {
-                printw("Thread %d\n", static_cast<int>(t)+1);
-                L::defaultGUI(state.treeLearnerStates[t]);
-            }
-        }
-        
-        /**
-         * Sets the decision tree learner
-         */
-        void setTreeLearner(const L & _treeLearner)
-        {
-            treeLearner = _treeLearner;
-        }
+        using State = RandomForestLearnerState<L>;
         
         /**
          * Returns the decision tree learner
@@ -490,20 +395,26 @@ namespace libf {
          */
         virtual typename RandomForest<typename L::HypothesisType>::ptr learn(AbstractDataStorage::ptr storage, State & state)
         {
-            state.started = true;
-            
-            // Set up the empty random forest
-            auto forest = std::make_shared< RandomForest<typename L::HypothesisType> >();
-
             // Set up the state for the call backs
+            state.reset();
+            state.started = true;
             state.total = this->getNumTrees();
             state.treeLearnerStates.resize(this->getNumThreads());
+            
+            // Set up the empty random forest
+            auto forest = ForestFactory< RandomForest<typename L::HypothesisType> >::create();
 
             #pragma omp parallel for num_threads(this->numThreads)
             for (int i = 0; i < this->getNumTrees(); i++)
             {
+                #pragma omp critical
+                {
+                    state.startedProcessing++;
+                }
+                
                 // Learn the tree
-                auto tree = treeLearner.learn(storage, state.treeLearnerStates[omp_get_thread_num()]);
+                //auto tree = treeLearner.learn(storage, state.treeLearnerStates[omp_get_thread_num()]);
+                auto tree = treeLearner.learn(storage, state.treeLearnerStates[0]);
                 
                 // Add it to the forest
                 #pragma omp critical
@@ -539,70 +450,14 @@ namespace libf {
      */
     template <class L>
     class OnlineRandomForestLearner : 
-            public AbstractRandomForestLearner<RandomForest<typename L::HypothesisType>, RandomForestLearnerState>,
+            public AbstractForestLearner,
             public OnlineLearnerInterface< RandomForest<typename L::HypothesisType> > {
     public:
-        /**
-         * These are the actions of the learning algorithm that are passed
-         * to the callback functions.
-         */
-        const static int ACTION_START_TREE = 1;
-        const static int ACTION_FINISH_TREE = 2;
-        const static int ACTION_START_FOREST = 3;
-        const static int ACTION_FINISH_FOREST = 4;
         
         /**
-         * The default callback for this learner.
+         * The state type for this learner
          */
-        static int verboseCallback(typename RandomForest<typename L::HypothesisType>::ptr forest, const RandomForestLearnerState & state)
-        {
-            switch (state.action) {
-                case ACTION_START_FOREST:
-                    std::cout << "Start random forest training" << "\n";
-                    break;
-                case ACTION_START_TREE:
-                    std::cout << std::setw(15) << std::left << "Start tree " 
-                            << std::setw(4) << std::right << state.tree 
-                            << " out of " 
-                            << std::setw(4) << state.numTrees << "\n";
-                    break;
-                case ACTION_FINISH_TREE:
-                    std::cout << std::setw(15) << std::left << "Finish tree " 
-                            << std::setw(4) << std::right << state.tree 
-                            << " out of " 
-                            << std::setw(4) << state.numTrees << "\n";
-                    break;
-                case ACTION_FINISH_FOREST:
-                    std::cout << "Finished forest in " << state.getPassedTime().count()/1000000. << "s\n";
-                    break;
-                default:
-                    std::cout << "UNKNOWN ACTION CODE " << state.action << "\n";
-                    break;
-            }
-            return 0;
-        }
-        
-        static int defaultCallback(typename RandomForest<typename L::HypothesisType>::ptr forest, const RandomForestLearnerState & state)
-        {
-            switch (state.action) {
-                case OnlineRandomForestLearner::ACTION_START_FOREST:
-                    std::cout << "Start random forest training" << "\n";
-                    break;
-                case OnlineRandomForestLearner::ACTION_FINISH_FOREST:
-                    std::cout << "Finished forest in " << state.getPassedTime().count()/1000000. << "s\n";
-                    break;
-            }
-
-            return 0;
-        }
-
-        /**
-         * Sets the decision tree learner
-         */
-        void setTreeLearner(const L & _treeLearner)
-        {
-            treeLearner = _treeLearner;
-        }
+        using State = RandomForestLearnerState<L>;
         
         /**
          * Returns the decision tree learner
@@ -625,84 +480,88 @@ namespace libf {
          * 
          * @param storage The storage to train the classifier on
          * @param classifier The base classifier
+         * @param state The state variable for this learner
          * @return The trained classifier
          */
         virtual typename RandomForest<typename L::HypothesisType>::ptr learn(
-            AbstractDataStorage::ptr storage, 
-            typename RandomForest<typename L::HypothesisType>::ptr forest)
+                AbstractDataStorage::ptr storage, 
+                typename RandomForest<typename L::HypothesisType>::ptr forest, 
+                State & state)
         {
+            // Set up the state for the call backs
+            state.reset();
+            state.started = true;
+            state.total = this->getNumTrees();
+            state.treeLearnerStates.resize(this->getNumThreads());
+            
             // Add the required number of trees if there are too few trees in 
             // the forest
             for (int i = forest->getSize(); i < this->getNumTrees(); i++)
             {
-                auto tree = std::make_shared<typename L::HypothesisType>();
-                // TODO: Move this to a factory or the constructor
-                tree->addNode();
-                
+                auto tree = TreeFactory<typename L::HypothesisType>::create();
                 forest->addTree(tree);
             }
             
-            const int D = storage->getDimensionality();
-
-            // Initialize variable importance values.
-            // TODO: Update importance calculation
-            // importance = std::vector<float>(D, 0.f);
-
-            // Set up the state for the call backs
-            RandomForestLearnerState state;
-            state.tree = 0;
-            state.numTrees = this->getNumTrees();
-            state.action = ACTION_START_FOREST;
-
-            this->evokeCallback(forest, 0, state);
-
-            int treeStartCounter = 0; 
-            int treeFinishCounter = 0; 
-
             #pragma omp parallel for num_threads(this->numThreads)
             for (int i = 0; i < this->numTrees; i++)
             {
                 #pragma omp critical
                 {
-                    state.tree = ++treeStartCounter;
-                    state.action = ACTION_START_TREE;
-
-                    this->evokeCallback(forest, treeStartCounter - 1, state);
+                    state.startedProcessing++;
                 }
 
                 auto tree = forest->getTree(i);
-                this->treeLearner.learn(storage, tree);
+                //this->treeLearner.learn(storage, tree, state.treeLearnerStates[omp_get_thread_num()]);
+                this->treeLearner.learn(storage, tree, state.treeLearnerStates[0]);
                 
                 #pragma omp critical
                 {
-                    state.tree = ++treeFinishCounter;
-                    state.action = ACTION_FINISH_TREE;
-
-                    this->evokeCallback(forest, treeFinishCounter - 1, state);
-
-                    // Update variable importance.
-                    for (int f = 0; f < D; ++f)
-                    {
-                        // TODO: Update importance calculation
-                        // importance[f] += treeLearner.getImportance(f);
-                    }
+                    state.processed++;
                 }
             }
 
-            state.tree = 0;
-            state.action = ACTION_FINISH_FOREST;
-            this->evokeCallback(forest, 0, state);
-
+            state.terminated = true;
+            
             return forest;
         }
         
         /**
-         * Learns a forests. 
+         * Learns an online forests. 
+         * 
+         * @param storage The data to train the forest on
          */
         virtual typename RandomForest<typename L::HypothesisType>::ptr learn(AbstractDataStorage::ptr storage)
         {
-            auto forest = std::make_shared<RandomForest<typename L::HypothesisType> > ();
-            return learn(storage, forest);
+            State state;
+            auto forest = ForestFactory<RandomForest<typename L::HypothesisType> >::create();
+            return learn(storage, forest, state);
+        }
+        
+        /**
+         * Updates an already learned classifier. 
+         * 
+         * @param storage The storage to train the classifier on
+         * @param classifier The base classifier
+         * @return The trained classifier
+         */
+        virtual typename RandomForest<typename L::HypothesisType>::ptr learn(
+                AbstractDataStorage::ptr storage, 
+                typename RandomForest<typename L::HypothesisType>::ptr forest)
+        {
+            State state;
+            return learn(storage, forest, state);
+        }
+        
+        /**
+         * Learns an online forests. 
+         * 
+         * @param storage The data to train the forest on
+         * @param state The state variable for this learner
+         */
+        virtual typename RandomForest<typename L::HypothesisType>::ptr learn(AbstractDataStorage::ptr storage, State & state)
+        {
+            auto forest = ForestFactory<RandomForest<typename L::HypothesisType> >::create();
+            return learn(storage, forest, state);
         }
 
     protected:
@@ -713,95 +572,56 @@ namespace libf {
     };
     
     /**
-     * This class holds the current state of the boosted random forest learning
-     * algorithm.
-     */
-    class BoostedRandomForestLearnerState : public AbstractLearnerState {
-    public:
-        BoostedRandomForestLearnerState() : AbstractLearnerState(),
-                tree(0),
-                numTrees(0),
-                error(0), 
-                alpha(0) {}
-        
-        /**
-         * The current tree
-         */
-        int tree;
-        /**
-         * Number of learned trees.
-         */
-        int numTrees;
-        /**
-         * The error value
-         */
-        float error;
-        /**
-         * The tree weight
-         */
-        float alpha;
-    };
-    
-    /**
      * This is a random forest learner. 
      */
     template <class L>
     class BoostedRandomForestLearner : 
-            public AbstractLearner<BoostedRandomForest<typename L::HypothesisType>, BoostedRandomForestLearnerState>, 
+            public AbstractForestLearner, 
             public OfflineLearnerInterface< BoostedRandomForest<typename L::HypothesisType> > {
     public:
-        typedef std::shared_ptr<BoostedRandomForestLearner<L> > ptr;
         
         /**
-         * The default callback for this learner.
+         * The state type for this learner
          */
-        static int defaultCallback(typename BoostedRandomForest<typename L::HypothesisType>::ptr forest, const BoostedRandomForestLearnerState & state)
-        {
-            switch (state.action) {
-                case ACTION_START_FOREST:
-                    std::cout << "Start boosted random forest training\n" << "\n";
-                    break;
-                case ACTION_START_TREE:
-                    std::cout   << std::setw(15) << std::left << "Start tree " 
-                                << std::setw(4) << std::right << state.tree 
-                                << " out of " 
-                                << std::setw(4) << state.numTrees << "\n";
-                    break;
-                case ACTION_FINISH_TREE:
-                    std::cout   << std::setw(15) << std::left << "Finish tree " 
-                                << std::setw(4) << std::right << state.tree 
-                                << " out of " 
-                                << std::setw(4) << state.numTrees
-                                << " error = " << state.error 
-                                << ", alpha = " << state.alpha << "\n";
-                    break;
-                case ACTION_FINISH_FOREST:
-                    std::cout << "Finished boosted forest in " << state.getPassedTime().count()/1000000. << "s\n";
-                    break;
-                default:
-                    std::cout << "UNKNOWN ACTION CODE " << state.action << "\n";
-                    break;
+        class State : public ForestLearnerState {
+        public:
+            
+            State() : lastAlpha(0), lastError(0) {}
+            
+            /**
+             * Prints the state into the console. 
+             */
+            virtual void print() const
+            {
+                ForestLearnerState::print();
+                std::cout << "Alpha: " << lastAlpha << std::endl;
+                std::cout << "Error: " << lastError << std::endl;
+                treeLearnerState.print();
             }
 
-            return 0;
-        }
-        
-        /**
-         * These are the actions of the learning algorithm that are passed
-         * to the callback functions.
-         */
-        const static int ACTION_START_TREE = 1;
-        const static int ACTION_FINISH_TREE = 2;
-        const static int ACTION_START_FOREST = 3;
-        const static int ACTION_FINISH_FOREST = 4;
-        
-        /**
-         * Sets the decision tree learner
-         */
-        void setTreeLearner(const L & _treeLearner)
-        {
-            treeLearner = _treeLearner;
-        }
+            /**
+             * Resets the state
+             */
+            virtual void reset()
+            {
+                ForestLearnerState::reset();
+                lastAlpha = 0;
+                lastError = 0;
+            }
+            
+            /**
+             * The last alpha value
+             */
+            float lastAlpha;
+            /**
+             * The last error value
+             */
+            float lastError;
+            /**
+             * The state of the tree learner
+             */
+            typename L::State treeLearnerState;
+        };
         
         /**
          * Returns the decision tree learner
@@ -822,18 +642,15 @@ namespace libf {
         /**
          * Learns a forests. 
          */
-        virtual typename BoostedRandomForest<typename L::HypothesisType>::ptr learn(AbstractDataStorage::ptr storage)
+        virtual typename BoostedRandomForest<typename L::HypothesisType>::ptr learn(AbstractDataStorage::ptr storage, State & state)
         {
+            // Set up the state for the call backs
+            state.reset();
+            state.total = this->getNumTrees();
+            state.started = true;
+            
             // Set up the empty random forest
              auto forest = std::make_shared< BoostedRandomForest<typename L::HypothesisType> >();
-
-            // Set up the state for the call backs
-            BoostedRandomForestLearnerState state;
-            state.numTrees = this->getNumTrees();
-            state.tree = 0;
-            state.action = ACTION_START_FOREST;
-
-            this->evokeCallback(forest, 0, state);
 
             // Set up the weights for the data points
             const int N = storage->getSize();
@@ -854,13 +671,9 @@ namespace libf {
 
             const int C = storage->getClasscount();
 
-            int treeStartCounter = 0; 
-            int treeFinishCounter = 0; 
             for (int i = 0; i < this->numTrees; i++)
             {
-                state.tree = ++treeStartCounter;
-                state.action = ACTION_START_TREE;
-                this->evokeCallback(forest, treeStartCounter - 1, state);
+                state.startedProcessing++;
 
                 // Learn the tree
                 // --------------
@@ -880,7 +693,7 @@ namespace libf {
                 }
 
                 // Learn the tree
-                auto tree = treeLearner.learn(treeData);
+                auto tree = treeLearner.learn(treeData, state.treeLearnerState);
 
                 // Calculate the error term
                 float error = 0;
@@ -929,247 +742,30 @@ namespace libf {
 
                 // --------------
                 // Add it to the forest
-                state.tree = ++treeFinishCounter;
-                state.error = error;
-                state.alpha = alpha;
-                state.action = ACTION_FINISH_TREE;
-                this->evokeCallback(forest, treeFinishCounter - 1, state);
+                state.processed++;
+                state.lastAlpha = alpha;
+                state.lastError = error;
             }
 
-            state.tree = 0;
-            state.action = ACTION_FINISH_FOREST;
-            this->evokeCallback(forest, 0, state);
-
+            state.terminated = true;
+            
             return forest;
         }
         
         /**
-         * Sets the number of trees. 
+         * Learns a forests. 
          */
-        void setNumTrees(int _numTrees)
+        virtual typename BoostedRandomForest<typename L::HypothesisType>::ptr learn(AbstractDataStorage::ptr storage)
         {
-            BOOST_ASSERT(_numTrees >= 1);
-            numTrees = _numTrees;
-        }
-        
-        /**
-         * Returns the number of trees
-         */
-        int getNumTrees() const
-        {
-            return numTrees;
+            State state;
+            return learn(storage, state);
         }
         
     protected:
-        /**
-         * The number of trees that we shall learn
-         */
-        int numTrees;
         /**
          * The tree learner
          */
         L treeLearner;
-    };
-    
-    class OnlineDecisionTreeLearnerState : public AbstractLearnerState {
-    public:
-        OnlineDecisionTreeLearnerState() : AbstractLearnerState(),
-                node(0),
-                objective(0), 
-                depth(0) {}
-        
-        /**
-         * Node id.
-         */
-        int node;
-        /**
-         * Samples of node.
-         */
-        int samples;
-        /**
-         * Objective of splitted node.
-         */
-        float objective;
-        /**
-         * Minimum require dobjective.
-         */
-        float minObjective;
-        /**
-         * Depth of spitted node.
-         */
-        int depth;
-    };
-    
-    /**
-     * Learn a decision tree online, either by passing a single sample at a time
-     * or doing online batch learning.
-     */
-    class OnlineDecisionTreeLearner :
-            public AbstractDecisionTreeLearner<OnlineDecisionTree, OnlineDecisionTreeLearnerState>,
-            public OnlineLearnerInterface<OnlineDecisionTree> {
-    public:
-        OnlineDecisionTreeLearner() : AbstractDecisionTreeLearner(),
-                smoothingParameter(1),
-                useBootstrap(true),
-                bootstrapLambda(1.f),
-                numThresholds(2*numFeatures),
-                minSplitObjective(1.f)
-        {
-            // Overwrite min split examples.
-            minSplitExamples = 30;
-            minChildSplitExamples = 15;
-        }
-        
-        /**
-         * The default callback for this learner.
-         */
-        static int defaultCallback(OnlineDecisionTree::ptr tree, const OnlineDecisionTreeLearnerState & state);
-        
-        /**
-         * Verbose callback for this learner.
-         */
-        static int verboseCallback(OnlineDecisionTree::ptr tree, const OnlineDecisionTreeLearnerState & state);
-        
-        /**
-         * Actions for the callback function.
-         */
-        const static int ACTION_START_TREE = 1;
-        const static int ACTION_UPDATE_TREE = 2;
-        const static int ACTION_INIT_NODE = 3;
-        const static int ACTION_NOT_SPLITTING_NODE = 4;
-        const static int ACTION_NOT_SPLITTING_OBJECTIVE_NODE = 5;
-        const static int ACTION_SPLIT_NODE = 6;
-        
-        /**
-         * Sets the smoothing parameter
-         */
-        void setSmoothingParameter(float _smoothingParameter)
-        {
-            smoothingParameter = _smoothingParameter;
-        }
-        
-        /**
-         * Returns the smoothing parameter
-         */
-        float getSmoothingParameter() const
-        {
-            return smoothingParameter;
-        }
-        
-        /**
-         * Sets whether or not bootstrapping shall be used
-         */
-        void setUseBootstrap(bool _useBootstrap)
-        {
-            useBootstrap = _useBootstrap;
-        }
-
-        /**
-         * Returns whether or not bootstrapping is used
-         */
-        bool getUseBootstrap() const
-        {
-            return useBootstrap;
-        }
-        
-        /**
-         * Sets the minimum objective required for a split.
-         */
-        void setMinSplitObjective(float _minSplitObjective)
-        {
-            assert(_minSplitObjective > 0);
-            minSplitObjective = _minSplitObjective;
-        }
-        
-        /**
-         * Returns the minimum objective required for a split.
-         */
-        float getMinSplitObjective() const
-        {
-            return minSplitObjective;
-        }
-        
-        /**
-         * Sets the number of thresholds randomly sampled for each node.
-         */
-        void setNumThresholds(int _numThresholds)
-        {
-            assert(_numThresholds > 0);
-            numThresholds = _numThresholds;
-        }
-        
-        /**
-         * Returns the number of thresholds randomly sampled for each node.
-         */
-        int getNumThresholds() const
-        {
-            return numThresholds;
-        }
-        
-        /**
-         * Sets the threshold generator to use.
-         */
-        void setThresholdGenerator(RandomThresholdGenerator & _thresholdGenerator)
-        {
-            thresholdGenerator = _thresholdGenerator;
-        }
-        
-        /**
-         * Returns the used threshold generator.
-         */
-        RandomThresholdGenerator & getThresholdGenerator()
-        {
-            return thresholdGenerator;
-        }
-        
-        /**
-         * Learns a decision tree.
-         */
-        virtual OnlineDecisionTree::ptr learn(AbstractDataStorage::ptr storage);
-        
-        /**
-         * Updates the given decision tree on the given data.
-         */
-        virtual OnlineDecisionTree::ptr learn(AbstractDataStorage::ptr storage, OnlineDecisionTree::ptr tree);
-        
-    protected:
-        /**
-         * For all splits, update left and right child statistics.
-         */
-        void updateSplitStatistics(std::vector<EfficientEntropyHistogram> & leftChildStatistics, 
-                std::vector<EfficientEntropyHistogram> & rightChildStatistics, 
-                const std::vector<int> & features,
-                const std::vector< std::vector<float> > & thresholds, 
-                const DataPoint & x, const int label);
-        
-        /**
-         * The smoothing parameter for the histograms
-         */
-        float smoothingParameter;
-        /**
-         * Whether or not bootstrapping shall be used
-         */
-        bool useBootstrap;
-        /**
-         * Lambda used for poisson distribution for online bootstrapping.
-         */
-        float bootstrapLambda;
-        /**
-         * Number of thresholds randomly sampled. Together with the sampled
-         * features these define the tests over which to optimize at
-         * each node in online learning.
-         * 
-         * @see http://lrs.icg.tugraz.at/pubs/saffari_olcv_09.pdf
-         */
-        int numThresholds;
-        /**
-         * Minimum objective required for a node to split.
-         */
-        float minSplitObjective;
-        /**
-         * The generator to sample random thresholds.
-         */
-        RandomThresholdGenerator thresholdGenerator;
     };
 }
 

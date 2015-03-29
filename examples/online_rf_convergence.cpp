@@ -89,19 +89,17 @@ int main(int argc, const char** argv)
     bool useBootstrap = parameters.find("use-bootstrap") != parameters.end();
     RandomThresholdGenerator randomGenerator(storageT);
     
-    OnlineDecisionTreeLearner onlineTreeLearner;
-    onlineTreeLearner.setThresholdGenerator(randomGenerator);
-    onlineTreeLearner.setMinSplitObjective(parameters["min-split-objective"].as<float>());
-    onlineTreeLearner.setMinSplitExamples(parameters["min-split-examples"].as<int>());
-    onlineTreeLearner.setMinChildSplitExamples(parameters["min-child-split-examples"].as<int>());
-    onlineTreeLearner.setMaxDepth(parameters["max-depth"].as<int>());
-    onlineTreeLearner.setNumFeatures(parameters["num-features"].as<int>());
-    onlineTreeLearner.setNumThresholds(parameters["num-thresholds"].as<int>());
-    onlineTreeLearner.setUseBootstrap(useBootstrap);
-    
     OnlineRandomForestLearner<OnlineDecisionTreeLearner> onlineForestLearner;
     
-    onlineForestLearner.setTreeLearner(onlineTreeLearner);
+    onlineForestLearner.getTreeLearner().setThresholdGenerator(randomGenerator);
+    onlineForestLearner.getTreeLearner().setMinSplitObjective(parameters["min-split-objective"].as<float>());
+    onlineForestLearner.getTreeLearner().setMinSplitExamples(parameters["min-split-examples"].as<int>());
+    onlineForestLearner.getTreeLearner().setMinChildSplitExamples(parameters["min-child-split-examples"].as<int>());
+    onlineForestLearner.getTreeLearner().setMaxDepth(parameters["max-depth"].as<int>());
+    onlineForestLearner.getTreeLearner().setNumFeatures(parameters["num-features"].as<int>());
+    onlineForestLearner.getTreeLearner().setNumThresholds(parameters["num-thresholds"].as<int>());
+    onlineForestLearner.getTreeLearner().setUseBootstrap(useBootstrap);
+    
     onlineForestLearner.setNumTrees(parameters["num-trees"].as<int>());
     onlineForestLearner.setNumThreads(parameters["num-threads"].as<int>());
     // onlineForestLearner.addCallback(OnlineRandomForestLearner::verboseCallback, 1);

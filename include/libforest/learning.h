@@ -9,64 +9,12 @@
 #include <iomanip>
 #include <random>
 #include <thread>
+#include <type_traits>
 #include "error_handling.h"
 #include "data.h"
 #include "classifier.h"
-#include "ncurses.h"
 
 namespace libf {
-    /**
-     * AbstractLearner: Combines all common functionality of offline and online
-     * learners. It allows you to set a callback function that is called very n
-     * iterations of the respective training algorithm.
-     */
-    template<class T, class S>
-    class AbstractLearner {
-    public:
-        /**
-         * Registers a callback function that is called every cycle iterations. 
-         * 
-         * @param callback The callback function
-         * @param cycle The number of cycles in between the function calls
-         */
-        void addCallback(const std::function<int(std::shared_ptr<T>, const S &)> & callback, int cycle)
-        {
-            callbacks.push_back(callback);
-            callbackCycles.push_back(cycle);
-        }
-        
-    protected:
-        /**
-         * Calls the callbacks. The results of the callbacks are bitwise or'ed
-         */
-        int evokeCallback(std::shared_ptr<T> learnedObject, int iteration, const S & state) const
-        {
-            int result = 0;
-            
-            // Check all callbacks
-            for (size_t i = 0; i < callbacks.size(); i++)
-            {
-                if ((iteration % callbackCycles[i]) == 0 )
-                {
-                    // It's time to call this function 
-                    result = result | callbacks[i](learnedObject, state);
-                }
-            }
-            
-            return result;
-        }
-        
-    private:
-        /**
-         * The callback functions.
-         */
-        std::vector<std::function<int(std::shared_ptr<T>, const S &)>  > callbacks;
-        /**
-         * The learning cycle. The callback is called very cycle iterations
-         */
-        std::vector<int> callbackCycles;
-    };
-    
     /**
      * Abstract learner state for measuring time and defining actions.
      */
@@ -80,6 +28,7 @@ namespace libf {
         
         /**
          * The current action
+         * TODO: Remove this field
          */
         int action;
         /**
@@ -102,7 +51,7 @@ namespace libf {
          */
         std::chrono::microseconds getPassedTime() const
         {
-            std::chrono::high_resolution_clock::time_point now = std::chrono::high_resolution_clock::now();
+            const std::chrono::high_resolution_clock::time_point now = std::chrono::high_resolution_clock::now();
             return std::chrono::duration_cast<std::chrono::microseconds>( now - startTime );
         }
         
@@ -115,6 +64,145 @@ namespace libf {
         {
             return static_cast<float>(getPassedTime().count()/1000000);
         }
+        
+        /**
+         * Prints the state into the console. 
+         */
+        virtual void print() const = 0;
+        
+        /**
+         * Resets the state
+         */
+        virtual void reset() 
+        {
+            started = false;
+            terminated = false;
+            startTime = std::chrono::high_resolution_clock::now();
+        }
+    };
+    
+    /**
+     * This class includes the basic state variables of any tree learner. 
+     */
+    class TreeLearnerState : public AbstractLearnerState {
+    public:
+        TreeLearnerState() : 
+                AbstractLearnerState(), 
+                total(0), 
+                processed(0), 
+                depth(0), 
+                numNodes(0) {}
+
+        /**
+         * The total number of training examples
+         */
+        int total;
+        /**
+         * The number of processed examples
+         */
+        int processed;
+        /**
+         * The depth of the tree
+         */
+        int depth;
+        /**
+         * The total number of nodes
+         */
+        int numNodes;
+        
+        /**
+         * Prints the state into the console. 
+         */
+        virtual void print() const;
+        
+        /**
+         * Resets the state
+         */
+        virtual void reset();
+    };
+    
+    /**
+     * This class includes the basic information every forest learner has. 
+     */
+    class ForestLearnerState : public AbstractLearnerState {
+    public:
+        ForestLearnerState() : 
+                AbstractLearnerState(), 
+                total(0), 
+                startedProcessing(0), 
+                processed(0) {}
+
+        /**
+         * The total number of trees to train
+         */
+        int total;
+        /**
+         * The number of trees started
+         */
+        int startedProcessing;
+        /**
+         * The number of finished trees
+         */
+        int processed;
+        
+        /**
+         * Prints the state into the console. 
+         */
+        virtual void print() const;
+        
+        /**
+         * Resets the state
+         */
+        virtual void reset();
+    };
+    
+    
+    /**
+     * This class includes some state variables that are common to random
+     * forest learners. 
+     */
+    template <class L>
+    class RandomForestLearnerState : public ForestLearnerState {
+    public:
+        /**
+         * Prints the state into the console. 
+         */
+        virtual void print() const
+        {
+            ForestLearnerState::print();
+            
+            for (size_t t = 0; t < treeLearnerStates.size(); t++)
+            {
+                std::cout << "THREAD " << (t+1) << std::endl;
+                treeLearnerStates[t].print();
+                std::cout << std::endl;
+            }
+        }
+
+        /**
+         * Resets the state
+         */
+        virtual void reset()
+        {
+            for (size_t t = 0; t < treeLearnerStates.size(); t++)
+            {
+                treeLearnerStates[t].reset();
+            }
+        }
+
+        /**
+         * The states of the individual tree learners (per thread)
+         */
+        std::vector<typename L::State> treeLearnerStates;
+    };
+    
+    /**
+     * This is the basic learner interface
+     */
+    template <class T>
+    class LearnerInterface {
+    public:
+        using HypothesisType = T;
     };
     
     /**
@@ -122,10 +210,8 @@ namespace libf {
      * object. 
      */
     template<class T>
-    class OfflineLearnerInterface {
+    class OfflineLearnerInterface : public LearnerInterface<T> {
     public:
-        typedef T HypothesisType;
-        
         /**
          * Learns a classifier.
          * 
@@ -140,10 +226,8 @@ namespace libf {
      * object. 
      */
     template<class T>
-    class OnlineLearnerInterface {
+    class OnlineLearnerInterface : public LearnerInterface<T> {
     public:
-        typedef T HypothesisType;
-        
         /**
          * Learns a classifier.
          * 
@@ -166,10 +250,9 @@ namespace libf {
      * This is an abstract decision tree learning providing functionality
      * needed for all decision tree learners (online or offline).
      */
-    template<class M, class S>
-    class AbstractDecisionTreeLearner : public AbstractLearner<M, S> {
+    class AbstractTreeLearner {
     public:
-        AbstractDecisionTreeLearner() : 
+        AbstractTreeLearner() : 
                 numFeatures(10), 
                 maxDepth(100), 
                 minSplitExamples(3),
@@ -296,11 +379,10 @@ namespace libf {
      * This is a an abstract random forest learner providing functionality for
      * online and offline learning.
      */
-    template<class M, class S>
-    class AbstractRandomForestLearner : public AbstractLearner<M, S> {
+    class AbstractForestLearner {
     public:
         
-        AbstractRandomForestLearner() : numTrees(8), numThreads(1) {}
+        AbstractForestLearner() : numTrees(8), numThreads(1) {}
         
         /**
          * Sets the number of trees. 
@@ -351,14 +433,17 @@ namespace libf {
      * time. The template parameter names the learning class. The class has
      * to have a subclass called "State". 
      */
-    template <class L>
+    template <class S>
     class ConsoleGUI {
     public:
-        ConsoleGUI(const typename L::State & state, const std::function<void(const typename L::State &)> & callback) : 
+        /**
+         * @param state The state the GUI should observe
+         */
+        ConsoleGUI(const S & state) : 
                 state(state), 
-                callback(callback)
+                interval(1)
         {
-            workerThread = std::thread(& ConsoleGUI<L>::worker, this);
+            workerThread = std::thread(& ConsoleGUI<S>::worker, this);
         }
         
         /**
@@ -366,28 +451,33 @@ namespace libf {
          */
         void worker()
         {
-            // Start the ncurses environment
-            initscr();
             while (!state.terminated)
             {
-                clear();
+                for (int i = 0; i < 2; i++)
+                {
+                    for (int j = 0; j < 80; j++)
+                    {
+                        std::cout << '-';
+                    }
+                    std::cout << std::endl;
+                }
+                
+                std::cout << std::endl << std::endl;
                 // Did the learner start yet?
                 if (!state.started)
                 {
                     // Hm, this is odd
-                    printw("The learner hasn't started yet.\n");
-                    printw("Did you remember to call learn(storage, state) instead of learn(storage)?\n");
+                    std::cout << "The learner hasn't started yet." << std::endl;
+                    std::cout << "Did you remember to call learn(storage, state) instead of learn(storage)?" << std::endl;
                 }
                 else
                 {
-                    printw("Runtime: %.2fs\n", state.getPassedTimeInSeconds());
-                    callback(state);
+                    std::cout << "Runtime: " << state.getPassedTimeInSeconds() << "s" << std::endl;
+                    state.print();
                 }
                 
-                refresh();
-                std::this_thread::sleep_for(std::chrono::seconds(1));
+                std::this_thread::sleep_for(std::chrono::seconds(interval));
             }
-            endwin();
         }
         
         /**
@@ -399,19 +489,39 @@ namespace libf {
             std::cout << "Training completed in " << state.getPassedTimeInSeconds() << "s." << std::endl; 
         }
         
-    protected:
+        /**
+         * Sets the interval length. 
+         * 
+         * @param _interval The time between prints in seconds
+         */
+        void setInterval(int _interval)
+        {
+            interval = _interval;
+        }
+        
+        /**
+         * Returns the interval length. 
+         * 
+         * @return The inverval length in seconds
+         */
+        int getInterval() const
+        {
+            return interval;
+        }
+        
+    private:
         /**
          * The state that is watched
          */
-        const typename L::State & state;
-        /**
-         * The callback function that creates the GUI
-         */
-        std::function<void(const typename L::State &)> callback;
+        const S & state;
         /**
          * The worker thread
          */
         std::thread workerThread;
+        /**
+         * The time interval in which the state is printed
+         */
+        int interval;
     };
 }
 

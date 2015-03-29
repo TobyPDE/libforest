@@ -66,7 +66,7 @@ cv::Mat visualizeGaussians(int H, int W, std::vector<Gaussian> gaussians, std::v
     return image;
 }
 
-cv::Mat visualizeForest(int H, int W, DensityForest::ptr forest)
+cv::Mat visualizeForest(int H, int W, DensityForest<DensityTree>::ptr forest)
 {    
     cv::Mat image(H, W, CV_32FC1, cv::Scalar(0));
     float p_max = 0;
@@ -234,20 +234,16 @@ int main(int argc, const char** argv)
     cv::Mat image_samples = visualizeSamples(H, W, storage);
     cv::imwrite("samples.png", image_samples);    
     
-    DensityTreeLearner treeLearner;
-//    treeLearner.addCallback(DensityTreeLearner::defaultCallback, 1);
-    treeLearner.setMaxDepth(parameters["max-depth"].as<int>());
-    treeLearner.setNumFeatures(parameters["num-features"].as<int>());
-    treeLearner.setMinSplitExamples(parameters["min-split-examples"].as<int>());
-    treeLearner.setMinChildSplitExamples(parameters["min-child-split-examples"].as<int>());
+    DensityForestLearner<DensityTreeLearner> learner;
+    learner.getTreeLearner().setMaxDepth(parameters["max-depth"].as<int>());
+    learner.getTreeLearner().setNumFeatures(parameters["num-features"].as<int>());
+    learner.getTreeLearner().setMinSplitExamples(parameters["min-split-examples"].as<int>());
+    learner.getTreeLearner().setMinChildSplitExamples(parameters["min-child-split-examples"].as<int>());
     
-    DensityForestLearner learner;
-    learner.setTreeLearner(&treeLearner);
     learner.setNumTrees(parameters["num-trees"].as<int>());
     learner.setNumThreads(parameters["num-threads"].as<int>());
-    learner.addCallback(DensityForestLearner::defaultCallback, 1);
     
-    DensityForest::ptr forest = learner.learn(storage);
+    auto forest = learner.learn(storage);
     
     GaussianKullbackLeiblerTool klTool;
     klTool.measureAndPrint(forest, gaussians, weights, 10*N);

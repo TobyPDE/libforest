@@ -80,11 +80,9 @@ int main(int argc, const char** argv)
     treeLearner.setUseBootstrap(useBootstrap);
     treeLearner.setMaxDepth(parameters["max-depth"].as<int>());
     treeLearner.setNumFeatures(parameters["num-features"].as<int>());
-    treeLearner.addCallback(DecisionTreeLearner::defaultCallback, 1);
     
     DecisionTreeLearner::State state;
-    ConsoleGUI<DecisionTreeLearner> gui(state, DecisionTreeLearner::defaultGUI);
-    
+    ConsoleGUI<DecisionTreeLearner::State> gui(state);    
     DecisionTree::ptr tree = treeLearner.learn(storageT, state);
     
     gui.join();

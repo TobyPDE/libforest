@@ -1,15 +1,17 @@
-#include "libforest/classifier.h"
-#include "libforest/estimators.h"
+#include "libforest/estimator.h"
 #include "libforest/data.h"
 #include "libforest/io.h"
 #include "libforest/util.h"
-#include "libforest/fastlog.h"
+#include "fastlog/fastlog.h"
 #include <ios>
 #include <iostream>
 #include <string>
 #include <cmath>
 #include <Eigen/LU>
 
+using namespace libf;
+
+// TODO: Replace this by C++11 equivalents
 // For gaussian sampling
 #include <boost/random/mersenne_twister.hpp>
 #include <boost/random/normal_distribution.hpp>
@@ -361,41 +363,6 @@ void DensityTree::sample(DataPoint & x)
     
     // Now sample from the final Gaussian.
     getNodeData(node).gaussian.sample(x);
-}
-
-////////////////////////////////////////////////////////////////////////////////
-/// DensityForest
-////////////////////////////////////////////////////////////////////////////////
-
-float DensityForest::estimate(const DataPoint & x)
-{
-    const int T = static_cast<int>(trees.size());
-    
-    float p_x = 0;
-    for (int t = 0; t < T; t++)
-    {
-        p_x += getTree(t)->estimate(x);
-    }
-    
-    return p_x/T;
-}
-
-void DensityForest::sample(DataPoint & x)
-{
-    int t = std::rand()%trees.size();
-    DensityTree::ptr tree = getTree(t);
-    
-    // We begin by sampling a random path in the tree.
-    int node = std::rand()%tree->getNumNodes();
-    while (tree->getNodeConfig(node).getLeftChild() > 0)
-    {
-        node = std::rand()%tree->getNumNodes();
-    }
-    
-    assert(tree->getNodeConfig(node).getLeftChild() == 0);
-    
-    // Now sample from the final Gaussian.
-    tree->getNodeData(node).gaussian.sample(x);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -73,8 +73,7 @@ int main(int argc, const char** argv)
     std::cout << "Training Data" << std::endl;
     storageT->dumpInformation();
     
-    BoostedRandomForestLearner forestLearner;
-    forestLearner.addCallback(BoostedRandomForestLearner::defaultCallback, 1);
+    BoostedRandomForestLearner<DecisionTreeLearner> forestLearner;
     
     forestLearner.getTreeLearner().setUseBootstrap(false);
     forestLearner.getTreeLearner().setMaxDepth(parameters["max-depth"].as<int>());
@@ -82,7 +81,7 @@ int main(int argc, const char** argv)
     
     forestLearner.setNumTrees(parameters["num-trees"].as<int>());
     
-    BoostedRandomForest::ptr forest = forestLearner.learn(storageT);
+    auto forest = forestLearner.learn(storageT);
     
     AccuracyTool accuracyTool;
     accuracyTool.measureAndPrint(forest, storage);

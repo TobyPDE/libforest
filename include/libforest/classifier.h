@@ -12,11 +12,11 @@
 #include <vector>
 #include <memory>
 #include <Eigen/Dense>
-#include <boost/static_assert.hpp>
-#include <boost/type_traits.hpp>
+#include <type_traits>
 
 #include "tree.h"
 #include "io.h"
+#include "estimator.h"
 
 namespace libf {
     /**
@@ -62,32 +62,33 @@ namespace libf {
     /**
      * This is the base class for all tree classifier node data classes. 
      */
-    class TreeClassifierNodeData {
+    class TreeClassifierNodeData : public AbstractNodeData {
     public:
+        /**
+         * Reads the data from a stream. 
+         * 
+         * @param stream The stream to read the data from
+         */
+        virtual void read(std::istream & stream)
+        {
+            readBinary(stream, histogram);
+        }
+        
+        /**
+         * Writes the data to a stream
+         * 
+         * @param stream The stream to write the data to.
+         */
+        virtual void write(std::ostream & stream) const
+        {
+            writeBinary(stream, histogram);
+        }
+        
         /**
          * A histogram that represents a distribution over the class labels
          */
         std::vector<float> histogram;
     };
-    
-    /**
-     * Overload the read binary method to also read DecisionTreeNodeData
-     */
-    template <>
-    inline void readBinary(std::istream & stream, TreeClassifierNodeData & v)
-    {
-        readBinary(stream, v.histogram);
-    }
-    
-    /**
-     * Overload the write binary method to also write DecisionTreeNodeData
-     */
-    template <>
-    inline void writeBinary(std::ostream & stream, const TreeClassifierNodeData & v)
-    {
-        writeBinary(stream, v.histogram);
-    }
-    
     
     /**
      * This is the base class for all tree classifiers
@@ -97,12 +98,6 @@ namespace libf {
     public:
         
         virtual ~AbstractTreeClassifier() {}
-        
-        /**
-         * Only accept template parameters that extend TreeClassifierNodeData.
-         * Note: The double parentheses are needed.
-         */
-        BOOST_STATIC_ASSERT((boost::is_base_of<TreeClassifierNodeData, Data>::value));
         
         /**
          * Returns the class log posterior log(p(c | x)). The probabilities are
@@ -134,6 +129,28 @@ namespace libf {
     class OnlineDecisionTreeNodeData : public TreeClassifierNodeData {
     public:
         /**
+         * Reads the data from a stream. 
+         * 
+         * @param stream The stream to read the data from
+         */
+        virtual void read(std::istream & stream)
+        {
+            TreeClassifierNodeData::read(stream);
+            // TODO: Implement this stuff
+        }
+        
+        /**
+         * Writes the data to a stream
+         * 
+         * @param stream The stream to write the data to.
+         */
+        virtual void write(std::ostream & stream) const
+        {
+            TreeClassifierNodeData::write(stream);
+            // TODO: Implement this stuff
+        }
+
+        /**
          * The node's statistics saved as entropy histogram.
          */
         EfficientEntropyHistogram nodeStatistics;
@@ -154,24 +171,6 @@ namespace libf {
          */
         std::vector<int> nodeFeatures;
     };
-    
-    /**
-     * Overload the read binary method to also read OnlineDecisionTreeNodeData
-     */
-    template <>
-    inline void readBinary(std::istream & stream, OnlineDecisionTreeNodeData & v)
-    {
-        // TODO: Implement this stuff
-    }
-    
-    /**
-     * Overload the write binary method to also write DecisionTreeNodeData
-     */
-    template <>
-    inline void writeBinary(std::ostream & stream, const OnlineDecisionTreeNodeData & v)
-    {
-        // TODO: Implement this stuff
-    }
     
     /**
      * This class represents a decision tree.
@@ -204,12 +203,6 @@ namespace libf {
     class RandomForest : public AbstractForestClassifier<TreeType> {
     public:
         typedef std::shared_ptr< RandomForest<TreeType> > ptr;
-        
-        /**
-         * Only accept template parameters that extend AbstractClassifier.
-         * Note: The double parentheses are needed.
-         */
-        BOOST_STATIC_ASSERT((boost::is_base_of<AbstractClassifier, TreeType>::value));
         
         virtual ~RandomForest() {}
         
@@ -261,12 +254,6 @@ namespace libf {
     public:
         typedef std::shared_ptr< WeakClassifier<T> > ptr;
         
-        /**
-         * Only accept template parameters that extend AbstractClassifier.
-         * Note: The double parentheses are needed.
-         */
-        BOOST_STATIC_ASSERT((boost::is_base_of<AbstractClassifier, T>::value));
-        
         WeakClassifier() : weight(0) {}
         
         /**
@@ -317,7 +304,7 @@ namespace libf {
         void read(std::istream & stream)
         {
             readBinary(stream, weight);
-            classifier = std::make_shared<T>();
+            classifier = TreeFactory<T>::create();
             classifier->read(stream);
         }
         
