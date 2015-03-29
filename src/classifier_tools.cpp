@@ -151,20 +151,20 @@ void ConfusionMatrixTool::print(const std::vector<std::vector<float> >& result) 
     const int C = static_cast<int>(result.size());
     
     // Print the header
-    printf("        |");
+    printf("         |");
     for (int c = 0; c < C; c++)
     {
-        printf(" %6d |", c);
+        printf(" %7d |", c);
     }
     printf("\n");
     for (int c = 0; c < C+1; c++)
     {
-        printf("--------|");
+        printf("---------|");
     }
     printf("\n");
     for (int c = 0; c < C; c++)
     {
-        printf(" %6d |", c);
+        printf(" %7d |", c);
         for (int cc = 0; cc < C; cc++)
         {
             const char* code;
@@ -176,12 +176,12 @@ void ConfusionMatrixTool::print(const std::vector<std::vector<float> >& result) 
             {
                 code = colorCodeLowToHigh(result[c][cc], 1.0f/C/C, 1.0/C/2.0);
             }
-            printf(" %s%5.2f%%%s |", code, result[c][cc] * 100, LIBF_COLOR_RESET);
+            printf(" %s%6.2f%%%s |", code, result[c][cc] * 100, LIBF_COLOR_RESET);
         }
         printf("\n");
         for (int c = 0; c < C+1; c++)
         {
-            printf("--------|");
+            printf("---------|");
         }
         printf("\n");
     }

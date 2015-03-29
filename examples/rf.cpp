@@ -102,7 +102,7 @@ int main(int argc, const char** argv)
     
     RandomForestLearner<DecisionTreeLearner> forestLearner;
 
-    forestLearner.getTreeLearner().setMinSplitExamples(10);
+    forestLearner.getTreeLearner().setMinSplitExamples(100000);
     forestLearner.getTreeLearner().setNumBootstrapExamples(storageTrain->getSize());
     forestLearner.getTreeLearner().setUseBootstrap(useBootstrap);
     forestLearner.getTreeLearner().setMaxDepth(parameters["max-depth"].as<int>());
