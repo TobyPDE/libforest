@@ -100,88 +100,29 @@ int main(int argc, const char** argv)
     storageTrain->dumpInformation();
     storageTest->dumpInformation();
     
-    ZScoreNormalizer zscore;
-    zscore.learn(storageTrain);
-    zscore.apply(storageTrain);
-    zscore.apply(storageTest);
-    
-#if 0
-    {
-        RandomForestLearner<ProjectiveDecisionTreeLearner> forestLearner;
-        forestLearner.addCallback(RandomForestLearner<ProjectiveDecisionTreeLearner>::defaultCallback, 1);
+    RandomForestLearner<DecisionTreeLearner> forestLearner;
 
-        forestLearner.getTreeLearner().setMinSplitExamples(10);
-        forestLearner.getTreeLearner().setNumBootstrapExamples(storageTrain->getSize());
-        forestLearner.getTreeLearner().setUseBootstrap(useBootstrap);
-        forestLearner.getTreeLearner().setMaxDepth(parameters["max-depth"].as<int>());
-        forestLearner.getTreeLearner().setNumFeatures(parameters["num-features"].as<int>());
+    forestLearner.getTreeLearner().setMinSplitExamples(10);
+    forestLearner.getTreeLearner().setNumBootstrapExamples(storageTrain->getSize());
+    forestLearner.getTreeLearner().setUseBootstrap(useBootstrap);
+    forestLearner.getTreeLearner().setMaxDepth(parameters["max-depth"].as<int>());
+    forestLearner.getTreeLearner().setNumFeatures(parameters["num-features"].as<int>());
 
-        forestLearner.setNumTrees(parameters["num-trees"].as<int>());
-        forestLearner.setNumThreads(parameters["num-threads"].as<int>());
+    forestLearner.setNumTrees(parameters["num-trees"].as<int>());
+    forestLearner.setNumThreads(parameters["num-threads"].as<int>());
 
-        auto forest = forestLearner.learn(storageTrain);
-        
-        AccuracyTool accuracyTool;
-        accuracyTool.measureAndPrint(forest, storageTest);
+    RandomForestLearner<DecisionTreeLearner>::State state;
+    ConsoleGUI<RandomForestLearner<DecisionTreeLearner>::State> gui(state);
 
-//        ConfusionMatrixTool confusionMatrixTool;
-//        confusionMatrixTool.measureAndPrint(forest, storageTest);
-    }
-    
-#endif
-#if 1
-    {
-        RandomForestLearner<DecisionTreeLearner> forestLearner;
+    auto forest = forestLearner.learn(storageTrain, state);
 
-        forestLearner.getTreeLearner().setMinSplitExamples(10);
-        forestLearner.getTreeLearner().setNumBootstrapExamples(storageTrain->getSize());
-        forestLearner.getTreeLearner().setUseBootstrap(useBootstrap);
-        forestLearner.getTreeLearner().setMaxDepth(parameters["max-depth"].as<int>());
-        forestLearner.getTreeLearner().setNumFeatures(parameters["num-features"].as<int>());
+    gui.join();
 
-        forestLearner.setNumTrees(parameters["num-trees"].as<int>());
-        forestLearner.setNumThreads(parameters["num-threads"].as<int>());
+    AccuracyTool accuracyTool;
+    accuracyTool.measureAndPrint(forest, storageTest);
 
-        RandomForestLearner<DecisionTreeLearner>::State state;
-        ConsoleGUI<RandomForestLearner<DecisionTreeLearner> > gui(state, RandomForestLearner<DecisionTreeLearner>::defaultGUI);
-    
-        auto forest = forestLearner.learn(storageTrain, state);
-        
-        gui.join();
-    
-        AccuracyTool accuracyTool;
-        accuracyTool.measureAndPrint(forest, storageTest);
+    ConfusionMatrixTool confusionMatrixTool;
+    confusionMatrixTool.measureAndPrint(forest, storageTest);
 
-        ConfusionMatrixTool confusionMatrixTool;
-        confusionMatrixTool.measureAndPrint(forest, storageTest);
-    }
-#endif
-#if 0
-    {
-        RandomForestLearner<DecisionTreeLearner> forestLearner;
-        forestLearner.addCallback(RandomForestLearner<DecisionTreeLearner>::defaultCallback, 1);
-
-        forestLearner.getTreeLearner().setMinSplitExamples(10);
-        forestLearner.getTreeLearner().setNumBootstrapExamples(storageTrain->getSize());
-        forestLearner.getTreeLearner().setUseBootstrap(useBootstrap);
-        forestLearner.getTreeLearner().setMaxDepth(parameters["max-depth"].as<int>());
-        forestLearner.getTreeLearner().setNumFeatures(std::min(storageTrain->getDimensionality(), parameters["num-features"].as<int>()));
-
-        forestLearner.setNumTrees(parameters["num-trees"].as<int>());
-        forestLearner.setNumThreads(parameters["num-threads"].as<int>());
-
-        auto forest = forestLearner.learn(storageTrain);
-
-        AccuracyTool accuracyTool;
-        accuracyTool.measureAndPrint(forest, storageTest);
-
-//        ConfusionMatrixTool confusionMatrixTool;
-//        confusionMatrixTool.measureAndPrint(forest, storageTest);
-    }
-#endif
-    
-//    VariableImportanceTool variableImportanceTool;
-//    variableImportanceTool.measureAndPrint(&forestLearner);
-    
     return 0;
 }

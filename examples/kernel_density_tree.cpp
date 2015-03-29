@@ -301,7 +301,6 @@ int main(int argc, const char** argv)
     }
     
     KernelDensityTreeLearner learner;
-    learner.addCallback(KernelDensityTreeLearner::defaultCallback, 1);
     learner.setMaxDepth(parameters["max-depth"].as<int>());
     learner.setNumFeatures(parameters["num-features"].as<int>());
     learner.setMinSplitExamples(parameters["min-split-examples"].as<int>());

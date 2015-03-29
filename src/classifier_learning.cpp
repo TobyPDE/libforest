@@ -285,45 +285,15 @@ DecisionTree::ptr DecisionTreeLearner::learn(AbstractDataStorage::ptr dataStorag
     return tree;
 }
 
-int DecisionTreeLearner::defaultCallback(DecisionTree::ptr tree, const DecisionTreeLearnerState & state)
-{
-    switch (state.action) {
-        case DecisionTreeLearner::ACTION_START_TREE:
-            std::cout << "Start decision tree training" << "\n";
-            break;
-        case DecisionTreeLearner::ACTION_SPLIT_NODE:
-            std::cout << std::setw(15) << std::left << "Split node:"
-                    << "depth = " << std::setw(3) << std::right << state.depth
-                    << ", objective = " << std::setw(6) << std::left
-                    << std::setprecision(4) << state.objective << "\n";
-            break;
-        default:
-            std::cout << "UNKNOWN ACTION CODE " << state.action << "\n";
-            break;
-    }
-    
-    return 0;
-
-}
-
-void DecisionTreeLearner::defaultGUI(const State& state)
-{
-    printw("Nodes: %10d Depth: %10d\n", state.numNodes, state.depth);
-    float p = 0;
-    if (state.total > 0)
-    {
-        p = state.processed/static_cast<float>(state.total);
-    }
-    GUIUtil::printProgressBar(p);
-}
-
 ////////////////////////////////////////////////////////////////////////////////
 /// ProjectiveDecisionTreeLearner
 ////////////////////////////////////////////////////////////////////////////////
 
-
-ProjectiveDecisionTree::ptr ProjectiveDecisionTreeLearner::learn(AbstractDataStorage::ptr dataStorage)
+ProjectiveDecisionTree::ptr ProjectiveDecisionTreeLearner::learn(AbstractDataStorage::ptr dataStorage, State & state)
 {
+    state.reset();
+    state.started = true;
+    
     AbstractDataStorage::ptr storage;
     // If we use bootstrap sampling, then this array contains the results of 
     // the sampler. We use it later in order to refine the leaf node histograms
@@ -338,6 +308,8 @@ ProjectiveDecisionTree::ptr ProjectiveDecisionTreeLearner::learn(AbstractDataSto
         storage = dataStorage;
     }
     
+    state.total = storage->getSize();
+    
     // Get the number of training examples and the dimensionality of the data set
     const int D = storage->getDimensionality();
     const int C = storage->getClasscount();
@@ -345,12 +317,6 @@ ProjectiveDecisionTree::ptr ProjectiveDecisionTreeLearner::learn(AbstractDataSto
     // Set up a new tree. 
     ProjectiveDecisionTree::ptr tree = std::make_shared<ProjectiveDecisionTree>();
     tree->addNode();
-    
-    // Set up the state for the call backs
-    DecisionTreeLearnerState state;
-    state.action = ACTION_START_TREE;
-    
-    evokeCallback(tree, 0, state);
     
     // This is the list of nodes that still have to be split
     std::stack<int> splitStack;
@@ -448,6 +414,8 @@ ProjectiveDecisionTree::ptr ProjectiveDecisionTreeLearner::learn(AbstractDataSto
         // Extract an element from the queue
         const int node = splitStack.top();
         splitStack.pop();
+        state.depth = std::max(state.depth, tree->getNodeConfig(node).getDepth());
+        state.numNodes++;
         
         // Get the training example list
         int* trainingExampleList = trainingExamples[node];
@@ -473,6 +441,8 @@ ProjectiveDecisionTree::ptr ProjectiveDecisionTreeLearner::learn(AbstractDataSto
             // Resize and initialize the leaf node histogram
             updateLeafNodeHistogram(tree->getNodeData(node).histogram, hist, smoothingParameter, useBootstrap);
             BOOST_ASSERT(tree->getNodeData(node).histogram.size() > 0);
+            delete[] trainingExampleList;
+            state.processed += N;
             continue;
         }
         
@@ -557,6 +527,8 @@ ProjectiveDecisionTree::ptr ProjectiveDecisionTreeLearner::learn(AbstractDataSto
             // Don't split
             updateLeafNodeHistogram(tree->getNodeData(node).histogram, hist, smoothingParameter, useBootstrap);
             BOOST_ASSERT(tree->getNodeData(node).histogram.size() > 0);
+            delete[] trainingExampleList;
+            state.processed += N;
             continue;
         }
         
@@ -590,12 +562,6 @@ ProjectiveDecisionTree::ptr ProjectiveDecisionTreeLearner::learn(AbstractDataSto
         tree->getNodeConfig(node).getProjection() = bestProjection;
         const int leftChild = tree->splitNode(node);
         
-        state.action = ACTION_SPLIT_NODE;
-        state.depth = tree->getNodeConfig(node).getDepth();
-        state.objective = bestObjective;
-        
-        evokeCallback(tree, 0, state);
-        
         // Prepare to split the child nodes
         splitStack.push(leftChild);
         splitStack.push(leftChild + 1);
@@ -610,6 +576,7 @@ ProjectiveDecisionTree::ptr ProjectiveDecisionTreeLearner::learn(AbstractDataSto
         TreeLearningTools::updateHistograms(tree, dataStorage, smoothingParameter);
     }
     
+    state.terminated = true;
     return tree;
 }
 
@@ -642,36 +609,21 @@ void OnlineDecisionTreeLearner::updateSplitStatistics(std::vector<EfficientEntro
     }
 }
 
-OnlineDecisionTree::ptr OnlineDecisionTreeLearner::learn(AbstractDataStorage::ptr storage)
+OnlineDecisionTree::ptr OnlineDecisionTreeLearner::learn(AbstractDataStorage::ptr storage, OnlineDecisionTree::ptr tree, State & state)
 {
-    OnlineDecisionTree::ptr tree = std::make_shared<OnlineDecisionTree>();
-    tree->addNode();
-    
-    return learn(storage, tree);
-}
-
-OnlineDecisionTree::ptr OnlineDecisionTreeLearner::learn(AbstractDataStorage::ptr storage, OnlineDecisionTree::ptr tree)
-{
+    state.reset();
+    state.started = true;
     
     // Get the number of training examples and the dimensionality of the data set
     const int D = storage->getDimensionality();
     const int C = storage->getClasscount();
     const int N = storage->getSize();
     
-    assert(numFeatures <= D);
-    assert(thresholdGenerator.getSize() == D);
+    BOOST_ASSERT(numFeatures <= D);
+    BOOST_ASSERT(thresholdGenerator.getSize() == D);
     
     // The tree must have at least the root note!
-    assert(tree->getNumNodes() > 0);
-    
-    // Saves the sum of impurity decrease achieved by each feature
-    // TODO: Update importance calculation
-    // importance = std::vector<float>(D, 0.f);
-    
-    OnlineDecisionTreeLearnerState state;
-    state.action = ACTION_START_TREE;
-    
-    evokeCallback(tree, 0, state);
+    BOOST_ASSERT(tree->getNumNodes() > 0);
     
     // Set up a list of all available features.
     numFeatures = std::min(numFeatures, D);
@@ -688,8 +640,7 @@ OnlineDecisionTree::ptr OnlineDecisionTreeLearner::learn(AbstractDataStorage::pt
         const int leaf = tree->findLeafNode(x);
         const int depth = tree->getNodeConfig(leaf).getDepth();
         
-        state.node = leaf;
-        state.depth = depth;
+        state.numNodes++;
         
         EfficientEntropyHistogram & nodeStatistics = tree->getNodeData(leaf).nodeStatistics;
         std::vector<int> & nodeFeatures = tree->getNodeData(leaf).nodeFeatures;
@@ -718,7 +669,7 @@ OnlineDecisionTree::ptr OnlineDecisionTreeLearner::learn(AbstractDataStorage::pt
             {
                 // Try the first feature.
                 nodeFeatures[f] = features[f];
-                assert(nodeFeatures[f] >= 0 && nodeFeatures[f] < D);
+                BOOST_ASSERT(nodeFeatures[f] >= 0 && nodeFeatures[f] < D);
                 
                 // This may be a trivial feature, so search for the next non/trivial
                 // feature; make sure that all chosen features are different.
@@ -760,9 +711,6 @@ OnlineDecisionTree::ptr OnlineDecisionTreeLearner::learn(AbstractDataStorage::pt
                     rightChildStatistics[t + numThresholds*f].reset();
                 }
             }
-            
-            state.action = ACTION_INIT_NODE;
-            evokeCallback(tree, 0, state);
         }
         
         int K = 1;
@@ -781,10 +729,6 @@ OnlineDecisionTree::ptr OnlineDecisionTreeLearner::learn(AbstractDataStorage::pt
                     nodeFeatures, nodeThresholds, x, label);
         }
         
-        state.node = leaf;
-        state.depth = depth;
-        state.samples = nodeStatistics.getMass();
-        
         // As in offline learning, do not split this node
         // - if the number of examples is too small
         // - if the maximum depth is reached
@@ -793,9 +737,6 @@ OnlineDecisionTree::ptr OnlineDecisionTreeLearner::learn(AbstractDataStorage::pt
         {
             // Do not split, update leaf histogram according to new sample.
             updateLeafNodeHistogram(tree->getNodeData(leaf).histogram, nodeStatistics, smoothingParameter, false);
-        
-            state.action = ACTION_NOT_SPLITTING_NODE;  
-            evokeCallback(tree, 0, state);
             
             continue;
         }
@@ -835,16 +776,10 @@ OnlineDecisionTree::ptr OnlineDecisionTreeLearner::learn(AbstractDataStorage::pt
             updateLeafNodeHistogram(tree->getNodeData(leaf).histogram, 
                     nodeStatistics, smoothingParameter, false);
         
-            state.action = ACTION_NOT_SPLITTING_OBJECTIVE_NODE;  
-            state.objective = bestObjective;
-            state.minObjective = minSplitObjective;
-            
-            evokeCallback(tree, 0, state);
-            
             continue;
         }
         
-        assert(bestFeature >= 0 && nodeFeatures[bestFeature] >= 0 
+        BOOST_ASSERT(bestFeature >= 0 && nodeFeatures[bestFeature] >= 0 
                 && nodeFeatures[bestFeature] < D);
         
         // We split this node!
@@ -877,70 +812,9 @@ OnlineDecisionTree::ptr OnlineDecisionTreeLearner::learn(AbstractDataStorage::pt
         
         // Also clear the histogram as this node is not a leaf anymore!
         tree->getNodeData(leaf).histogram.clear();
-        
-        state.action = ACTION_SPLIT_NODE; 
-        state.objective = bestObjective;
-        
-        evokeCallback(tree, 0, state);
     }
+    
+    state.terminated = true;
     
     return tree;
-}
-
-int OnlineDecisionTreeLearner::defaultCallback(OnlineDecisionTree::ptr tree, const OnlineDecisionTreeLearnerState & state)
-{
-    switch (state.action) {
-//        case OnlineDecisionTreeLearner::ACTION_INIT_NODE:
-//            std::cout << std::setw(30) << std::left << "Init node: "
-//                    << "depth = " << std::setw(6) << state->depth << "\n";
-//            break;
-        case OnlineDecisionTreeLearner::ACTION_SPLIT_NODE:
-            std::cout << std::setw(30) << std::left << "Split node: "
-                    << "depth = " << std::setw(6) << state.depth
-                    << "samples = " << std::setw(6) << state.samples
-                    << "objective = " << std::setw(6)
-                    << std::setprecision(3) << state.objective << "\n";
-            break;
-    }
-    
-    return 0;
-}
-
-int OnlineDecisionTreeLearner::verboseCallback(OnlineDecisionTree::ptr tree, const OnlineDecisionTreeLearnerState & state)
-{
-    switch (state.action) {
-        case OnlineDecisionTreeLearner::ACTION_START_TREE:
-            std::cout << "Start decision tree training." << "\n";
-            break; 
-        case OnlineDecisionTreeLearner::ACTION_INIT_NODE:
-            std::cout << std::setw(30) << std::left << "Init node: "
-                    << "depth = " << std::setw(6) << state.depth << "\n";
-            break;
-        case OnlineDecisionTreeLearner::ACTION_NOT_SPLITTING_NODE:
-            std::cout << std::setw(30) << std::left << "Not splitting node: "
-                    << "depth = " << std::setw(6) << state.depth
-                    << "samples = " << std::setw(6) << state.samples << "\n";
-            break;
-        case OnlineDecisionTreeLearner::ACTION_NOT_SPLITTING_OBJECTIVE_NODE:
-            std::cout << std::setw(30) << std::left << "Not splitting node: "
-                    << "depth = " << std::setw(6) << state.depth
-                    << "samples = " << std::setw(6) << state.samples
-                    << "objective = " << std::setw(6)
-                    << std::setprecision(3) << state.objective
-                    << "min objective = " << std::setw(6)
-                    << std::setprecision(3) << state.minObjective << "\n";
-            break;
-        case OnlineDecisionTreeLearner::ACTION_SPLIT_NODE:
-            std::cout << std::setw(30) << std::left << "Split node: "
-                    << "depth = " << std::setw(6) << state.depth
-                    << "samples = " << std::setw(6) << state.samples
-                    << "objective = " << std::setw(6)
-                    << std::setprecision(3) << state.objective << "\n";
-            break;
-        default:
-            std::cout << "UNKNOWN ACTION CODE " << state.action << "\n";
-            break;
-    }
-    
-    return 0;
 }

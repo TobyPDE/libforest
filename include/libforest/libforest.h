@@ -7,7 +7,8 @@
 #include "classifier_tools.h"
 #include "data.h"
 #include "data_tools.h"
-#include "estimators.h"
-#include "unsupervised_learning.h"
+#include "estimator.h"
+#include "estimator_tools.h"
+#include "estimator_learning.h"
 
 #endif

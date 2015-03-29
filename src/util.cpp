@@ -1,6 +1,6 @@
 #include "libforest/util.h"
 #include <random>
-#include "ncurses.h"
+#include <iomanip>
 
 static std::random_device rd;
 
@@ -29,28 +29,27 @@ void Util::generateRandomPermutation(int N, std::vector<int> & sigma)
 
 void GUIUtil::printProgressBar(float percentage)
 {
-    // Determine the width of the window
-    int mrow, mcol;
-    getmaxyx(stdscr, mrow, mcol);
+    // We set the width of the bar to 60 characters
+    int mcol = 60;
     
     // Calculate the number of progress bar segments
     // 8 = 2 spacers, 4 characters for the percentage, 1 blank space, 1 line feed
     int progressBarWidth = mcol - 8;
     
-    printw("[");
+    std::cout << '[';
     
     for (int k = 0; k < progressBarWidth; k++)
     {
         const float p = k/static_cast<float>(progressBarWidth);
         if (p <= percentage)
         {
-            printw("=");
+            std::cout << '=';
         }
         else
         {
-            printw(" ");
+            std::cout << ' ';
         }
     }
     
-    printw("] %3.0f%%\n", percentage * 100);
+    std::cout << "] " << std::setw(4) << percentage * 100 << '%' << std::endl;
 }

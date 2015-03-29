@@ -28,7 +28,6 @@ OPTION(BUILD_TESTS "If on, gtest is built and the unit tests are built" Off)
 
 find_package(Boost COMPONENTS system REQUIRED)
 find_package(Eigen3 REQUIRED)
-find_package(Curses REQUIRED)
 # TODO: For PixelImportanceTool, should not be required - should be optional
 # via CMake option!
 # TODO: Also for OpenCV matrix reader. Add general "OpenCV Package option"
@@ -47,7 +46,7 @@ include_directories(
                     ${Boost_INCLUDE_DIR} 
                     ${OpenCV_INCLUDE_DIRS} 
                     lib/gtest-1.7.0/include
-                    ${CURSES_INCLUDE_PATH})
+                    lib/fastlog/include)
 
 # Add the necessary g++ flags:
 # -std=c++11: C++11
@@ -78,17 +77,17 @@ add_library(libforest STATIC
                     src/data.cpp 
                     src/data_tools.cpp
                     src/error_handling.cpp
-                    src/estimators.cpp
+                    src/estimator.cpp
+                    src/estimator_learning.cpp
+                    src/estimator_tools.cpp
+                    src/learning.cpp
                     src/learning_tools.cpp
-                    src/unsupervised_learning.cpp
                     src/util.cpp)
 
 target_link_libraries(libforest 
                     ${Boost_LIBRARIES} 
                     ${OpenCV_LIBRARIE}
-                    ${OpenCV_LIBS}
-                    ${CURSES_CURSES_LIBRARY}
-                    ${CURSES_NCURSES_LIBRARY})
+                    ${OpenCV_LIBS})
 
 # Build the examples
 # TODO: Make this a CMake option or remove it completely from the build process

@@ -3,7 +3,7 @@
 
 #include <vector>
 #include <functional>
-#include <boost/static_assert.hpp>
+#include <type_traits>
 
 #include "util.h"
 #include "error_handling.h"
@@ -119,6 +119,26 @@ namespace libf {
     };
     
     /**
+     * This is the base class for all node data classes.
+     */
+    class AbstractNodeData {
+    public:
+        /**
+         * Reads the data from a stream. 
+         * 
+         * @param stream The stream to read the data from
+         */
+        virtual void read(std::istream & stream) = 0;
+        
+        /**
+         * Writes the data to a stream
+         * 
+         * @param stream The stream to write the data to.
+         */
+        virtual void write(std::ostream & stream) const = 0;
+    };
+    
+    /**
      * This is the base class for all split trees. Each node in a tree has three
      * data unit associated with it:
      * 1. The node config (like split information, graph structure).
@@ -157,7 +177,16 @@ namespace libf {
          */
         virtual void read(std::istream & stream)
         {
-            readBinary(stream, nodes);
+            // Read the size of the tree
+            int N;
+            readBinary(stream, N);
+            // Load the data elements
+            nodes.resize(N);
+            for (int n = 0; n < N; n++)
+            {
+                nodes[n].first.read(stream);
+                nodes[n].second.read(stream);
+            }
         }
         
         /**
@@ -167,7 +196,13 @@ namespace libf {
          */
         virtual void write(std::ostream & stream) const
         {
-            writeBinary(stream, nodes);
+            // Write the size of the tree
+            writeBinary(stream, getNumNodes());
+            for (int n = 0; n < getNumNodes(); n++)
+            {
+                nodes[n].first.write(stream);
+                nodes[n].second.write(stream);
+            }
         }
         
         /**
@@ -362,22 +397,6 @@ namespace libf {
     };
     
     /**
-     * Overload the read binary method to also read AxisAlignedSplitTreeNodeConfig
-     */
-    inline void readBinary(std::istream & stream, AxisAlignedSplitTreeNodeConfig & v)
-    {
-        v.read(stream);
-    }
-    
-    /**
-     * Overload the write binary method to also write DecisionTreeNodeData
-     */
-    inline void writeBinary(std::ostream & stream, const AxisAlignedSplitTreeNodeConfig & v)
-    {
-        v.write(stream);
-    }
-    
-    /**
      * This is a base class for trees that split the space using axis aligned
      * splits. Each node in the tree can carry some specified data. 
      */
@@ -514,22 +533,6 @@ namespace libf {
          */
         float threshold;
     };
-    
-    /**
-     * Overload the read binary method to also read ProjectiveSplitTreeNodeConfig
-     */
-    inline void readBinary(std::istream & stream, ProjectiveSplitTreeNodeConfig & v)
-    {
-        v.read(stream);
-    }
-    
-    /**
-     * Overload the write binary method to also write ProjectiveSplitTreeNodeConfig
-     */
-    inline void writeBinary(std::ostream & stream, const ProjectiveSplitTreeNodeConfig & v)
-    {
-        v.write(stream);
-    }
     
     /**
      * This is a base class for trees that split the space using projective
@@ -680,6 +683,43 @@ namespace libf {
          * The individual decision trees. 
          */
         std::vector< std::shared_ptr<TreeType> > trees;
+    };
+    
+    /**
+     * This factory creates new tree objects
+     */
+    template <class T>
+    class TreeFactory {
+    public:
+        /**
+         * Creates a new tree
+         * 
+         * @return The new tree
+         */
+        static std::shared_ptr<T> create()
+        {
+            std::shared_ptr<T> tree = std::make_shared<T>();
+            tree->addNode();
+            return tree;
+        }
+    };
+    
+    /**
+     * This factory creates new forest objects
+     */
+    template <class T>
+    class ForestFactory {
+    public:
+        /**
+         * Creates a new empty forest. 
+         * 
+         * @return The forest object
+         */
+        static std::shared_ptr<T> create()
+        {
+            std::shared_ptr<T> forest = std::make_shared<T>();
+            return forest;
+        }
     };
 }
 

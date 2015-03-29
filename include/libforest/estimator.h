@@ -20,34 +20,57 @@
 
 namespace libf {
     /**
-     * Forward declarations to speed up compiling
-     */
-    class DataStorage;
-    
-    /**
-     * An estimator can be used to estimate the probability of a data point.
-     */
-    class Estimator {
-    public:
-        /**
-         * Estimate the probability of a datapoint.
-         */
-        virtual float estimate(const DataPoint & x) = 0;
-        
-    };
-    
-    /**
      * A generator can be used to sample from a distribution.
      */
-    class Generator {
+    class GeneratorInterface {
     public:
         /**
          * Sample from the estimator.
+         * 
+         * TODO: This should be const qualified. However, this is currently not
+         * possible because of some caching mechanism. 
          */
         virtual void sample(DataPoint & x) = 0;
         
     };
     
+    /**
+     * An estimator can estimate the probability of a single point
+     */
+    class EstimatorInterface {
+    public:
+        /**
+         * Estimate the probability of a datapoint.
+         * 
+         * @param x The data point at which the density shall be evaluted
+         * @return The probability
+         * 
+         * TODO: This should be const qualified. However, this is currently not
+         * possible because of some caching mechanism. 
+         */
+        virtual float estimate(const DataPoint & x) = 0;
+    };
+    
+    /**
+     * An estimator can be used to estimate the probability of a data point.
+     */
+    class AbstractEstimator : public EstimatorInterface {
+    public:
+        /**
+         * Reads the classifier from a stream. 
+         * 
+         * @param stream The stream to read the classifier from
+         */
+        virtual void read(std::istream & stream) = 0;
+        
+        /**
+         * Writes the tree to a stream
+         * 
+         * @param stream The stream to write the tree to.
+         */
+        virtual void write(std::ostream & stream) const = 0;
+    };
+
     /**
      * Univariate kernel interface.
      */
@@ -449,7 +472,7 @@ namespace libf {
     /**
      * Simple kernel density estimation.
      */
-    class KernelDensityEstimator : public Estimator {
+    class KernelDensityEstimator : public EstimatorInterface {
     public:
         typedef std::shared_ptr<KernelDensityEstimator> ptr;
         
@@ -668,7 +691,7 @@ namespace libf {
     /**
      * A simple Gaussian distribution represented by mean and covariance matrix.
      */
-    class Gaussian {
+    class Gaussian : public GeneratorInterface {
     public:
         /**
          * Default Gaussian with zero mean and identity covariance.
@@ -799,12 +822,31 @@ namespace libf {
         int dataSupport;
         
     };
-    
-    /**
+        /**
      * This is the data that is stored in the nodes of a Density Tree
      */
-    class DensityTreeNodeData {
+    class DensityTreeNodeData : public AbstractNodeData {
     public:
+        /**
+         * Reads the data from a stream. 
+         * 
+         * @param stream The stream to read the data from
+         */
+        virtual void read(std::istream & stream)
+        {
+            // TODO: Implement this stuff
+        }
+        
+        /**
+         * Writes the data to a stream
+         * 
+         * @param stream The stream to write the data to.
+         */
+        virtual void write(std::ostream & stream) const
+        {
+            // TODO: Implement this stuff
+        }
+        
         /**
          * The Gaussian at the leafs.
          */
@@ -812,34 +854,18 @@ namespace libf {
     };
     
     /**
-     * Overload the read binary method to also read DensityTreeNodeData
-     */
-    template <>
-    inline void readBinary(std::istream & stream, DensityTreeNodeData & v)
-    {
-        // TODO: Implement this stuff
-    }
-    
-    /**
-     * Overload the write binary method to also write DecisionTreeNodeData
-     */
-    template <>
-    inline void writeBinary(std::ostream & stream, const DensityTreeNodeData & v)
-    {
-        // TODO: Implement this stuff
-    }
-    
-    /**
      * Density decision tree for unsupervised learning.
      */
-    class DensityTree : public AbstractAxisAlignedSplitTree<  AbstractTree<AxisAlignedSplitTreeNodeConfig, DensityTreeNodeData, Object> >, public Estimator, public Generator {
+    class DensityTree : 
+            public AbstractAxisAlignedSplitTree<  AbstractTree<AxisAlignedSplitTreeNodeConfig, DensityTreeNodeData, AbstractEstimator> >, 
+            public GeneratorInterface {
     public:
         typedef std::shared_ptr<DensityTree> ptr;
         
         /**
          * Creates an empty density tree.
          */
-        DensityTree();
+        DensityTree() {}
         
         /**
          * Destructor.
@@ -861,6 +887,7 @@ namespace libf {
          * Compute and cache the partition function.
          */
         float getPartitionFunction(int D);
+        
         /**
          * Partition function.
          */
@@ -874,9 +901,12 @@ namespace libf {
     /**
      * A density forest consisting of several density trees.
      */
-    class DensityForest : public Estimator {
+    template <class TreeType>
+    class DensityForest : 
+            public AbstractForest<TreeType, AbstractEstimator>, 
+            public GeneratorInterface {
     public:
-        typedef std::shared_ptr<DensityForest> ptr;
+        typedef std::shared_ptr<DensityForest<TreeType> > ptr;
         
         /**
          * Constructor.
@@ -889,47 +919,44 @@ namespace libf {
         virtual ~DensityForest() {};
         
         /**
-         * Adds a tree to the ensemble
+         * Estimate the probability of a data point.
          */
-        void addTree(DensityTree::ptr tree)
+        virtual float estimate(const DataPoint & x)
         {
-            trees.push_back(tree);
+            const int T = this->getSize();
+
+            float p_x = 0;
+            for (int t = 0; t < T; t++)
+            {
+                p_x += this->getTree(t)->estimate(x);
+            }
+
+            return p_x/T;
         }
-        
-        /**
-         * Returns the number of trees
-         */
-        int getSize() const
-        {
-            return static_cast<int>(trees.size());
-        }
-        
-        /**
-         * Returns the i-th tree
-         */
-        DensityTree::ptr getTree(int i)
-        {
-            return trees[i];
-        }
-        
-        /**
-         * Removes the i-th tree
-         */
-        void removeTree(int i)
-        {
-            // Remove it from the array
-            trees.erase(trees.begin() + i);
-        }
-        
-        /**
-         * Estimate the probability of a datapoint.
-         */
-        virtual float estimate(const DataPoint & x);
         
         /**
          * Sample from the model.
          */
-        virtual void sample(DataPoint & x);
+        virtual void sample(DataPoint & x)
+        {
+            // TODO: Replace this by std::uniform_int_distribution
+            int t = std::rand()%this->getSize();
+            DensityTree::ptr tree = this->getTree(t);
+
+            // We begin by sampling a random path in the tree.
+            // TODO: Replace this by std::uniform_int_distribution
+            int node = std::rand()%tree->getNumNodes();
+            while (tree->getNodeConfig(node).getLeftChild() > 0)
+            {
+                // TODO: Replace this by std::uniform_int_distribution
+                node = std::rand()%tree->getNumNodes();
+            }
+
+            BOOST_ASSERT(tree->getNodeConfig(node).getLeftChild() == 0);
+
+            // Now sample from the final Gaussian.
+            tree->getNodeData(node).gaussian.sample(x);
+        }
         
     private:
         /**
@@ -941,8 +968,28 @@ namespace libf {
     /**
      * This is the payload that is stored in the nodes of a kernel density tree
      */
-    class KernelDensityTreeNodeData {
+    class KernelDensityTreeNodeData : public AbstractNodeData{
     public:
+        /**
+         * Reads the data from a stream. 
+         * 
+         * @param stream The stream to read the data from
+         */
+        virtual void read(std::istream & stream)
+        {
+            // TODO: Implement this stuff
+        }
+        
+        /**
+         * Writes the data to a stream
+         * 
+         * @param stream The stream to write the data to.
+         */
+        virtual void write(std::ostream & stream) const
+        {
+            // TODO: Implement this stuff
+        }
+        
         /**
          * The Gaussians at the leafs.
          */
@@ -952,36 +999,18 @@ namespace libf {
          */
         KernelDensityEstimator estimator;
     };
-    
-    /**
-     * Overload the read binary method to also read KernelDensityTreeNodeData
-     */
-    template <>
-    inline void readBinary(std::istream & stream, KernelDensityTreeNodeData & v)
-    {
-        // TODO: Implement this stuff
-    }
-    
-    /**
-     * Overload the write binary method to also write KernelDensityTreeNodeData
-     */
-    template <>
-    inline void writeBinary(std::ostream & stream, const KernelDensityTreeNodeData & v)
-    {
-        // TODO: Implement this stuff
-    }
 
     /**
      * A kernel density tree.
      */
-    class KernelDensityTree : public AbstractAxisAlignedSplitTree<  AbstractTree<AxisAlignedSplitTreeNodeConfig, KernelDensityTreeNodeData, Object> >, public Estimator {
+    class KernelDensityTree : public AbstractAxisAlignedSplitTree<  AbstractTree<AxisAlignedSplitTreeNodeConfig, KernelDensityTreeNodeData, AbstractEstimator> > {
     public:
         typedef std::shared_ptr<KernelDensityTree> ptr;
         
         /**
          * Constructor.
          */
-        KernelDensityTree();
+        KernelDensityTree() {}
         
         /**
          * Destructor.
@@ -1001,6 +1030,7 @@ namespace libf {
         
         /**
          * Kernel used for kernel density estimation.
+         * TODO: Make this a shared ptr 
          */
         MultivariateKernel* kernel;
         /**

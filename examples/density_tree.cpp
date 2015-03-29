@@ -260,7 +260,6 @@ int main(int argc, const char** argv)
     cv::imwrite("samples.png", image_samples);    
     
     DensityTreeLearner learner;
-    learner.addCallback(DensityTreeLearner::defaultCallback, 1);
     learner.setMaxDepth(parameters["max-depth"].as<int>());
     learner.setNumFeatures(parameters["num-features"].as<int>());
     learner.setMinSplitExamples(parameters["min-split-examples"].as<int>());

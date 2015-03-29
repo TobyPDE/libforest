@@ -1,9 +1,9 @@
 #ifndef LIBF_UTIL_H
 #define LIBF_UTIL_H
 
-#include "libforest/data.h"
-#include "libforest/error_handling.h"
-#include "libforest/fastlog.h"
+#include "data.h"
+#include "error_handling.h"
+#include "fastlog/fastlog.h"
 #include <vector>
 #include <iostream>
 #include <Eigen/Dense>
@@ -20,12 +20,6 @@
 #define LIBF_ENTROPY(p) (-(p)*fastlog2(p))
 
 namespace libf {
-    // TODO: Remove this crap
-    class Exception {
-    public:
-        Exception(const std::string & s) {}
-    };
-    
     /**
      * This class can be used as a base class for arbitrary objects
      */
