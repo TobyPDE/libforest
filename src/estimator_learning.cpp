@@ -28,7 +28,7 @@ void DensityTreeLearner::updateLeafNodeGaussian(Gaussian & gaussian, EfficientCo
     assert(gaussian.getCovariance().cols() > 0);
 }
 
-DensityTree::ptr DensityTreeLearner::learn(AbstractDataStorage::ptr storage, State & state)
+DensityTree::ptr DensityTreeLearner::learn(AbstractDataStorage::ptr storage, DensityTreeLearner::State & state)
 {
     state.reset();
     state.started = true;
@@ -257,7 +257,7 @@ void KernelDensityTreeLearner::initializeLeafNodeEstimator(Gaussian & gaussian,
     assert(gaussian.getDataSupport() == leafStorage->getSize());
 }
 
-KernelDensityTree::ptr KernelDensityTreeLearner::learn(AbstractDataStorage::ptr storage, State & state)
+KernelDensityTree::ptr KernelDensityTreeLearner::learn(AbstractDataStorage::ptr storage, KernelDensityTreeLearner::State & state)
 {
     const int D = storage->getDimensionality();
     const int N = storage->getSize();

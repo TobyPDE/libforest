@@ -42,7 +42,7 @@ inline void updateLeafNodeHistogram(std::vector<float> & leafNodeHistogram, cons
     }
 }
 
-DecisionTree::ptr DecisionTreeLearner::learn(AbstractDataStorage::ptr dataStorage, State & state)
+DecisionTree::ptr DecisionTreeLearner::learn(AbstractDataStorage::ptr dataStorage, DecisionTreeLearner::State & state)
 {
     state.reset();
     state.started = true;
@@ -289,7 +289,7 @@ DecisionTree::ptr DecisionTreeLearner::learn(AbstractDataStorage::ptr dataStorag
 /// ProjectiveDecisionTreeLearner
 ////////////////////////////////////////////////////////////////////////////////
 
-ProjectiveDecisionTree::ptr ProjectiveDecisionTreeLearner::learn(AbstractDataStorage::ptr dataStorage, State & state)
+ProjectiveDecisionTree::ptr ProjectiveDecisionTreeLearner::learn(AbstractDataStorage::ptr dataStorage, ProjectiveDecisionTreeLearner::State & state)
 {
     state.reset();
     state.started = true;
@@ -609,7 +609,7 @@ void OnlineDecisionTreeLearner::updateSplitStatistics(std::vector<EfficientEntro
     }
 }
 
-OnlineDecisionTree::ptr OnlineDecisionTreeLearner::learn(AbstractDataStorage::ptr storage, OnlineDecisionTree::ptr tree, State & state)
+OnlineDecisionTree::ptr OnlineDecisionTreeLearner::learn(AbstractDataStorage::ptr storage, OnlineDecisionTree::ptr tree, OnlineDecisionTreeLearner::State & state)
 {
     state.reset();
     state.started = true;

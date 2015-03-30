@@ -118,7 +118,7 @@ namespace libf {
         /**
          * This is the learner state for the GUI
          */
-        using State = TreeLearnerState;
+        typedef TreeLearnerState State;
             
         DecisionTreeLearner() : AbstractTreeClassifierLearner() {}
         
@@ -158,7 +158,7 @@ namespace libf {
         /**
          * This is the learner state for the GUI
          */
-        using State = TreeLearnerState;
+        typedef TreeLearnerState State;
         
         /**
          * Learns a decision tree on a data set.
@@ -195,7 +195,7 @@ namespace libf {
         /**
          * This is the learner state for the GUI
          */
-        using State = TreeLearnerState;
+        typedef TreeLearnerState State;
         
         OnlineDecisionTreeLearner() : AbstractTreeClassifierLearner(),
                 bootstrapLambda(1.f),
@@ -372,7 +372,7 @@ namespace libf {
         /**
          * The state type for this learner
          */
-        using State = RandomForestLearnerState<L>;
+        typedef RandomForestLearnerState<L> State;
         
         /**
          * Returns the decision tree learner
@@ -413,8 +413,11 @@ namespace libf {
                 }
                 
                 // Learn the tree
-                //auto tree = treeLearner.learn(storage, state.treeLearnerStates[omp_get_thread_num()]);
+#if LIBF_ENABLE_OPENMP
+                auto tree = treeLearner.learn(storage, state.treeLearnerStates[omp_get_thread_num()]);
+#else
                 auto tree = treeLearner.learn(storage, state.treeLearnerStates[0]);
+#endif
                 
                 // Add it to the forest
                 #pragma omp critical
@@ -457,7 +460,7 @@ namespace libf {
         /**
          * The state type for this learner
          */
-        using State = RandomForestLearnerState<L>;
+        typedef RandomForestLearnerState<L> State;
         
         /**
          * Returns the decision tree learner
@@ -511,8 +514,11 @@ namespace libf {
                 }
 
                 auto tree = forest->getTree(i);
-                //this->treeLearner.learn(storage, tree, state.treeLearnerStates[omp_get_thread_num()]);
+#if LIBF_ENABLE_OPENMP
+                this->treeLearner.learn(storage, tree, state.treeLearnerStates[omp_get_thread_num()]);
+#else
                 this->treeLearner.learn(storage, tree, state.treeLearnerStates[0]);
+#endif
                 
                 #pragma omp critical
                 {

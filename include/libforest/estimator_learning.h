@@ -25,7 +25,7 @@ namespace libf {
         /**
          * The state type for this learner
          */
-        using State = TreeLearnerState;
+        typedef TreeLearnerState State;
         
         /**
          * Learn a density tree.
@@ -62,7 +62,7 @@ namespace libf {
         /**
          * The state type for this learner
          */
-        using State = RandomForestLearnerState<L>;
+        typedef RandomForestLearnerState<L> State;
         
         /**
          * Returns the decision tree learner
@@ -108,8 +108,11 @@ namespace libf {
                 }
                 
                 // Learn the tree
-                //auto tree = treeLearner.learn(storage, state.treeLearnerStates[omp_get_thread_num()]);
+#if LIBF_ENABLE_OPENMP
+                auto tree = treeLearner.learn(storage, state.treeLearnerStates[omp_get_thread_num()]);
+#else
                 auto tree = treeLearner.learn(storage, state.treeLearnerStates[0]);
+#endif
                 
                 // Add it to the forest
                 #pragma omp critical
@@ -151,7 +154,7 @@ namespace libf {
         /**
          * The state type for this learner
          */
-        using State = TreeLearnerState;
+        typedef TreeLearnerState State;
         
         /**
          * Constructs a kernel density tree learner.
