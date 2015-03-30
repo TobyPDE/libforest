@@ -130,6 +130,37 @@ namespace libf {
          */
         const char* message;
     };
+    
+    /**
+     * This exception is thrown when some configuration fails.
+     */
+    class ConfigurationException : public std::exception {
+    public:
+        /**
+         * This constructor should be used if there is an error message. 
+         * 
+         * @param expression The expression of the assertion that failed
+         * @param message The error message given by the developer
+         * @param function The function where the assertion is located
+         * @param file The file where the function is located
+         * @param line The line number of the exception
+         */
+        ConfigurationException( const char * message) : message(message) {}
+        
+        /**
+         * Returns the error message for this exception. 
+         */
+        char const* what() const throw()
+        {
+            return message;
+        }
+        
+    private:
+        /**
+         * The error message
+         */
+        const char* message;
+    };
 }
 
 #endif 

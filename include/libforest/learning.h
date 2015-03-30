@@ -202,7 +202,7 @@ namespace libf {
     template <class T>
     class LearnerInterface {
     public:
-        using HypothesisType = T;
+        typedef T HypothesisType;
     };
     
     /**
@@ -404,8 +404,14 @@ namespace libf {
         /**
          * Sets the number of threads
          */
-        void setNumThreads(int _numThreads)
+        void setNumThreads(int _numThreads) throw(ConfigurationException)
         {
+#if !LIBF_ENABLE_OPENMP
+            if (_numThreads != 1)
+            {
+                throw ConfigurationException("OpenMP support is disabled. Set number of threads to 1.");
+            }
+#endif
             numThreads = _numThreads;
         }
         

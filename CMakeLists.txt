@@ -22,6 +22,8 @@ ENDIF(ENABLE_ASSERT)
 
 OPTION(BUILD_TESTS "If on, gtest is built and the unit tests are built" Off)
 
+OPTION(ENABLE_OPENMP, "If on, the library is built with OpenMP support" On)
+
 ################################################################################
 ### THIRD PARTY LIBRARIES
 ################################################################################
@@ -33,7 +35,11 @@ find_package(Eigen3 REQUIRED)
 # TODO: Also for OpenCV matrix reader. Add general "OpenCV Package option"
 find_package(OpenCV REQUIRED) 
 # TODO: Add general MATLAB option for importing MATLAB mat files
-find_package(OpenMP)
+if(ENABLE_OPENMP)
+    add_definitions(-DLIBF_ENABLE_OPENMP)
+    find_package(OpenMP REQUIRED)
+endif(ENABLE_OPENMP)
+
 
 ################################################################################
 ### SET UP BUILD ENVIRONMENT
