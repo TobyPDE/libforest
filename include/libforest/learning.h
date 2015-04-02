@@ -79,6 +79,13 @@ namespace libf {
             terminated = false;
             startTime = std::chrono::high_resolution_clock::now();
         }
+        
+        /**
+         * Returns the progress for this state
+         * 
+         * @return The progress in [0,1]
+         */
+        virtual float getProgress() const = 0;
     };
     
     /**
@@ -119,6 +126,17 @@ namespace libf {
          * Resets the state
          */
         virtual void reset();
+        
+        /**
+         * Returns the progress for this state
+         * 
+         * @return The progress in [0,1]
+         */
+        float getProgress() const
+        {
+            if (total == 0) return 0;
+            return processed/static_cast<float>(total);
+        }
     };
     
     /**
@@ -154,6 +172,17 @@ namespace libf {
          * Resets the state
          */
         virtual void reset();
+        
+        /**
+         * Returns the progress for this state
+         * 
+         * @return The progress in [0,1]
+         */
+        float getProgress() const
+        {
+            if (total == 0) return 0;
+            return processed/static_cast<float>(total);
+        }
     };
     
     
@@ -169,14 +198,19 @@ namespace libf {
          */
         virtual void print() const
         {
-            ForestLearnerState::print();
+            //ForestLearnerState::print();
             
+            printf("Time")
+            printf("%6.0fs | ", this->getPassedTimeInSeconds());
+            printf("%5.2f%% | ", this->getProgress()*100);
             for (size_t t = 0; t < treeLearnerStates.size(); t++)
             {
-                std::cout << "THREAD " << (t+1) << std::endl;
-                treeLearnerStates[t].print();
-                std::cout << std::endl;
+                printf("%5.2f%% | ", treeLearnerStates[t].getProgress()*100);
+                //std::cout << "THREAD " << (t+1) << std::endl;
+                //treeLearnerStates[t].print();
+                //std::cout << std::endl;
             }
+            printf("\n");
         }
 
         /**
@@ -202,7 +236,7 @@ namespace libf {
     template <class T>
     class LearnerInterface {
     public:
-        using HypothesisType = T;
+        typedef T HypothesisType;
     };
     
     /**
@@ -258,6 +292,21 @@ namespace libf {
                 minSplitExamples(3),
                 minChildSplitExamples(1) {}
                 
+        /**
+         * This is the learner state for the GUI
+         */
+        typedef TreeLearnerState State;
+        
+        /**
+         * Creates a new state
+         * 
+         * @return a new state
+         */
+        State createState() const
+        {
+            return State();
+        }
+        
         /**
          * Sets the number of features that are required to perform a split. If 
          * there are less than the specified number of training examples at a 
@@ -404,8 +453,14 @@ namespace libf {
         /**
          * Sets the number of threads
          */
-        void setNumThreads(int _numThreads)
+        void setNumThreads(int _numThreads) throw(ConfigurationException)
         {
+#ifndef LIBF_ENABLE_OPENMP
+            if (_numThreads != 1)
+            {
+                throw ConfigurationException("OpenMP support is disabled. Set number of threads to 1.");
+            }
+#endif
             numThreads = _numThreads;
         }
         
@@ -439,7 +494,7 @@ namespace libf {
         /**
          * @param state The state the GUI should observe
          */
-        ConsoleGUI(const S & state) : 
+        explicit ConsoleGUI(const S & state) : 
                 state(state), 
                 interval(1)
         {
@@ -453,16 +508,6 @@ namespace libf {
         {
             while (!state.terminated)
             {
-                for (int i = 0; i < 2; i++)
-                {
-                    for (int j = 0; j < 80; j++)
-                    {
-                        std::cout << '-';
-                    }
-                    std::cout << std::endl;
-                }
-                
-                std::cout << std::endl << std::endl;
                 // Did the learner start yet?
                 if (!state.started)
                 {
@@ -472,7 +517,7 @@ namespace libf {
                 }
                 else
                 {
-                    std::cout << "Runtime: " << state.getPassedTimeInSeconds() << "s" << std::endl;
+                    //std::cout << "Runtime: " << state.getPassedTimeInSeconds() << "s" << std::endl;
                     state.print();
                 }
                 

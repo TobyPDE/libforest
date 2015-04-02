@@ -108,7 +108,7 @@ int AbstractDataStorage::getDimensionality() const
     }
 }
 
-AbstractDataStorage::ptr AbstractDataStorage::excerpt(int begin, int end) const
+ReferenceDataStorage::ptr AbstractDataStorage::excerpt(int begin, int end) const
 {
     BOOST_ASSERT_MSG(begin >= 0 && begin <= end, "Invalid indices.");
     BOOST_ASSERT_MSG(end < getSize(), "Invalid indices.");
@@ -124,7 +124,7 @@ AbstractDataStorage::ptr AbstractDataStorage::excerpt(int begin, int end) const
     return storage;
 }
 
-AbstractDataStorage::ptr AbstractDataStorage::bootstrap(int N, std::vector<bool> & sampled) const
+ReferenceDataStorage::ptr AbstractDataStorage::bootstrap(int N, std::vector<bool> & sampled) const
 {
     BOOST_ASSERT_MSG(N >= 0, "The number of bootstrap examples must be non-negative.");
     
@@ -177,7 +177,7 @@ DataStorage::ptr AbstractDataStorage::hardCopy() const
     return result;
 }
 
-AbstractDataStorage::ptr AbstractDataStorage::select(const std::function<bool(const DataPoint &, int)> & f) const
+ReferenceDataStorage::ptr AbstractDataStorage::filter(const std::function<bool(const DataPoint &, int)> & f) const
 {
     ReferenceDataStorage::ptr storage = std::make_shared<ReferenceDataStorage>(shared_from_this());
     const int N = this->getSize();
@@ -190,6 +190,38 @@ AbstractDataStorage::ptr AbstractDataStorage::select(const std::function<bool(co
     }
     return storage;
 }
+
+DataStorage::ptr AbstractDataStorage::map(const std::function<void(DataPoint&, int&) >& f) const
+{
+    // Create a new data storage for the results
+    DataStorage::ptr result = this->hardCopy();
+    result->map(f);
+    return result;
+}
+
+bool DataStorage::isConsistent() const
+{
+    const int N = this->getSize();
+    for (int n = 0; n < N; n++)
+    {
+        if (n > 0)
+        {
+            // Check if the dimensionality is consistent
+            if (this->getDataPoint(n).rows() != this->getDataPoint(n-1).rows())
+            {
+                return false;
+            }
+        }
+        
+        // Check if the class label is consistent
+        if (this->getClassLabel(n) < 0 && this->getClassLabel(n) != LIBF_NO_LABEL)
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
 
 ////////////////////////////////////////////////////////////////////////////////
 /// DataStorage
@@ -211,6 +243,21 @@ void DataStorage::addDataPoints(AbstractDataStorage::ptr storage)
     {
         this->addDataPoint(storage->getDataPoint(n), storage->getClassLabel(n));
     }
+}
+
+void DataStorage::mapInPlace(const std::function<void(DataPoint&, int&) >& f)
+{
+    // Go through the data storage and map the points
+    const int N = this->getSize();
+    for (int n = 0; n < N; n++)
+    {
+        f(this->getDataPoint(n), this->getClassLabel(n));
+    }
+    
+#if LIBF_ENABLE_ASSERT
+    // Check if the data storage is consistent
+    BOOST_ASSERT_MSG(this->isConsistent(), "Data storage is inconsistent after map in place operation.");
+#endif
 }
 
 

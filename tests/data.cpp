@@ -407,7 +407,7 @@ TEST(DataStorage, select)
     storage->addDataPoint(y, 0);
     storage->addDataPoint(z, 2);
     
-    AbstractDataStorage::ptr selection = storage->select([](const DataPoint & x, int c) {
+    AbstractDataStorage::ptr selection = storage->filter([](const DataPoint & x, int c) {
         return c == 2;
     });
     

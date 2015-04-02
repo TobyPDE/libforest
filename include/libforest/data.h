@@ -164,6 +164,13 @@ namespace libf {
         virtual const DataPoint & getDataPoint(int i) const = 0;
         
         /**
+         * Removes the i-th vector from the storage
+         * 
+         * @param i The index of the data point to delete
+         */
+        virtual void removeDataPoint(int i) = 0;
+        
+        /**
          * Returns the number of data points. 
          * 
          * @return The number of data points in this data storage
@@ -191,7 +198,7 @@ namespace libf {
          * @param end The index of the last data point
          * @return A data storage with the bootstrapped examples
          */
-        AbstractDataStorage::ptr excerpt(int begin, int end) const;
+        std::shared_ptr<ReferenceDataStorage> excerpt(int begin, int end) const;
         
         /**
          * Bootstrap-samples the data storage. 
@@ -200,7 +207,7 @@ namespace libf {
          * @param sampled Array of flags. sampled[i] == true <=> point i was sampled
          * @param referenceStorage The shallow storage to put the data points in
          */
-        AbstractDataStorage::ptr bootstrap(int N, std::vector<bool> & sampled) const;
+        std::shared_ptr<ReferenceDataStorage> bootstrap(int N, std::vector<bool> & sampled) const;
         
         /**
          * Permutes the data points according to some permutation. Please 
@@ -230,7 +237,7 @@ namespace libf {
          * 
          * @return A reference copy. 
          */
-        AbstractDataStorage::ptr copy() const
+        std::shared_ptr<ReferenceDataStorage> copy() const
         {
             return excerpt(0, getSize() - 1);
         }
@@ -247,8 +254,21 @@ namespace libf {
          * Creates a reference storage with a subset of data points from this 
          * storage. The subset is defined by all points for which the given
          * callback function evaluates to true. 
+         * 
+         * @param f A function that decides whether or not a data point will be 
+         *          in the filtered list. 
+         * @return A new data storage only with the filtered points
          */
-        AbstractDataStorage::ptr select(const std::function<bool(const DataPoint &, int)> & f) const;
+        std::shared_ptr<ReferenceDataStorage> filter(const std::function<bool(const DataPoint &, int)> & f) const;
+        
+        /**
+         * Applies a functions to each data point (and class label) and produces
+         * a new data storage. This operation can be very expensive. 
+         * 
+         * @param f A function that is applied to all data points
+         * @return The new data storage with the mapped elements
+         */
+        std::shared_ptr<DataStorage> map(const std::function<void(DataPoint &, int&)> & f) const;
     };
     
     /**
@@ -386,6 +406,19 @@ namespace libf {
         }
         
         /**
+         * Removes the i-th vector from the storage
+         * 
+         * @param i The index of the data point to delete
+         */
+        void removeDataPoint(int i)
+        {
+            // Check if the dimensionality is correct
+            BOOST_ASSERT_MSG(0 <= i && i < getSize(), "The data point index is out of bounds.");
+            dataPoints.erase(dataPoints.begin() + i);
+            classLabels.erase(classLabels.begin() + i);
+        }
+        
+        /**
          * Adds all data points from the given storage to this one.
          * 
          * @param storage the storage to copy data points from
@@ -400,6 +433,22 @@ namespace libf {
          * @param permutation A given permutation.
          */
         void permute(const std::vector<int> & permutation);
+        
+        /**
+         * Applies a functions to each data point (and class label).
+         * 
+         * @param f A function that is applied to all data points
+         */
+        void mapInPlace(const std::function<void(DataPoint &, int&)> & f);
+        
+        /**
+         * Returns true if the data storage is consistent. This means: 
+         * All data points have the same dimensionality, all class labels are
+         * positive or 'not label'. 
+         * 
+         * @return True if the data storage is consistent
+         */
+        bool isConsistent() const;
         
         /**
          * A factory class for this data storage class. 
@@ -480,6 +529,18 @@ namespace libf {
         {
             BOOST_ASSERT_MSG(0 <= i && i < getSize(), "The data point index is out of bounds.");
             return dataStorage->getDataPoint(dataPointIndices[i]);
+        }
+        
+        /**
+         * Removes the i-th vector from the storage
+         * 
+         * @param i The index of the data point to delete
+         */
+        void removeDataPoint(int i)
+        {
+            // Check if the dimensionality is correct
+            BOOST_ASSERT_MSG(0 <= i && i < getSize(), "The data point index is out of bounds.");
+            dataPointIndices.erase(dataPointIndices.begin() + i);
         }
         
         /**

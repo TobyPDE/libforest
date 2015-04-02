@@ -29,7 +29,7 @@ namespace libf {
                 useBootstrap(false),
                 numBootstrapExamples(1) {}
         
-        /**
+       /**
          * Sets the smoothing parameter. The smoothing parameter is the value 
          * the histograms at the leaf nodes are initialized with. 
          * 
@@ -115,11 +115,6 @@ namespace libf {
             public OfflineLearnerInterface<DecisionTree> {
     public:
         
-        /**
-         * This is the learner state for the GUI
-         */
-        using State = TreeLearnerState;
-            
         DecisionTreeLearner() : AbstractTreeClassifierLearner() {}
         
         /**
@@ -156,11 +151,6 @@ namespace libf {
         ProjectiveDecisionTreeLearner() : AbstractTreeClassifierLearner() {}
         
         /**
-         * This is the learner state for the GUI
-         */
-        using State = TreeLearnerState;
-        
-        /**
          * Learns a decision tree on a data set.
          * 
          * @param storage The training set
@@ -191,11 +181,6 @@ namespace libf {
             public AbstractTreeClassifierLearner, 
             public OnlineLearnerInterface<OnlineDecisionTree> {
     public:
-        
-        /**
-         * This is the learner state for the GUI
-         */
-        using State = TreeLearnerState;
         
         OnlineDecisionTreeLearner() : AbstractTreeClassifierLearner(),
                 bootstrapLambda(1.f),
@@ -372,7 +357,17 @@ namespace libf {
         /**
          * The state type for this learner
          */
-        using State = RandomForestLearnerState<L>;
+        typedef RandomForestLearnerState<L> State;
+        
+        /**
+         * Creates a new state
+         * 
+         * @return a new state
+         */
+        State createState() const
+        {
+            return State();
+        }
         
         /**
          * Returns the decision tree learner
@@ -413,8 +408,11 @@ namespace libf {
                 }
                 
                 // Learn the tree
-                //auto tree = treeLearner.learn(storage, state.treeLearnerStates[omp_get_thread_num()]);
+#ifdef LIBF_ENABLE_OPENMP
+                auto tree = treeLearner.learn(storage, state.treeLearnerStates[omp_get_thread_num()]);
+#else
                 auto tree = treeLearner.learn(storage, state.treeLearnerStates[0]);
+#endif
                 
                 // Add it to the forest
                 #pragma omp critical
@@ -457,7 +455,7 @@ namespace libf {
         /**
          * The state type for this learner
          */
-        using State = RandomForestLearnerState<L>;
+        typedef RandomForestLearnerState<L> State;
         
         /**
          * Returns the decision tree learner
@@ -511,8 +509,11 @@ namespace libf {
                 }
 
                 auto tree = forest->getTree(i);
-                //this->treeLearner.learn(storage, tree, state.treeLearnerStates[omp_get_thread_num()]);
+#ifdef LIBF_ENABLE_OPENMP
+                this->treeLearner.learn(storage, tree, state.treeLearnerStates[omp_get_thread_num()]);
+#else
                 this->treeLearner.learn(storage, tree, state.treeLearnerStates[0]);
+#endif
                 
                 #pragma omp critical
                 {
