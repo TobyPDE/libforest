@@ -234,8 +234,27 @@ namespace libf {
             
             return index;
         }
+        
+        /**
+         * Computes an integer power of a number
+         * 
+         * @param base The base
+         * @param exponent The exponent
+         * @return base^exponent
+         */
+        template <class T>
+        static T pow(const T base, const int exponent)
+        {
+            BOOST_ASSERT_MSG(exponent >= 0, "Negative exponents are not supported.");
+            int res = 1;
+            for (int i = 0; i < exponent; i++)
+            {
+                res *= base;
+            }
+            return base;
+        }
     };
-
+    
     /**
      * This class collects functions that are useful for generating ncurses based
      * shell GUIs. 

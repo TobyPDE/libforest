@@ -100,9 +100,9 @@ int main(int argc, const char** argv)
     storageTrain->dumpInformation();
     storageTest->dumpInformation();
     
-    RandomForestLearner<DecisionTreeLearner> forestLearner;
+    RandomForestLearner<ProjectiveDecisionTreeLearner> forestLearner;
 
-    forestLearner.getTreeLearner().setMinSplitExamples(100000);
+    forestLearner.getTreeLearner().setMinSplitExamples(3);
     forestLearner.getTreeLearner().setNumBootstrapExamples(storageTrain->getSize());
     forestLearner.getTreeLearner().setUseBootstrap(useBootstrap);
     forestLearner.getTreeLearner().setMaxDepth(parameters["max-depth"].as<int>());
@@ -110,9 +110,9 @@ int main(int argc, const char** argv)
 
     forestLearner.setNumTrees(parameters["num-trees"].as<int>());
     forestLearner.setNumThreads(parameters["num-threads"].as<int>());
-
-    RandomForestLearner<DecisionTreeLearner>::State state;
-    ConsoleGUI<RandomForestLearner<DecisionTreeLearner>::State> gui(state);
+    
+    auto state = forestLearner.createState();
+    ConsoleGUI<decltype(state)> gui(state);
 
     auto forest = forestLearner.learn(storageTrain, state);
 

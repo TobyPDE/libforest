@@ -321,6 +321,40 @@ namespace libf {
          */
         DataPoint mean;
     };
+    
+    /**
+     * This class contains some useful feature space mappings. You can apply
+     * a mapping by using the map operation on a DataStorage. 
+     */
+    class FeatureSpaceMaps {
+    public:
+        /**
+         * This function efficiently implements a polynomial feature space map
+         * using template programming
+         * 
+         * @param D The oder of the map
+         * @return The map function
+         */
+#if 0
+        static std::function<void(DataPoint &, int &)> polynomialMapTemplate(int D)
+        {
+            BOOST_ASSERT(D > 0);
+            
+            return [D](DataPoint & x, int & c) -> void {
+                // Copy the data point because it will be resized
+                DataPoint _x = x;
+                const int currentD = x.rows();
+                const int newD = Util::pow(currentD, D);
+                
+                // Resize the storage
+                x.resize( newD );
+                
+                // Compute the new entries
+                
+            };
+        }
+#endif
+    };
 }
 
 #endif	/* LIBF_DATA_TOOLS_H */
