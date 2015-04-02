@@ -23,11 +23,6 @@ namespace libf {
             public OfflineLearnerInterface<DensityTree> {
     public:
         /**
-         * The state type for this learner
-         */
-        typedef TreeLearnerState State;
-        
-        /**
          * Learn a density tree.
          */
         DensityTree::ptr learn(AbstractDataStorage::ptr storage, State & state);
@@ -108,7 +103,7 @@ namespace libf {
                 }
                 
                 // Learn the tree
-#if LIBF_ENABLE_OPENMP
+#ifdef LIBF_ENABLE_OPENMP
                 auto tree = treeLearner.learn(storage, state.treeLearnerStates[omp_get_thread_num()]);
 #else
                 auto tree = treeLearner.learn(storage, state.treeLearnerStates[0]);
@@ -151,11 +146,6 @@ namespace libf {
             public OfflineLearnerInterface<KernelDensityTree> {
     public:
 
-        /**
-         * The state type for this learner
-         */
-        typedef TreeLearnerState State;
-        
         /**
          * Constructs a kernel density tree learner.
          */

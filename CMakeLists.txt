@@ -22,7 +22,7 @@ ENDIF(ENABLE_ASSERT)
 
 OPTION(BUILD_TESTS "If on, gtest is built and the unit tests are built" Off)
 
-OPTION(ENABLE_OPENMP, "If on, the library is built with OpenMP support" On)
+OPTION(ENABLE_OPENMP "If on, the library is built with OpenMP support" On)
 
 ################################################################################
 ### THIRD PARTY LIBRARIES
