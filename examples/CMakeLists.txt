@@ -2,8 +2,7 @@ cmake_minimum_required(VERSION 2.6)
 
 find_package(Boost COMPONENTS system filesystem program_options REQUIRED)
 find_package(Eigen3 REQUIRED)
-find_package(Curses REQUIRED)
-include_directories(../include ${EIGEN3_INCLUDE_DIR} ${Boost_INCLUDE_DIRS} ${Boost_INCLUDE_DIRS} ${CURSES_INCLUDE_PATH})
+include_directories(../include ${EIGEN3_INCLUDE_DIR} ${Boost_INCLUDE_DIRS} ${Boost_INCLUDE_DIRS})
 
 #add_executable(cli_convert convert.cpp)
 #target_link_libraries(cli_convert libforest ${Boost_LIBRARIES})

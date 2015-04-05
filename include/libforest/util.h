@@ -406,9 +406,14 @@ namespace libf {
             // Only allocate a new histogram, if there is more than one class
             if (newBins > 0)
             {
-                histogram = new int[bins];
-                entropies = new float[bins];
-                
+                if (histogram == 0)
+                {
+                    histogram = new int[bins];
+                }
+                if (entropies == 0)
+                {
+                    entropies = new float[bins];
+                }
                 reset();
             }
         }

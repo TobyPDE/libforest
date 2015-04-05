@@ -30,6 +30,7 @@ using namespace libf;
  */
 int main(int argc, const char** argv)
 {
+    {
     boost::program_options::options_description desc("Allowed options");
     desc.add_options()
         ("help", "produce help message")
@@ -95,34 +96,41 @@ int main(int argc, const char** argv)
     st.measureAndPrint(storage);
 #endif
      
+    MinMaxNormalizer zscore;
+    zscore.learn(storageTrain);
+    zscore.apply(storageTrain);
+    zscore.apply(storageTest);
     
     std::cout << "Training Data" << std::endl;
     storageTrain->dumpInformation();
     storageTest->dumpInformation();
     
-    RandomForestLearner<ProjectiveDecisionTreeLearner> forestLearner;
+    RandomForestLearner<DecisionTreeLearner> forestLearner;
 
-    forestLearner.getTreeLearner().setMinSplitExamples(3);
+    forestLearner.getTreeLearner().setMinChildSplitExamples(2);
     forestLearner.getTreeLearner().setNumBootstrapExamples(storageTrain->getSize());
     forestLearner.getTreeLearner().setUseBootstrap(useBootstrap);
     forestLearner.getTreeLearner().setMaxDepth(parameters["max-depth"].as<int>());
     forestLearner.getTreeLearner().setNumFeatures(parameters["num-features"].as<int>());
 
     forestLearner.setNumTrees(parameters["num-trees"].as<int>());
-    forestLearner.setNumThreads(parameters["num-threads"].as<int>());
+    //forestLearner.setNumThreads(parameters["num-threads"].as<int>());
     
     auto state = forestLearner.createState();
     ConsoleGUI<decltype(state)> gui(state);
-
+    
     auto forest = forestLearner.learn(storageTrain, state);
-
+    
     gui.join();
-
+    
     AccuracyTool accuracyTool;
     accuracyTool.measureAndPrint(forest, storageTest);
 
     ConfusionMatrixTool confusionMatrixTool;
     confusionMatrixTool.measureAndPrint(forest, storageTest);
 
+    }
+    
     return 0;
 }
+

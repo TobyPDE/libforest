@@ -102,8 +102,6 @@ DecisionTree::ptr DecisionTreeLearner::learn(AbstractDataStorage::ptr dataStorag
     FeatureComparator cp;
     cp.storage = storage;
     
-    // Set up a probability distribution over the features
-    std::mt19937 g(rd());
     // Set up the array of possible features, we use it in order to sample
     // the features without replacement
     std::vector<int> sampledFeatures(D);
@@ -111,7 +109,7 @@ DecisionTree::ptr DecisionTreeLearner::learn(AbstractDataStorage::ptr dataStorag
     {
         sampledFeatures[d] = d;
     }
-
+    
     // Start training
     while (splitStack.size() > 0)
     {
@@ -136,7 +134,7 @@ DecisionTree::ptr DecisionTreeLearner::learn(AbstractDataStorage::ptr dataStorag
             // Get the class label of this training example
             hist.addOne(storage->getClassLabel(trainingExampleList[m]));
         }
-
+        
         // Don't split this node
         //  If the number of examples is too small
         //  If the training examples are all of the same class

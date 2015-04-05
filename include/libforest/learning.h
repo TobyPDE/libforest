@@ -200,7 +200,7 @@ namespace libf {
         {
             //ForestLearnerState::print();
             
-            printf("Time")
+            printf("Time");
             printf("%6.0fs | ", this->getPassedTimeInSeconds());
             printf("%5.2f%% | ", this->getProgress()*100);
             for (size_t t = 0; t < treeLearnerStates.size(); t++)
