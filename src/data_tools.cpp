@@ -417,6 +417,75 @@ void ZScoreNormalizer::write(std::ostream& stream) const
 
 
 ////////////////////////////////////////////////////////////////////////////////
+/// MinMaxNormalizer
+////////////////////////////////////////////////////////////////////////////////
+
+void MinMaxNormalizer::learn(AbstractDataStorage::ptr storage)
+{
+    BOOST_ASSERT_MSG(storage->getSize() > 0, "Cannot learn min max normalization on empty storage.");
+    const int D = storage->getDimensionality();
+    const int N = storage->getSize();
+    
+    // Reset the model
+    mins = storage->getDataPoint(0);
+    maxs = storage->getDataPoint(0);
+    
+    for (int n = 1; n < N; n++)
+    {
+        const DataPoint & x = storage->getDataPoint(n);
+        
+        for (int d = 0; d < D; d++)
+        {
+            mins(d) = std::min(mins(d), x(d));
+            maxs(d) = std::max(maxs(d), x(d));
+        }
+    }
+}
+
+void MinMaxNormalizer::apply(DataStorage::ptr storage) const
+{
+    const int N = storage->getSize();
+    const int D = storage->getDimensionality();
+    BOOST_ASSERT_MSG(storage->getDimensionality() == mins.rows(), "Mismatch between the learned model and the given data storage.");
+    
+    // Compute the ranges
+    DataPoint ranges(D);
+    for (int d = 0; d < D; d++)
+    {
+        // Compute the range in this dimension
+        ranges(d) = maxs(d) - mins(d);
+        // If the range is too close to 0, don't perform normalization
+        if (ranges(d) < 1e-15)
+        {
+            ranges(d) = 1;
+        }
+    }
+    
+    // Normalize the points
+    for (int n = 0; n < N; n++)
+    {
+        DataPoint & x = storage->getDataPoint(n);
+        for (int d = 0; d < D; d++)
+        {
+            x(d) = (x(d) - mins(d))/ranges(d);
+        }
+    }
+}
+
+void MinMaxNormalizer::read(std::istream& stream)
+{
+    readBinary(stream, mins);
+    readBinary(stream, maxs);
+}
+
+void MinMaxNormalizer::write(std::ostream& stream) const
+{
+    writeBinary(stream, mins);
+    writeBinary(stream, maxs);
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
 /// PCA
 ////////////////////////////////////////////////////////////////////////////////
 

@@ -277,6 +277,52 @@ namespace libf {
     };
     
     /**
+     * Performs min-max normalization on the data. Each dimension will be 
+     * mapped to [0,1].
+     */
+    class MinMaxNormalizer {
+    public:
+        /**
+         * Trains the model. 
+         * 
+         * @param storage A data storage to train the model on
+         */
+        void learn(AbstractDataStorage::ptr storage);
+        
+        /**
+         * Applies the normalization to a data storage. This only works on
+         * real data storages (no reference storages). 
+         * 
+         * @param storage A storage to apply the normliaztion to
+         */
+        void apply(DataStorage::ptr storage) const;
+        
+        /**
+         * Writes the learned model to a stream
+         * 
+         * @param stream to write the data to
+         */
+        void write(std::ostream & stream) const;
+        
+        /**
+         * Reads the model from a stream
+         * 
+         * @param stream The stream to read the model from
+         */
+        void read(std::istream & stream);
+        
+    private:
+        /**
+         * The minima over all dimensions
+         */
+        DataPoint mins;
+        /**
+         * The maxima over all dimensions
+         */
+        DataPoint maxs;
+    };
+    
+    /**
      * Performs principal components analysis on a data set. 
      */
     class PCA {
