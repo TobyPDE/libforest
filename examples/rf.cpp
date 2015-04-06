@@ -96,10 +96,10 @@ int main(int argc, const char** argv)
     st.measureAndPrint(storage);
 #endif
      
-    MinMaxNormalizer zscore;
-    zscore.learn(storageTrain);
-    zscore.apply(storageTrain);
-    zscore.apply(storageTest);
+    //MinMaxNormalizer zscore;
+    //zscore.learn(storageTrain);
+    //zscore.apply(storageTrain);
+    //zscore.apply(storageTest);
     
     std::cout << "Training Data" << std::endl;
     storageTrain->dumpInformation();

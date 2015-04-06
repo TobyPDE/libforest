@@ -54,9 +54,21 @@ DecisionTree::ptr DecisionTreeLearner::learn(AbstractDataStorage::ptr dataStorag
     // the sampler. We use it later in order to refine the leaf node histograms
     std::vector<bool> sampled;
     
+    // Check if data set related parameters have been set
+    int _numBootstrapExamples = numBootstrapExamples;
+    int _numFeatures = numFeatures;
+    if (_numBootstrapExamples < 0)
+    {
+        _numBootstrapExamples = dataStorage->getSize();
+    }
+    if (_numFeatures < 0)
+    {
+        _numFeatures = std::sqrt(dataStorage->getDimensionality());
+    }
+    
     if (useBootstrap)
     {
-        storage = dataStorage->bootstrap(numBootstrapExamples, sampled);
+        storage = dataStorage->bootstrap(_numBootstrapExamples, sampled);
     }
     else
     {
@@ -160,7 +172,7 @@ DecisionTree::ptr DecisionTreeLearner::learn(AbstractDataStorage::ptr dataStorag
         std::shuffle(sampledFeatures.begin(), sampledFeatures.end(), std::default_random_engine(rd()));
         
         // Optimize over all features
-        for (int f = 0; f < numFeatures; f++)
+        for (int f = 0; f < _numFeatures; f++)
         {
             const int feature = sampledFeatures[f];
             
@@ -189,9 +201,9 @@ DecisionTree::ptr DecisionTreeLearner::learn(AbstractDataStorage::ptr dataStorag
                 const float rightValue = storage->getDataPoint(n)(feature);
                 
                 // Skip this split, if the two points lie too close together
-                const float diff = rightValue - leftValue;
+                const float diff = std::abs(rightValue - leftValue);
                 
-                if (diff < 1e-6f)
+                if (diff < 1e-6f*std::max(std::abs(rightValue+1e-6), std::abs(leftValue+1e-6)))
                 {
                     leftValue = rightValue;
                     leftClass = storage->getClassLabel(n);
@@ -258,6 +270,20 @@ DecisionTree::ptr DecisionTreeLearner::learn(AbstractDataStorage::ptr dataStorag
                 rightList[--bestRightMass] = n;
             }
         }
+        
+        if (bestLeftMass != 0 || bestRightMass != 0)
+        {
+            for (int m = 0; m < N; m++)
+            {
+                const int n = trainingExampleList[m];
+                const float featureValue = storage->getDataPoint(n)(bestFeature);
+                std::cout << featureValue << "\n";
+            }
+            std::cout << bestFeature << "\n";
+            std::cout << bestThreshold << "\n";
+        }
+        BOOST_ASSERT(bestLeftMass == 0);
+        BOOST_ASSERT(bestRightMass == 0);
         
         // Ok, split the node
         tree->getNodeConfig(node).setThreshold(bestThreshold);
@@ -617,7 +643,7 @@ OnlineDecisionTree::ptr OnlineDecisionTreeLearner::learn(AbstractDataStorage::pt
     const int C = storage->getClasscount();
     const int N = storage->getSize();
     
-    BOOST_ASSERT(numFeatures <= D);
+    BOOST_ASSERT(1 <= numFeatures && numFeatures <= D);
     BOOST_ASSERT(thresholdGenerator.getSize() == D);
     
     // The tree must have at least the root note!

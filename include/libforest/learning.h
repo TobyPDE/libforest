@@ -287,7 +287,7 @@ namespace libf {
     class AbstractTreeLearner {
     public:
         AbstractTreeLearner() : 
-                numFeatures(10), 
+                numFeatures(-1), 
                 maxDepth(100), 
                 minSplitExamples(3),
                 minChildSplitExamples(1) {}
