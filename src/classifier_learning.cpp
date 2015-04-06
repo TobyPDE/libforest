@@ -47,7 +47,7 @@ DecisionTree::ptr DecisionTreeLearner::learn(AbstractDataStorage::ptr dataStorag
     state.reset();
     state.started = true;
     
-    BOOST_ASSERT(numFeatures <= dataStorage->getDimensionality(), "The number of feature evaluations must not exceed the feature dimension.");
+    BOOST_ASSERT_MSG(numFeatures <= dataStorage->getDimensionality(), "The number of feature evaluations must not exceed the feature dimension.");
     
     AbstractDataStorage::ptr storage;
     // If we use bootstrap sampling, then this array contains the results of 
