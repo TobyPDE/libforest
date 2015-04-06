@@ -27,7 +27,7 @@ namespace libf {
         AbstractTreeClassifierLearner() : 
                 smoothingParameter(1),
                 useBootstrap(false),
-                numBootstrapExamples(1) {}
+                numBootstrapExamples(-1) {}
         
        /**
          * Sets the smoothing parameter. The smoothing parameter is the value 

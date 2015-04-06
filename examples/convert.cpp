@@ -27,6 +27,7 @@ int main(int argc, const char** argv)
         ("in-file", boost::program_options::value<std::string>(), "path to input file")
         ("out-file", boost::program_options::value<std::string>(), "path to output file")
         ("csv-to-dat", "convert CSV to DAT")
+        ("dat-to-csv", "convert DAT to CSV")
         ("csv-label-col", boost::program_options::value<int>()->default_value(0), "CSV column for label")
         ("csv-separator", boost::program_options::value<std::string>()->default_value(" "), "CSV column separator");
     
@@ -65,6 +66,15 @@ int main(int argc, const char** argv)
         LibforestDataWriter writer;
         writer.write(outFile.string(), storage);
     }
+    else if (parameters.find("dat-to-csv") != parameters.end())
+    {
+        LibforestDataReader reader;
+        CSVDataWriter writer;
+        auto storage = DataStorage::Factory::create();
+        reader.read(inFile.string(), storage);
+        writer.write(outFile.string(), storage);
+    }
+
     // Other conversions not possible yet.
     
     return 0;
