@@ -77,6 +77,7 @@ float GaussianSquaredErrorTool::measure(std::shared_ptr<EstimatorInterface> esti
             p_x += weights[m]*gaussians[m].evaluate(x);
         }
         
+//        std::cout << p_x << " " << p_x_hat << std::endl;
         se += (p_x - p_x_hat)*(p_x - p_x_hat);
     }
     
@@ -85,7 +86,7 @@ float GaussianSquaredErrorTool::measure(std::shared_ptr<EstimatorInterface> esti
 
 void GaussianSquaredErrorTool::print(float se)
 {
-    printf("Error: %2.6f\n", se);
+    printf("Error: %2.12f\n", se);
 }
 
 void GaussianSquaredErrorTool::measureAndPrint(std::shared_ptr<EstimatorInterface> estimator, std::vector<Gaussian> & gaussians,

@@ -886,12 +886,12 @@ namespace libf {
         /**
          * Compute and cache the partition function.
          */
-        float getPartitionFunction(int D);
+        std::vector<float> getPartitionFunction(int D);
         
         /**
          * Partition function.
          */
-        float partitionFunction;
+        std::vector<float> partitionFunction;
         /**
          * The partition function is cached.
          */
@@ -1026,7 +1026,7 @@ namespace libf {
         /**
          * Get the partition function.
          */
-        float getPartitionFunction(int D);
+        std::vector<float> getPartitionFunction(int D);
         
         /**
          * Kernel used for kernel density estimation.
@@ -1036,7 +1036,7 @@ namespace libf {
         /**
          * Partition function.
          */
-        float partitionFunction;
+        std::vector<float> partitionFunction;
         /**
          * The partition function is cached.
          */

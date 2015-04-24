@@ -171,7 +171,7 @@ int main(int argc, const char** argv)
     desc.add_options()
         ("help", "produce help message")
         ("num-components", boost::program_options::value<int>()->default_value(1), "number of Gaussian components")
-        ("num-samples", boost::program_options::value<int>()->default_value(1000),"number of samples for training")
+        ("num-samples", boost::program_options::value<int>()->default_value(2500),"number of samples for training")
         ("bandwidth-selection-method", boost::program_options::value<int>()->default_value(0), "bandwidth selection method")
         ("kernel", boost::program_options::value<int>()->default_value(0), "kernel")
         ("seed", boost::program_options::value<int>()->default_value(std::time(0)), "seed used for std::srand");
@@ -210,15 +210,15 @@ int main(int argc, const char** argv)
         weights[m] = 1./M;
         weights_sum +=weights[m];
         
-        float v0 = randFloat(25, H/4);
-        float v1 = randFloat(25, W/4);
+        float v0 = randFloat(25, H/3);
+        float v1 = randFloat(25, W/3);
         float theta = randFloat(0, M_PI);
         
         Eigen::Matrix2f covariance = genCovar(v0, 2*v1, theta);
         
         Eigen::Vector2f mean(2);
-        mean(0) = randFloat(H/4, 3*(H/4));
-        mean(1) = randFloat(W/4, 3*(W/4));
+        mean(0) = randFloat(H/6, 5*(H/6));
+        mean(1) = randFloat(W/6, 5*(W/6));
         
         Gaussian gaussian;
         gaussian.setMean(mean);
@@ -292,11 +292,11 @@ int main(int argc, const char** argv)
     KernelDensityEstimator::ptr kde = std::make_shared<KernelDensityEstimator>(storage, kernel);
     kde->selectBandwidth(bandWidthSelectionMethod);
     
-    GaussianKullbackLeiblerTool klTool;
-    klTool.measureAndPrint(kde, gaussians, weights, 10*N);
+//    GaussianKullbackLeiblerTool klTool;
+//    klTool.measureAndPrint(kde, gaussians, weights, 10*N);
     
-//    GaussianSquaredErrorTool seTool;
-//    seTool.measureAndPrint(&kde, gaussians, weights, 10*N);
+    GaussianSquaredErrorTool seTool;
+    seTool.measureAndPrint(kde, gaussians, weights, 10*N);
     
     cv::Mat image_kde = visualizeKDE(H, W, kde);
     cv::imwrite("kde.png", image_kde);

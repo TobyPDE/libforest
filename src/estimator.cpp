@@ -299,18 +299,30 @@ float Gaussian::evaluate(const DataPoint & x)
 /// DensityTree
 ////////////////////////////////////////////////////////////////////////////////
 
-float DensityTree::getPartitionFunction(int D)
+std::vector<float> DensityTree::getPartitionFunction(int D)
 {
     if (!cachedPartitionFunction)
     {
         const int N = 100 * pow(10, D);
         const int nodes = getNumNodes();
         
+        int support = 0;
         for (int node = 0; node < nodes; node++)
         {
             if (getNodeConfig(node).isLeafNode())
             {
-                int count = 0;
+                support += getNodeData(node).gaussian.getDataSupport();
+            }
+        }
+        
+        partitionFunction = std::vector<float>(nodes, 0);
+        for (int node = 0; node < nodes; node++)
+        {
+            if (getNodeConfig(node).isLeafNode())
+            {
+                float count = 0;
+                float prob = 0;
+                
                 for (int n = 0; n < N; n++)
                 {
                     // This is basically Monte Carlo integration, where 
@@ -321,12 +333,13 @@ float DensityTree::getPartitionFunction(int D)
                     int leaf = findLeafNode(x);
                     if (leaf == node)
                     {
-                        count++;
+                        count += 1;
+                        prob += getNodeData(node).gaussian.evaluate(x);
                     }
                 }
                 
-                float volume = ((float) count)/N;
-                partitionFunction += getNodeData(node).gaussian.getDataSupport()/volume;
+                partitionFunction[node] = count/prob * 1/std::sqrt(pow(2*M_PI, getNodeData(node).gaussian.getMean().rows())*getNodeData(node).gaussian.getCovariance().determinant());
+                // partitionFunction[node] = count/N;
             }
         }
         
@@ -343,9 +356,8 @@ float DensityTree::estimate(const DataPoint & x)
     int node = findLeafNode(x);
     
     // Get the normalizer for our distribution.
-    const float Z = getPartitionFunction(x.rows());
-    
-    return getNodeData(node).gaussian.evaluate(x)/Z;
+    std::vector<float> Z = getPartitionFunction(x.rows());
+    return getNodeData(node).gaussian.evaluate(x)/Z[node];
 }
 
 void DensityTree::sample(DataPoint & x)
@@ -369,18 +381,21 @@ void DensityTree::sample(DataPoint & x)
 /// KernelDensityTree
 ////////////////////////////////////////////////////////////////////////////////
 
-float KernelDensityTree::getPartitionFunction(int D)
+std::vector<float> KernelDensityTree::getPartitionFunction(int D)
 {
     if (!cachedPartitionFunction)
     {
         const int N = 100 * pow(10, D);
         const int nodes = getNumNodes();
         
+        partitionFunction = std::vector<float>(nodes, 0);
         for (int node = 0; node < nodes; node++)
         {
             if (getNodeConfig(node).isLeafNode())
             {
                 float count = 0;
+                float prob = 0;
+                
                 for (int n = 0; n < N; n++)
                 {
                     // This is basically Monte Carlo integration. We use
@@ -396,11 +411,12 @@ float KernelDensityTree::getPartitionFunction(int D)
                         float N_x = getNodeData(node).gaussian.evaluate(x);
                         
                         count += p_x/N_x;
+                        prob += N_x;
                     }
                 }
                 
-                float volume = count/N;
-                partitionFunction += getNodeData(node).gaussian.getDataSupport()/volume;
+                partitionFunction[node] = count/prob * 1/std::sqrt(pow(2*M_PI, getNodeData(node).gaussian.getMean().rows())*getNodeData(node).gaussian.getCovariance().determinant());
+                // partitionFunction[node] = count/N;
             }
         }
         
@@ -417,7 +433,6 @@ float KernelDensityTree::estimate(const DataPoint & x)
     int node = findLeafNode(x);
     
     // Get the normalizer for our distribution.
-    const float Z = getPartitionFunction(x.rows());
-    
-    return getNodeData(node).estimator.estimate(x)/Z;
+    std::vector<float> Z = getPartitionFunction(x.rows());
+    return getNodeData(node).estimator.estimate(x)/Z[node];
 }

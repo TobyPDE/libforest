@@ -178,7 +178,7 @@ int main(int argc, const char** argv)
     desc.add_options()
         ("help", "produce help message")
         ("num-components", boost::program_options::value<int>()->default_value(2), "number of Gaussian components")
-        ("num-samples", boost::program_options::value<int>()->default_value(10000),"number of samples for training")
+        ("num-samples", boost::program_options::value<int>()->default_value(2500),"number of samples for training")
         ("num-features", boost::program_options::value<int>()->default_value(10), "number of features to use (set to dimensionality of data to learn deterministically)")
         ("max-depth", boost::program_options::value<int>()->default_value(10), "maximum depth of trees")
         ("min-split-examples", boost::program_options::value<int>()->default_value(500), "minimum number of samples required for a split")
@@ -201,8 +201,8 @@ int main(int argc, const char** argv)
     
     // Number of components.
     const int M = parameters["num-components"].as<int>();
-    const int H = 400;
-    const int W = 400;
+    const int H = 300;
+    const int W = 300;
     
     // New seed.
     std::srand(parameters["seed"].as<int>());
@@ -221,15 +221,15 @@ int main(int argc, const char** argv)
         weights[m] = 1./M;
         weights_sum +=weights[m];
         
-        float v0 = randFloat(25, H/4);
-        float v1 = randFloat(25, W/4);
+        float v0 = randFloat(25, H/3);
+        float v1 = randFloat(25, W/3);
         float theta = randFloat(0, M_PI);
         
         Eigen::Matrix2f covariance = genCovar(v0, 2*v1, theta);
         
         Eigen::Vector2f mean(2);
-        mean(0) = randFloat(H/4, 3*(H/4));
-        mean(1) = randFloat(W/4, 3*(W/4));
+        mean(0) = randFloat(H/6, 5*(H/6));
+        mean(1) = randFloat(W/6, 5*(W/6));
         
         Gaussian gaussian;
         gaussian.setMean(mean);
@@ -310,11 +310,11 @@ int main(int argc, const char** argv)
             
     KernelDensityTree::ptr tree = learner.learn(storage);
     
-    GaussianKullbackLeiblerTool klTool;
-    klTool.measureAndPrint(tree, gaussians, weights, 10*N);
+//    GaussianKullbackLeiblerTool klTool;
+//    klTool.measureAndPrint(tree, gaussians, weights, 10*N);
     
-//    GaussianSquaredErrorTool seTool;
-//    seTool.measureAndPrint(tree, gaussians, weights, 10*N);
+    GaussianSquaredErrorTool seTool;
+    seTool.measureAndPrint(tree, gaussians, weights, 10*N);
     
     cv::Mat image_tree = visualizeTree(H, W, tree);
     cv::imwrite("tree.png", image_tree);
