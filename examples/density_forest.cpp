@@ -151,11 +151,11 @@ int main(int argc, const char** argv)
     desc.add_options()
         ("help", "produce help message")
         ("num-components", boost::program_options::value<int>()->default_value(2), "number of Gaussian components")
-        ("num-samples", boost::program_options::value<int>()->default_value(10000),"number of samples for training")
+        ("num-samples", boost::program_options::value<int>()->default_value(2500),"number of samples for training")
         ("num-features", boost::program_options::value<int>()->default_value(10), "number of features to use (set to dimensionality of data to learn deterministically)")
         ("max-depth", boost::program_options::value<int>()->default_value(10), "maximum depth of trees")
-        ("min-split-examples", boost::program_options::value<int>()->default_value(2000), "minimum number of samples required for a split")
-        ("min-child-split-examples", boost::program_options::value<int>()->default_value(1000), "minimum examples needed in the children for a split")
+        ("min-split-examples", boost::program_options::value<int>()->default_value(500), "minimum number of samples required for a split")
+        ("min-child-split-examples", boost::program_options::value<int>()->default_value(250), "minimum examples needed in the children for a split")
         ("num-trees", boost::program_options::value<int>()->default_value(100), "number of trees")
         ("num-threads", boost::program_options::value<int>()->default_value(1), "number of threads")
         ("seed", boost::program_options::value<int>()->default_value(std::time(0)), "seed used for std::srand");
@@ -174,8 +174,8 @@ int main(int argc, const char** argv)
     
     // Number of components.
     const int M = parameters["num-components"].as<int>();
-    const int H = 400;
-    const int W = 400;
+    const int H = 300;
+    const int W = 300;
     
     // New seed.
     std::srand(parameters["seed"].as<int>());
@@ -194,15 +194,15 @@ int main(int argc, const char** argv)
         weights[m] = 1./M;
         weights_sum +=weights[m];
         
-        float v0 = randFloat(25, H/4);
-        float v1 = randFloat(25, W/4);
+        float v0 = randFloat(25, H/3);
+        float v1 = randFloat(25, W/3);
         float theta = randFloat(0, M_PI);
         
         Eigen::Matrix2f covariance = genCovar(v0, 2*v1, theta);
         
         Eigen::Vector2f mean(2);
-        mean(0) = randFloat(H/4, 3*(H/4));
-        mean(1) = randFloat(W/4, 3*(W/4));
+        mean(0) = randFloat(H/6, 5*(H/6));
+        mean(1) = randFloat(W/6, 5*(W/6));
         
         Gaussian gaussian;
         gaussian.setMean(mean);
@@ -245,11 +245,11 @@ int main(int argc, const char** argv)
     
     auto forest = learner.learn(storage);
     
-    GaussianKullbackLeiblerTool klTool;
-    klTool.measureAndPrint(forest, gaussians, weights, 10*N);
+//    GaussianKullbackLeiblerTool klTool;
+//    klTool.measureAndPrint(forest, gaussians, weights, 10*N);
     
-//    GaussianSquaredErrorTool seTool;
-//    seTool.measureAndPrint(forest, gaussians, weights, 10*N);
+    GaussianSquaredErrorTool seTool;
+    seTool.measureAndPrint(forest, gaussians, weights, 10*N);
     
     cv::Mat image_forest = visualizeForest(H, W, forest);
     cv::imwrite("forest.png", image_forest);
