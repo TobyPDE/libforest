@@ -399,7 +399,9 @@ void ZScoreNormalizer::apply(DataStorage::ptr storage) const
     
     for (int n = 0; n < N; n++)
     {
-        storage->getDataPoint(n) = (storage->getDataPoint(n) - mean).cwiseProduct(stdev.cwiseInverse());
+        //storage->getDataPoint(n) = (storage->getDataPoint(n) - mean).cwiseProduct(stdev.cwiseInverse());
+        storage->getDataPoint(n) = storage->getDataPoint(n) - mean;
+        //storage->getDataPoint(n) /= storage->getDataPoint(n).lpNorm<2>();
     }
 }
 

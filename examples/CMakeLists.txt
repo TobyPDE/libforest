@@ -28,17 +28,17 @@ target_link_libraries(cli_rf libforest ${Boost_LIBRARIES})
 #add_executable(cli_online_rf_convergence online_rf_convergence.cpp)
 #target_link_libraries(cli_online_rf_convergence libforest ${Boost_LIBRARIES})
 
-add_executable(cli_density_tree density_tree.cpp)
-target_link_libraries(cli_density_tree libforest ${Boost_LIBRARIES} ${OpenCV_LIBRARIES})
+#add_executable(cli_density_tree density_tree.cpp)
+#target_link_libraries(cli_density_tree libforest ${Boost_LIBRARIES} ${OpenCV_LIBRARIES})
 
-add_executable(cli_density_forest density_forest.cpp)
-target_link_libraries(cli_density_forest libforest ${Boost_LIBRARIES} ${OpenCV_LIBRARIES})
+#add_executable(cli_density_forest density_forest.cpp)
+#target_link_libraries(cli_density_forest libforest ${Boost_LIBRARIES} ${OpenCV_LIBRARIES})
 
-add_executable(cli_kde kde.cpp)
-target_link_libraries(cli_kde libforest ${Boost_LIBRARIES} ${OpenCV_LIBRARIES})
+#add_executable(cli_kde kde.cpp)
+#target_link_libraries(cli_kde libforest ${Boost_LIBRARIES} ${OpenCV_LIBRARIES})
 
-add_executable(cli_kernel_density_tree kernel_density_tree.cpp)
-target_link_libraries(cli_kernel_density_tree libforest ${Boost_LIBRARIES} ${OpenCV_LIBRARIES})
+#add_executable(cli_kernel_density_tree kernel_density_tree.cpp)
+#target_link_libraries(cli_kernel_density_tree libforest ${Boost_LIBRARIES} ${OpenCV_LIBRARIES})
 
 #add_executable(cli_kmeans kmeans.cpp)
 #target_link_libraries(cli_kmeans libforest ${Boost_LIBRARIES})
