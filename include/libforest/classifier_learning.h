@@ -174,6 +174,39 @@ namespace libf {
     };
     
     /**
+     * This is a dot product decision tree learning algorithm. It learns the
+     * tree using the information gain criterion.
+     */
+    class DotProductDecisionTreeLearner : 
+            public AbstractTreeClassifierLearner, 
+            public OfflineLearnerInterface<DotProductDecisionTree> {
+    public:
+        DotProductDecisionTreeLearner() : AbstractTreeClassifierLearner() {}
+        
+        /**
+         * Learns a decision tree on a data set.
+         * 
+         * @param storage The training set
+         * @param state The learning state
+         * @return The learned tree
+         */
+        virtual DotProductDecisionTree::ptr learn(AbstractDataStorage::ptr storage, State & state);
+        
+        /**
+         * Learns a decision tree on a data set.
+         * 
+         * @param storage The training set
+         * @return The learned tree
+         */
+        virtual DotProductDecisionTree::ptr learn(AbstractDataStorage::ptr storage)
+        {
+            // Just create a state and don't do anything with it
+            State state;
+            return this->learn(storage, state);
+        }
+    };
+    
+    /**
      * Learn a decision tree online, either by passing a single sample at a time
      * or doing online batch learning.
      */

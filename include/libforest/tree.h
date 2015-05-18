@@ -11,15 +11,6 @@
 #include "data.h"
 
 namespace libf {
-    
-    class TestKernel {
-    public:
-        static float k(const DataPoint & x, const DataPoint & y)
-        {
-            return x.adjoint()*y;
-        }
-    };
-    
     /**
      * This is the base class for all node configuration classes. 
      */
@@ -461,7 +452,7 @@ namespace libf {
      */
     class ProjectiveSplitTreeNodeConfig : public AbstractNodeConfig {
     public:
-        ProjectiveSplitTreeNodeConfig() : AbstractNodeConfig(), threshold(0) {}
+        ProjectiveSplitTreeNodeConfig() : AbstractNodeConfig() {}
         
         virtual ~ProjectiveSplitTreeNodeConfig() {}
         
@@ -483,6 +474,67 @@ namespace libf {
         const DataPoint & getProjection() const
         {
             return projection;
+        }
+        
+        /**
+         * Reads the tree from a stream. 
+         * 
+         * @param stream The stream to read the tree from
+         */
+        void read(std::istream & stream)
+        {
+            AbstractNodeConfig::read(stream);
+            // TODO: Implement writeBinary for DataPoint
+            // readBinary(stream, projection);
+        }
+        
+        /**
+         * Writes the tree to a stream
+         * 
+         * @param stream The stream to write the tree to.
+         */
+        void write(std::ostream & stream) const
+        {
+            AbstractNodeConfig::write(stream);
+            // TODO: Implement writeBinary for DataPoint
+            // writeBinary(stream, projection);
+        }
+        
+    private:
+        /**
+         * The split projection
+         */
+        DataPoint projection;
+    };
+    
+    
+    /**
+     * This is the node configuration for dot product split trees.
+     */
+    class DotProductSplitTreeNodeConfig : public AbstractNodeConfig {
+    public:
+        DotProductSplitTreeNodeConfig() : AbstractNodeConfig(), threshold(0) {}
+        
+        virtual ~DotProductSplitTreeNodeConfig() {}
+        
+        /**
+         * Returns the projection
+         * 
+         * @return The projection vector
+         */
+        DataPoint & getProjection1()
+        {
+            return projection1;
+        }
+        
+        /**
+         * Returns the projection
+         * 
+         * @return The projection vector
+         */
+        const DataPoint & getProjection1() const
+        {
+            return projection1;
         }
         
         /**
@@ -553,11 +605,11 @@ namespace libf {
         
     private:
         /**
-         * The split projection
+         * The first split projection
          */
-        DataPoint projection;
+        DataPoint projection1;
         /**
-         * The split projection
+         * The second split projection
          */
         DataPoint projection2;
         /**
@@ -599,11 +651,10 @@ namespace libf {
             while (!this->getNodeConfig(node).isLeafNode())
             {
                 const ProjectiveSplitTreeNodeConfig & config = this->getNodeConfig(node);
-                const float inner = TestKernel::k(config.getProjection2(), x) - TestKernel::k(config.getProjection(), x);
-                //const float inner = config.getProjection().adjoint()*x;
+                const float inner = config.getProjection().adjoint()*x;
                 
                 // Check the threshold
-                if (inner < config.getThreshold())
+                if (inner < 0)
                 {
                     // Go to the left
                     node = config.getLeftChild();
@@ -716,6 +767,60 @@ namespace libf {
          * The individual decision trees. 
          */
         std::vector< std::shared_ptr<TreeType> > trees;
+    };
+    
+    
+    /**
+     * This is a base class for trees that split the space using the dot product
+     * splits. Each node in the tree can carry some specified data. 
+     */
+    template <class Base>
+    class AbstractDotProductSplitTree : public Base {
+    public:
+        /**
+         * Creates an empty split tree.
+         */
+        AbstractDotProductSplitTree() : Base() {}
+        
+        /**
+         * Destructor.
+         */
+        virtual ~AbstractDotProductSplitTree() {}
+        
+        /**
+         * Passes the data point through the tree and returns the index of the
+         * leaf node it ends up in. 
+         * 
+         * @param x The data point to pass down the tree
+         * @return The index of the leaf node v ends up in
+         */
+        virtual int findLeafNode(const DataPoint & x) const
+        {
+            // Select the root node as current node
+            int node = 0;
+
+            // Follow the tree until we hit a leaf node
+            while (!this->getNodeConfig(node).isLeafNode())
+            {
+                const DotProductSplitTreeNodeConfig & config = this->getNodeConfig(node);
+                float inner = config.getProjection2().adjoint()*x;
+                inner -= config.getProjection1().adjoint()*x;
+                
+                // Check the threshold
+                if (inner < config.getThreshold())
+                {
+                    // Go to the left
+                    node = config.getLeftChild();
+                }
+                else
+                {
+                    // Go to the right
+                    node = config.getRightChild();
+                }
+            }
+
+            return node;
+        }
     };
     
     /**
