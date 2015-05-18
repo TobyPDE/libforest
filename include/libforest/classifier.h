@@ -197,6 +197,14 @@ namespace libf {
     };
     
     /**
+     * This class represents a projective decision tree.
+     */
+    class DotProductDecisionTree : public AbstractDotProductSplitTree< AbstractTreeClassifier<DotProductSplitTreeNodeConfig, TreeClassifierNodeData> > {
+    public:
+        typedef std::shared_ptr<DotProductDecisionTree> ptr;
+    };
+    
+    /**
      * This class implements random forest classifiers.
      */
     template <class TreeType>

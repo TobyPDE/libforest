@@ -371,7 +371,233 @@ ProjectiveDecisionTree::ptr ProjectiveDecisionTreeLearner::learn(AbstractDataSto
     std::mt19937 g(rd());
     std::normal_distribution<float> normal(0.0f, 1.0f);
     
-    std::vector<float> projectionValues(storage->getSize(), 0.0f);
+    // Start training
+    while (splitStack.size() > 0)
+    {
+        // Extract an element from the queue
+        const int node = splitStack.top();
+        splitStack.pop();
+        state.depth = std::max(state.depth, tree->getNodeConfig(node).getDepth());
+        state.numNodes++;
+        
+        // Get the training example list
+        int* trainingExampleList = trainingExamples[node];
+        const int N = trainingExamplesSizes[node];
+
+        // Set up the right histogram
+        // Because we start with the threshold being at the left most position
+        // The right child node contains all training examples
+        
+        // Also set up lists for each class labels that contain all data point
+        // indices. We need this in order to sample from the classes
+        std::vector< std::vector<int> > sortedPointIndices(C);
+        
+        EfficientEntropyHistogram hist(C);
+        for (int m = 0; m < N; m++)
+        {
+            const int c = storage->getClassLabel(trainingExampleList[m]);
+            // Get the class label of this training example
+            hist.addOne(c);
+            sortedPointIndices[c].push_back(trainingExampleList[m]);
+        }
+        
+        // Set up a distribution over the non-empty classes
+        std::vector<int> classLabels;
+        for (int c = 0; c < hist.getSize(); c++)
+        {
+            if (hist.at(c) != 0)
+            {
+                classLabels.push_back(c);
+            }
+        }
+        std::uniform_int_distribution<int> classLabelDist(0, static_cast<int>(classLabels.size() - 1));
+        
+        // Don't split this node
+        //  If the number of examples is too small
+        //  If the training examples are all of the same class
+        //  If the maximum depth is reached
+        if (hist.getMass() < minSplitExamples || hist.isPure() || tree->getNodeConfig(node).getDepth() >= maxDepth)
+        {
+            // Resize and initialize the leaf node histogram
+            updateLeafNodeHistogram(tree->getNodeData(node).histogram, hist, smoothingParameter, useBootstrap);
+            BOOST_ASSERT(tree->getNodeData(node).histogram.size() > 0);
+            delete[] trainingExampleList;
+            state.processed += N;
+            continue;
+        }
+        
+        // These are the parameters we optimize
+        float bestObjective = 1e35;
+        int bestLeftMass = 0;
+        int bestRightMass = N;
+        DataPoint bestProjection(D);
+
+        // Optimize over all features
+        for (int f = 0; f < numFeatures; f++)
+        {
+            // Sample a projection dimension
+            DataPoint projection(D);
+            float length = 0;
+            for (int d = 0; d < D; d++)
+            {
+                projection(d) = normal(g);
+                length += projection(d)*projection(d);
+            }
+            // Normalize the projection
+            projection /= std::sqrt(length);
+            
+            // Initialize the histograms
+            leftHistogram.reset();
+            rightHistogram = hist;
+            
+            // Set up the array of projection values
+            for (int m = 0; m < N; m++)
+            {
+                const int n = trainingExampleList[m];
+                const float inner = projection.adjoint()*storage->getDataPoint(n);
+                
+                if (inner < 0)
+                {
+                    // Move the last point to the left histogram
+                    leftHistogram.addOne(storage->getClassLabel(n));
+                    rightHistogram.subOne(storage->getClassLabel(n));
+                }
+            }
+            
+            // Get the objective function
+            const float localObjective = leftHistogram.getEntropy()
+                    + rightHistogram.getEntropy();
+                
+            if (localObjective < bestObjective)
+            {
+                // Get the threshold value
+                bestProjection = projection;
+                bestObjective = localObjective;
+                bestLeftMass = leftHistogram.getMass();
+                bestRightMass = rightHistogram.getMass();
+            }
+        }
+        
+        // Did we find good split values?
+        if (bestObjective > 1e20 || bestLeftMass < minChildSplitExamples || bestRightMass < minChildSplitExamples)
+        {
+            // We didn't
+            // Don't split
+            updateLeafNodeHistogram(tree->getNodeData(node).histogram, hist, smoothingParameter, useBootstrap);
+            BOOST_ASSERT(tree->getNodeData(node).histogram.size() > 0);
+            delete[] trainingExampleList;
+            state.processed += N;
+            continue;
+        }
+        
+        // Set up the data lists for the child nodes
+        trainingExamplesSizes.push_back(bestLeftMass);
+        trainingExamplesSizes.push_back(bestRightMass);
+        trainingExamples.push_back(new int[bestLeftMass]);
+        trainingExamples.push_back(new int[bestRightMass]);
+        
+        int* leftList = trainingExamples[trainingExamples.size() - 2];
+        int* rightList = trainingExamples[trainingExamples.size() - 1];
+        
+        // Sort the points
+        for (int m = 0; m < N; m++)
+        {
+            const int n = trainingExampleList[m];
+            const float inner = bestProjection.adjoint()*storage->getDataPoint(n);
+            
+            if (inner < 0)
+            {
+                leftList[--bestLeftMass] = n;
+            }
+            else
+            {
+                rightList[--bestRightMass] = n;
+            }
+        }
+        
+        // Ok, split the node
+        tree->getNodeConfig(node).getProjection() = bestProjection;
+        const int leftChild = tree->splitNode(node);
+        
+        // Prepare to split the child nodes
+        splitStack.push(leftChild);
+        splitStack.push(leftChild + 1);
+        
+        delete[] trainingExampleList;
+    }
+    
+    // If we use bootstrap, we use all the training examples for the 
+    // histograms
+    if (useBootstrap)
+    {
+        TreeLearningTools::updateHistograms(tree, dataStorage, smoothingParameter);
+    }
+    
+    state.terminated = true;
+    return tree;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+/// DotProductDecisionTreeLearner
+////////////////////////////////////////////////////////////////////////////////
+
+DotProductDecisionTree::ptr DotProductDecisionTreeLearner::learn(AbstractDataStorage::ptr dataStorage, DotProductDecisionTreeLearner::State & state)
+{
+    state.reset();
+    state.started = true;
+    
+    AbstractDataStorage::ptr storage;
+    // If we use bootstrap sampling, then this array contains the results of 
+    // the sampler. We use it later in order to refine the leaf node histograms
+    std::vector<bool> sampled;
+    
+    if (useBootstrap)
+    {
+        storage = dataStorage->bootstrap(numBootstrapExamples, sampled);
+    }
+    else
+    {
+        storage = dataStorage;
+    }
+    
+    state.total = storage->getSize();
+    
+    // Get the number of training examples and the dimensionality of the data set
+    const int D = storage->getDimensionality();
+    const int C = storage->getClasscount();
+    
+    // Set up a new tree. 
+    auto tree = std::make_shared<DotProductDecisionTree>();
+    tree->addNode();
+    
+    // This is the list of nodes that still have to be split
+    std::stack<int> splitStack;
+    //splitStack.reserve(static_cast<int>(fastlog2(storage->getSize())));
+    
+    // Add the root node to the list of nodes that still have to be split
+    splitStack.push(0);
+    
+    // This matrix stores the training examples for certain nodes. 
+    std::vector< int* > trainingExamples;
+    std::vector< int > trainingExamplesSizes;
+    trainingExamples.reserve(LIBF_GRAPH_BUFFER_SIZE);
+    trainingExamplesSizes.reserve(LIBF_GRAPH_BUFFER_SIZE);
+    
+    // Add all training example to the root node
+    trainingExamplesSizes.push_back(storage->getSize());
+    trainingExamples.push_back(new int[trainingExamplesSizes[0]]);
+    for (int n = 0; n < storage->getSize(); n++)
+    {
+        trainingExamples[0][n] = n;
+    }
+    
+    // We use these arrays during training for the left and right histograms
+    EfficientEntropyHistogram leftHistogram(C);
+    EfficientEntropyHistogram rightHistogram(C);
+    
+    // Set up a probability distribution over the features
+    std::mt19937 g(rd());
     
     // Start training
     while (splitStack.size() > 0)
@@ -449,7 +675,7 @@ ProjectiveDecisionTree::ptr ProjectiveDecisionTreeLearner::learn(AbstractDataSto
             
             // Sample a projection and keep the length of the projection in order
             // to normalize the projection
-            float threshold = 0.5*(TestKernel::k(x2, x2) - TestKernel::k(x1,x1));
+            float threshold = 0.5*(x2.squaredNorm() - x1.squaredNorm());
             
             // Initialize the histograms
             leftHistogram.reset();
@@ -460,7 +686,8 @@ ProjectiveDecisionTree::ptr ProjectiveDecisionTreeLearner::learn(AbstractDataSto
             {
                 const int n = trainingExampleList[m];
                 //projectionValues[n] = projection.adjoint()*storage->getDataPoint(n);
-                const float inner = TestKernel::k(storage->getDataPoint(n), x2) - TestKernel::k(storage->getDataPoint(n), x1);
+                float inner = (storage->getDataPoint(n).adjoint()*x2);
+                inner -= (storage->getDataPoint(n).adjoint()*x1);
                 
                 if (inner < threshold)
                 {
@@ -511,7 +738,9 @@ ProjectiveDecisionTree::ptr ProjectiveDecisionTreeLearner::learn(AbstractDataSto
         for (int m = 0; m < N; m++)
         {
             const int n = trainingExampleList[m];
-            const float inner = TestKernel::k(storage->getDataPoint(n), bestProjection2) - TestKernel::k(storage->getDataPoint(n), bestProjection1);
+            float inner = storage->getDataPoint(n).adjoint()*bestProjection2;
+            inner -= storage->getDataPoint(n).adjoint()*bestProjection1;
+            
             
             if (inner < bestThreshold)
             {
@@ -525,7 +754,7 @@ ProjectiveDecisionTree::ptr ProjectiveDecisionTreeLearner::learn(AbstractDataSto
         
         // Ok, split the node
         tree->getNodeConfig(node).setThreshold(bestThreshold);
-        tree->getNodeConfig(node).getProjection() = bestProjection1;
+        tree->getNodeConfig(node).getProjection1() = bestProjection1;
         tree->getNodeConfig(node).getProjection2() = bestProjection2;
         const int leftChild = tree->splitNode(node);
         
