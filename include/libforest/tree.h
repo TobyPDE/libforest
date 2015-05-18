@@ -12,6 +12,14 @@
 
 namespace libf {
     
+    class TestKernel {
+    public:
+        static float k(const DataPoint & x, const DataPoint & y)
+        {
+            return x.adjoint()*y;
+        }
+    };
+    
     /**
      * This is the base class for all node configuration classes. 
      */
@@ -478,6 +486,26 @@ namespace libf {
         }
         
         /**
+         * Returns the projection
+         * 
+         * @return The projection vector
+         */
+        DataPoint & getProjection2()
+        {
+            return projection2;
+        }
+        
+        /**
+         * Returns the projection
+         * 
+         * @return The projection vector
+         */
+        const DataPoint & getProjection2() const
+        {
+            return projection2;
+        }
+        
+        /**
          * Sets the threshold for a node
          * 
          * @param _threshold The new threshold value
@@ -529,6 +557,10 @@ namespace libf {
          */
         DataPoint projection;
         /**
+         * The split projection
+         */
+        DataPoint projection2;
+        /**
          * The threshold of the node
          */
         float threshold;
@@ -567,7 +599,8 @@ namespace libf {
             while (!this->getNodeConfig(node).isLeafNode())
             {
                 const ProjectiveSplitTreeNodeConfig & config = this->getNodeConfig(node);
-                const float inner = config.getProjection().adjoint()*x;
+                const float inner = TestKernel::k(config.getProjection2(), x) - TestKernel::k(config.getProjection(), x);
+                //const float inner = config.getProjection().adjoint()*x;
                 
                 // Check the threshold
                 if (inner < config.getThreshold())

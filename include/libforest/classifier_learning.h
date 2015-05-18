@@ -592,7 +592,7 @@ namespace libf {
             /**
              * Prints the state into the console. 
              */
-            virtual void print() const
+            virtual void print() 
             {
                 ForestLearnerState::print();
                 std::cout << "Alpha: " << lastAlpha << std::endl;

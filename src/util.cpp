@@ -27,29 +27,18 @@ void Util::generateRandomPermutation(int N, std::vector<int> & sigma)
 /// GUIUtil
 ////////////////////////////////////////////////////////////////////////////////
 
-void GUIUtil::printProgressBar(float percentage)
+void GUIUtil::printProgressBar(float percentage, int size)
 {
-    // We set the width of the bar to 60 characters
-    int mcol = 60;
-    
-    // Calculate the number of progress bar segments
-    // 8 = 2 spacers, 4 characters for the percentage, 1 blank space, 1 line feed
-    int progressBarWidth = mcol - 8;
-    
-    std::cout << '[';
-    
-    for (int k = 0; k < progressBarWidth; k++)
+    for (int k = 0; k < size; k++)
     {
-        const float p = k/static_cast<float>(progressBarWidth);
+        const float p = (k+1)/static_cast<float>(size);
         if (p <= percentage)
         {
-            std::cout << '=';
+            std::cout << '#';
         }
         else
         {
             std::cout << ' ';
         }
     }
-    
-    std::cout << "] " << std::setw(4) << percentage * 100 << '%' << std::endl;
 }

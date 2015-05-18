@@ -8,7 +8,7 @@ using namespace libf;
 /// TreeLearnerState
 ////////////////////////////////////////////////////////////////////////////////
 
-void TreeLearnerState::print() const 
+void TreeLearnerState::print()  
 {
     float percentage = processed/static_cast<float>(total);
     if (total == 0)
@@ -18,7 +18,6 @@ void TreeLearnerState::print() const
     
     std::cout << "Nodes: " << std::setw(6) << numNodes << std::endl;
     std::cout << "Depth: " << std::setw(6) << depth << std::endl;
-    GUIUtil::printProgressBar(percentage);
 }
 
 void TreeLearnerState::reset()
@@ -34,15 +33,13 @@ void TreeLearnerState::reset()
 /// ForestLearnerState
 ////////////////////////////////////////////////////////////////////////////////
 
-void ForestLearnerState::print() const
+void ForestLearnerState::print() 
 {
     float percentageFinished = processed/static_cast<float>(total);
     float percentageStarted = startedProcessing/static_cast<float>(total);
     
     std::cout << "Finished trees: " << std::setw(4) << processed << '/' << total << std::endl;
-    GUIUtil::printProgressBar(percentageFinished);
     std::cout << "Started trees:  " << std::setw(4) << startedProcessing << '/' << total << std::endl;
-    GUIUtil::printProgressBar(percentageStarted);
 }
 
 void ForestLearnerState::reset()
