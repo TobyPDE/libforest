@@ -96,25 +96,25 @@ int main(int argc, const char** argv)
     st.measureAndPrint(storage);
 #endif
      
-    //MinMaxNormalizer zscore;
-    //zscore.learn(storageTrain);
-    //zscore.apply(storageTrain);
-    //zscore.apply(storageTest);
+    ZScoreNormalizer zscore;
+    zscore.learn(storageTrain);
+    zscore.apply(storageTrain);
+    zscore.apply(storageTest);
     
     std::cout << "Training Data" << std::endl;
     storageTrain->dumpInformation();
     storageTest->dumpInformation();
     
-    RandomForestLearner<DecisionTreeLearner> forestLearner;
+    RandomForestLearner<ProjectiveDecisionTreeLearner> forestLearner;
 
-    forestLearner.getTreeLearner().setMinChildSplitExamples(2);
-    forestLearner.getTreeLearner().setNumBootstrapExamples(storageTrain->getSize());
+    forestLearner.getTreeLearner().setMinChildSplitExamples(5);
+    forestLearner.getTreeLearner().setNumBootstrapExamples(15000);
     forestLearner.getTreeLearner().setUseBootstrap(useBootstrap);
     forestLearner.getTreeLearner().setMaxDepth(parameters["max-depth"].as<int>());
     forestLearner.getTreeLearner().setNumFeatures(parameters["num-features"].as<int>());
 
     forestLearner.setNumTrees(parameters["num-trees"].as<int>());
-    //forestLearner.setNumThreads(parameters["num-threads"].as<int>());
+    forestLearner.setNumThreads(parameters["num-threads"].as<int>());
     
     auto state = forestLearner.createState();
     ConsoleGUI<decltype(state)> gui(state);

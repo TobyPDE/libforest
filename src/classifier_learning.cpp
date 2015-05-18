@@ -355,10 +355,6 @@ ProjectiveDecisionTree::ptr ProjectiveDecisionTreeLearner::learn(AbstractDataSto
     trainingExamples.reserve(LIBF_GRAPH_BUFFER_SIZE);
     trainingExamplesSizes.reserve(LIBF_GRAPH_BUFFER_SIZE);
     
-    // Saves the sum of impurity decrease achieved by each feature
-    // TODO: Update importance calculation
-    //importance = std::vector<float>(D, 0.f);
-    
     // Add all training example to the root node
     trainingExamplesSizes.push_back(storage->getSize());
     trainingExamples.push_back(new int[trainingExamplesSizes[0]]);
@@ -373,68 +369,13 @@ ProjectiveDecisionTree::ptr ProjectiveDecisionTreeLearner::learn(AbstractDataSto
     
     // Set up a probability distribution over the features
     std::mt19937 g(rd());
-    std::uniform_int_distribution<int> dist(0, D-1);
-    std::uniform_real_distribution<float> dist2(0, 1);
     std::normal_distribution<float> normal(0.0f, 1.0f);
-    std::uniform_real_distribution<float> dist3(-1, 1);
-    const int F = 4;
-    std::poisson_distribution<int> poisson(F);
     
-    const float s = std::sqrt(D);
     std::vector<float> projectionValues(storage->getSize(), 0.0f);
-    
-    int numProjections = numFeatures;
-    // Set up some random projections
-    std::vector<DataPoint> projections(numProjections);
-    
-    std::vector<int> dimensions(D);
-    for (int d = 0; d < D; d++) dimensions[d] = d;
     
     // Start training
     while (splitStack.size() > 0)
     {
-        for (int f = 0; f < numProjections; f++)
-        {
-            projections[f] = DataPoint::Zero(D);
-#if 1
-                for (int d = 0; d < D; d++)
-                {
-                    const float u = dist2(g);
-                    if (u <= 0.5/s)
-                    {
-                        projections[f](d) = -1;
-                    }
-                    if ( u <= 1/s)
-                    {
-                        projections[f](d) = dist3(g);
-                    }
-                }
-#endif
-#if 0
-                projections[f](dist(g)) = 1;
-                projections[f](dist(g)) = -1;
-#endif
-#if 0
-                for (int d = 0; d < D; d++)
-                {
-                    projections[f](d) = normal(g);
-                }
-#endif
-#if 0
-                projections[f](dist(g)) = 1;
-#endif
-#if 0
-                int nnz;
-                do {
-                    nnz = poisson(g);
-                } while (nnz == 0);
-                
-                for (int l = 0; l < nnz; l++)
-                {
-                    projections[f](dist(g)) = 2*dist2(g) - 1;
-                }
-#endif
-        }
         // Extract an element from the queue
         const int node = splitStack.top();
         splitStack.pop();
@@ -480,64 +421,49 @@ ProjectiveDecisionTree::ptr ProjectiveDecisionTreeLearner::learn(AbstractDataSto
         // Optimize over all features
         for (int f = 0; f < numFeatures; f++)
         {
-            // Set up the array of projection values
-            for (int m = 0; m < N; m++)
-            {
-                const int n = trainingExampleList[m];
-                projectionValues[n] = projections[f].adjoint()*storage->getDataPoint(n);
-            }
+            // Sample a projection and keep the length of the projection in order
+            // to normalize the projection
+            DataPoint projection(D);
+            float threshold = 0.0f;
             
-            std::sort(trainingExampleList, trainingExampleList + N, [&projectionValues](const int lhs, const int rhs) -> bool {
-                return projectionValues[lhs] < projectionValues[rhs];
-            });
+            float length = 0;
+            for (int d = 0; d < D; d++)
+            {
+                projection(d) = normal(g);
+                length += projection(d)*projection(d);
+            }
+            projection /= std::sqrt(length);
             
             // Initialize the histograms
             leftHistogram.reset();
             rightHistogram = hist;
             
-            float leftValue = projectionValues[trainingExampleList[0]];
-            int leftClass = storage->getClassLabel(trainingExampleList[0]);
-            
-            // Test different thresholds
-            // Go over all examples in this node
-            for (int m = 1; m < N; m++)
+            // Set up the array of projection values
+            for (int m = 0; m < N; m++)
             {
                 const int n = trainingExampleList[m];
+                projectionValues[n] = projection.adjoint()*storage->getDataPoint(n);
                 
-                // Move the last point to the left histogram
-                leftHistogram.addOne(leftClass);
-                rightHistogram.subOne(leftClass);
-                        
-                // It does
-                // Get the two feature values
-                const float rightValue = projectionValues[n];
-                
-                // Skip this split, if the two points lie too close together
-                const float diff = rightValue - leftValue;
-                
-                if (diff < 1e-6f)
+                if (projectionValues[n] < threshold)
                 {
-                    leftValue = rightValue;
-                    leftClass = storage->getClassLabel(n);
-                    continue;
+                    // Move the last point to the left histogram
+                    leftHistogram.addOne(storage->getClassLabel(n));
+                    rightHistogram.subOne(storage->getClassLabel(n));
                 }
+            }
+            
+            // Get the objective function
+            const float localObjective = leftHistogram.getEntropy()
+                    + rightHistogram.getEntropy();
                 
-                // Get the objective function
-                const float localObjective = leftHistogram.getEntropy()
-                        + rightHistogram.getEntropy();
-                
-                if (localObjective < bestObjective)
-                {
-                    // Get the threshold value
-                    bestThreshold = (leftValue + rightValue);
-                    bestProjection = projections[f];
-                    bestObjective = localObjective;
-                    bestLeftMass = leftHistogram.getMass();
-                    bestRightMass = rightHistogram.getMass();
-                }
-                
-                leftValue = rightValue;
-                leftClass = storage->getClassLabel(n);
+            if (localObjective < bestObjective)
+            {
+                // Get the threshold value
+                bestThreshold = threshold;
+                bestProjection = projection;
+                bestObjective = localObjective;
+                bestLeftMass = leftHistogram.getMass();
+                bestRightMass = rightHistogram.getMass();
             }
         }
         
