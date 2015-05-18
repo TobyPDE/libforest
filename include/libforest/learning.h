@@ -68,7 +68,7 @@ namespace libf {
         /**
          * Prints the state into the console. 
          */
-        virtual void print() const = 0;
+        virtual void print()  = 0;
         
         /**
          * Resets the state
@@ -120,7 +120,7 @@ namespace libf {
         /**
          * Prints the state into the console. 
          */
-        virtual void print() const;
+        virtual void print() ;
         
         /**
          * Resets the state
@@ -166,7 +166,7 @@ namespace libf {
         /**
          * Prints the state into the console. 
          */
-        virtual void print() const;
+        virtual void print() ;
         
         /**
          * Resets the state
@@ -193,22 +193,54 @@ namespace libf {
     template <class L>
     class RandomForestLearnerState : public ForestLearnerState {
     public:
+        RandomForestLearnerState() : calls(0) {}
+        
         /**
          * Prints the state into the console. 
          */
-        virtual void print() const
+        virtual void print() 
         {
-            //ForestLearnerState::print();
+            // Print the header every 5 iterations
+            if ((calls % 5) == 0)
+            {
+                printf("   Time | ");
+                printf("Progress || ");
+                for (size_t t = 0; t < treeLearnerStates.size(); t++)
+                {
+                    printf(" Thrd%2d | ", static_cast<int>(t+1));
+                }
+                printf("\n");
+                printf("========|=");
+                printf("=========||=");
+                for (size_t t = 0; t < treeLearnerStates.size(); t++)
+                {
+                    printf("========|=");
+                }
+                printf("\n");
+            }
+            calls++;
             
-            printf("Time");
             printf("%6.0fs | ", this->getPassedTimeInSeconds());
-            printf("%5.2f%% | ", this->getProgress()*100);
+            printf("%7.2f%% || ", this->getProgress()*100);
             for (size_t t = 0; t < treeLearnerStates.size(); t++)
             {
-                printf("%5.2f%% | ", treeLearnerStates[t].getProgress()*100);
-                //std::cout << "THREAD " << (t+1) << std::endl;
-                //treeLearnerStates[t].print();
-                //std::cout << std::endl;
+                printf("%6.2f%% | ", treeLearnerStates[t].getProgress()*100);
+            }
+            printf("\n");
+            printf("        | ");
+            GUIUtil::printProgressBar(this->getProgress(), 8);
+            printf(" || ");
+            for (size_t t = 0; t < treeLearnerStates.size(); t++)
+            {
+                GUIUtil::printProgressBar(treeLearnerStates[t].getProgress(), 7);
+                printf(" | ");
+            }
+            printf("\n");
+            printf("--------|-");
+            printf("---------||-");
+            for (size_t t = 0; t < treeLearnerStates.size(); t++)
+            {
+                printf("--------|-");
             }
             printf("\n");
         }
@@ -228,6 +260,11 @@ namespace libf {
          * The states of the individual tree learners (per thread)
          */
         std::vector<typename L::State> treeLearnerStates;
+        /**
+         * The number of times it has been called. We need this in order to 
+         * print the table headers every n times
+         */
+        int calls;
     };
     
     /**
@@ -494,7 +531,7 @@ namespace libf {
         /**
          * @param state The state the GUI should observe
          */
-        explicit ConsoleGUI(const S & state) : 
+        explicit ConsoleGUI(S & state) : 
                 state(state), 
                 interval(1)
         {
@@ -558,7 +595,7 @@ namespace libf {
         /**
          * The state that is watched
          */
-        const S & state;
+        S & state;
         /**
          * The worker thread
          */

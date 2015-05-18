@@ -79,7 +79,8 @@ int main(int argc, const char** argv)
     LibforestDataReader reader;
     reader.read(trainDat.string(), storageTrain);
     reader.read(testDat.string(), storageTest);
-#else
+#endif
+#if 0
     DataStorage::ptr storage = DataStorage::Factory::create();
     LIBSVMDataReader reader;
     reader.setConvertBinaryLabels(false);
@@ -95,8 +96,41 @@ int main(int argc, const char** argv)
     st.measureAndPrint(storageTrain);
     st.measureAndPrint(storage);
 #endif
-     
-    ZScoreNormalizer zscore;
+#if 0
+    DataStorage::ptr storageTrain = DataStorage::Factory::create();
+    DataStorage::ptr storageTest = DataStorage::Factory::create();
+    
+    std::random_device rd;
+    std::mt19937 g(rd());
+    std::normal_distribution<float> normal(0.0f, 1.0f);
+    
+    for (int n = 0; n < 50; n++)
+    {
+        {
+            DataPoint x(2);
+            x(0) = 5 + normal(g);
+            x(1) = 5 + normal(g);
+            storageTrain->addDataPoint(x, 0);
+            
+            DataPoint y(2);
+            y(0) = -5 + normal(g);
+            y(1) = -5 + normal(g);
+            storageTrain->addDataPoint(y, 1);
+        }
+        {
+            DataPoint x(2);
+            x(0) = 5 + normal(g);
+            x(1) = 5 + normal(g);
+            storageTest->addDataPoint(x, 0);
+            
+            DataPoint y(2);
+            y(0) = -5 + normal(g);
+            y(1) = -5 + normal(g);
+            storageTest->addDataPoint(y, 1);
+        }
+    }
+#endif    
+    MinMaxNormalizer zscore;
     zscore.learn(storageTrain);
     zscore.apply(storageTrain);
     zscore.apply(storageTest);
@@ -108,7 +142,7 @@ int main(int argc, const char** argv)
     RandomForestLearner<ProjectiveDecisionTreeLearner> forestLearner;
 
     forestLearner.getTreeLearner().setMinChildSplitExamples(5);
-    forestLearner.getTreeLearner().setNumBootstrapExamples(15000);
+    forestLearner.getTreeLearner().setNumBootstrapExamples(60000);
     forestLearner.getTreeLearner().setUseBootstrap(useBootstrap);
     forestLearner.getTreeLearner().setMaxDepth(parameters["max-depth"].as<int>());
     forestLearner.getTreeLearner().setNumFeatures(parameters["num-features"].as<int>());
@@ -120,6 +154,7 @@ int main(int argc, const char** argv)
     ConsoleGUI<decltype(state)> gui(state);
     
     auto forest = forestLearner.learn(storageTrain, state);
+    //auto forest = forestLearner.learn(storageTrain);
     
     gui.join();
     
@@ -128,7 +163,7 @@ int main(int argc, const char** argv)
 
     ConfusionMatrixTool confusionMatrixTool;
     confusionMatrixTool.measureAndPrint(forest, storageTest);
-
+    
     }
     
     return 0;

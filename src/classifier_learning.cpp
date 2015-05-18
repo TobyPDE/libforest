@@ -390,13 +390,30 @@ ProjectiveDecisionTree::ptr ProjectiveDecisionTreeLearner::learn(AbstractDataSto
         // Because we start with the threshold being at the left most position
         // The right child node contains all training examples
         
+        // Also set up lists for each class labels that contain all data point
+        // indices. We need this in order to sample from the classes
+        std::vector< std::vector<int> > sortedPointIndices(C);
+        
         EfficientEntropyHistogram hist(C);
         for (int m = 0; m < N; m++)
         {
+            const int c = storage->getClassLabel(trainingExampleList[m]);
             // Get the class label of this training example
-            hist.addOne(storage->getClassLabel(trainingExampleList[m]));
+            hist.addOne(c);
+            sortedPointIndices[c].push_back(trainingExampleList[m]);
         }
-
+        
+        // Set up a distribution over the non-empty classes
+        std::vector<int> classLabels;
+        for (int c = 0; c < hist.getSize(); c++)
+        {
+            if (hist.at(c) != 0)
+            {
+                classLabels.push_back(c);
+            }
+        }
+        std::uniform_int_distribution<int> classLabelDist(0, static_cast<int>(classLabels.size() - 1));
+        
         // Don't split this node
         //  If the number of examples is too small
         //  If the training examples are all of the same class
@@ -416,23 +433,23 @@ ProjectiveDecisionTree::ptr ProjectiveDecisionTreeLearner::learn(AbstractDataSto
         float bestObjective = 1e35;
         int bestLeftMass = 0;
         int bestRightMass = N;
-        DataPoint bestProjection(D);
+        DataPoint bestProjection1(D);
+        DataPoint bestProjection2(D);
 
         // Optimize over all features
         for (int f = 0; f < numFeatures; f++)
         {
+            // Sample two distinct class labels
+            auto twoClassLabels = Util::sampleTwo(classLabelDist, g);
+            
+            // Sample two points from each of the classes
+            // Sample two data points
+            const DataPoint & x1 = storage->getDataPoint(Util::getRandomEntry(sortedPointIndices[classLabels[twoClassLabels.first]], g));
+            const DataPoint & x2 = storage->getDataPoint(Util::getRandomEntry(sortedPointIndices[classLabels[twoClassLabels.second]], g));
+            
             // Sample a projection and keep the length of the projection in order
             // to normalize the projection
-            DataPoint projection(D);
-            float threshold = 0.0f;
-            
-            float length = 0;
-            for (int d = 0; d < D; d++)
-            {
-                projection(d) = normal(g);
-                length += projection(d)*projection(d);
-            }
-            projection /= std::sqrt(length);
+            float threshold = 0.5*(TestKernel::k(x2, x2) - TestKernel::k(x1,x1));
             
             // Initialize the histograms
             leftHistogram.reset();
@@ -442,9 +459,10 @@ ProjectiveDecisionTree::ptr ProjectiveDecisionTreeLearner::learn(AbstractDataSto
             for (int m = 0; m < N; m++)
             {
                 const int n = trainingExampleList[m];
-                projectionValues[n] = projection.adjoint()*storage->getDataPoint(n);
+                //projectionValues[n] = projection.adjoint()*storage->getDataPoint(n);
+                const float inner = TestKernel::k(storage->getDataPoint(n), x2) - TestKernel::k(storage->getDataPoint(n), x1);
                 
-                if (projectionValues[n] < threshold)
+                if (inner < threshold)
                 {
                     // Move the last point to the left histogram
                     leftHistogram.addOne(storage->getClassLabel(n));
@@ -460,15 +478,13 @@ ProjectiveDecisionTree::ptr ProjectiveDecisionTreeLearner::learn(AbstractDataSto
             {
                 // Get the threshold value
                 bestThreshold = threshold;
-                bestProjection = projection;
+                bestProjection1 = x1;
+                bestProjection2 = x2;
                 bestObjective = localObjective;
                 bestLeftMass = leftHistogram.getMass();
                 bestRightMass = rightHistogram.getMass();
             }
         }
-        
-        // We spare the additional multiplication at each iteration.
-        bestThreshold *= 0.5f;
         
         // Did we find good split values?
         if (bestObjective > 1e20 || bestLeftMass < minChildSplitExamples || bestRightMass < minChildSplitExamples)
@@ -495,9 +511,9 @@ ProjectiveDecisionTree::ptr ProjectiveDecisionTreeLearner::learn(AbstractDataSto
         for (int m = 0; m < N; m++)
         {
             const int n = trainingExampleList[m];
-            const float featureValue = bestProjection.adjoint()*storage->getDataPoint(n);
+            const float inner = TestKernel::k(storage->getDataPoint(n), bestProjection2) - TestKernel::k(storage->getDataPoint(n), bestProjection1);
             
-            if (featureValue < bestThreshold)
+            if (inner < bestThreshold)
             {
                 leftList[--bestLeftMass] = n;
             }
@@ -509,7 +525,8 @@ ProjectiveDecisionTree::ptr ProjectiveDecisionTreeLearner::learn(AbstractDataSto
         
         // Ok, split the node
         tree->getNodeConfig(node).setThreshold(bestThreshold);
-        tree->getNodeConfig(node).getProjection() = bestProjection;
+        tree->getNodeConfig(node).getProjection() = bestProjection1;
+        tree->getNodeConfig(node).getProjection2() = bestProjection2;
         const int leftChild = tree->splitNode(node);
         
         // Prepare to split the child nodes

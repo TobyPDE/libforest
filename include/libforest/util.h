@@ -253,6 +253,37 @@ namespace libf {
             }
             return base;
         }
+        
+        /**
+         * Samples two distinct values from an integer distribution
+         * 
+         * @param dist The distribution
+         * @param g The generator
+         * @return A pair of two distinct values
+         */
+        template <class T>
+        static std::pair<T,T> sampleTwo(std::uniform_int_distribution<T> & dist, std::mt19937 & g)
+        {
+            std::pair<T,T> result;
+            result.first = dist(g);
+            do {
+                result.second = dist(g);
+            } while(result.first == result.second);
+            return result;
+        }
+        
+        /**
+         * Returns a random element from the array
+         * 
+         * @param v The array
+         * @return a random element
+         */
+        template <class T>
+        static T getRandomEntry(const std::vector<T> & v, std::mt19937 & g)
+        {
+            std::uniform_int_distribution<int> d(0, static_cast<int>(v.size()) - 1);
+            return v[d(g)];
+        }
     };
     
     /**
@@ -265,8 +296,9 @@ namespace libf {
          * Shows a progress bar. 
          * 
          * @param p The current percentage that is completed (in [0,1])
+         * @param size The number of chars to use
          */
-        static void printProgressBar(float p);
+        static void printProgressBar(float p, int size);
     };
     
     /**
