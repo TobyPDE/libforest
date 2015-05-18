@@ -370,6 +370,10 @@ ProjectiveDecisionTree::ptr ProjectiveDecisionTreeLearner::learn(AbstractDataSto
     // Set up a probability distribution over the features
     std::mt19937 g(rd());
     std::normal_distribution<float> normal(0.0f, 1.0f);
+    std::uniform_int_distribution<int> rademacher(0,1);
+    std::uniform_int_distribution<int> dimensionDist(0, D - 1);
+    
+    const int sparsity = 3;
     
     // Start training
     while (splitStack.size() > 0)
@@ -436,7 +440,8 @@ ProjectiveDecisionTree::ptr ProjectiveDecisionTreeLearner::learn(AbstractDataSto
         for (int f = 0; f < numFeatures; f++)
         {
             // Sample a projection dimension
-            DataPoint projection(D);
+            DataPoint projection = DataPoint::Zero(D);
+#if 0
             float length = 0;
             for (int d = 0; d < D; d++)
             {
@@ -445,6 +450,13 @@ ProjectiveDecisionTree::ptr ProjectiveDecisionTreeLearner::learn(AbstractDataSto
             }
             // Normalize the projection
             projection /= std::sqrt(length);
+#else
+            for (int s = 0; s < sparsity; s++)
+            {
+                projection(dimensionDist(g)) = 2*rademacher(g) - 1;
+            }
+            projection /= std::sqrt(static_cast<float>(sparsity));
+#endif
             
             // Initialize the histograms
             leftHistogram.reset();
